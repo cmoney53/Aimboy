@@ -1,3 +1,5 @@
+ua
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
@@ -6,68 +8,82 @@ local camera = workspace.CurrentCamera
 
 -- // SETTINGS
 local AIM_ENABLED = false
-local MAX_DISTANCE = 100000 -- Infinite range
-local GUI_VISIBLE = true
+local MAX_DISTANCE = 100000 -- Infinite Range
+local VERTICAL_OFFSET = 2.6 -- Keeps aim on chest, not feet (Increase to 3.0 if still low)
 
--- // UI SETUP
+-- // UI SETUP (Mobile Optimized)
 local ScreenGui = Instance.new("ScreenGui", player.PlayerGui)
-ScreenGui.DisplayOrder = 999
 ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder = 999
 
 local MainToggle = Instance.new("TextButton", ScreenGui)
-MainToggle.Size = UDim2.new(0, 160, 0, 55)
-MainToggle.Position = UDim2.new(0.1, 0, 0.5, 0)
-MainToggle.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-MainToggle.Text = "FULL SCREEN: OFF"
+MainToggle.Name = "ChestLockToggle"
+MainToggle.Size = UDim2.new(0, 150, 0, 50)
+MainToggle.Position = UDim2.new(0.05, 0, 0.45, 0) -- Side of screen for thumb
+MainToggle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainToggle.Text = "CHEST LOCK: OFF"
 MainToggle.TextColor3 = Color3.new(1, 1, 1)
-MainToggle.Font = Enum.Font.SourceSansBold
+MainToggle.Font = Enum.Font.GothamBold
+MainToggle.TextSize = 14
 Instance.new("UICorner", MainToggle)
 
--- // FULL SCREEN TARGETING
+-- // TARGETING LOGIC (Full Screen Scan)
 local function getTarget()
-    local target = nil
-    local shortestMouseDist = math.huge -- Start with infinity
+    local targetPos = nil
+    local shortestMouseDist = math.huge
     local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player and p.Character then
-            local head = p.Character:FindFirstChild("Head")
+            -- Specifically targeting the chest area
+            local root = p.Character:FindFirstChild("HumanoidRootPart")
             local hum = p.Character:FindFirstChild("Humanoid")
             
-            if head and hum and hum.Health > 0 then
-                -- Convert 3D world position to 2D screen position
-                local pos, onScreen = camera:WorldToViewportPoint(head.Position)
+            if root and hum and hum.Health > 0 then
+                -- This math creates a point at the upper-chest level
+                local worldPoint = root.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
                 
-                -- The "onScreen" check is the only limit now
+                -- Check if they are visible on your phone screen
+                local pos, onScreen = camera:WorldToViewportPoint(worldPoint)
+                
                 if onScreen then
                     local mouseDist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
                     
-                    -- Always pick the one closest to the middle of the screen
+                    -- Locks to the person closest to your crosshair
                     if mouseDist < shortestMouseDist then
-                        target = head
+                        targetPos = worldPoint
                         shortestMouseDist = mouseDist
                     end
                 end
             end
         end
     end
-    return target
+    return targetPos
 end
 
--- // INSTANT SNAP LOOP
+-- // THE SHIFT-LOCK BYPASS
+-- We use RenderStepped to overwrite the camera's "dip" every single frame
 RunService.RenderStepped:Connect(function()
     if AIM_ENABLED then
-        local target = getTarget()
-        if target then
-            -- Snap camera directly to Head
-            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target.Position)
+        local chestPoint = getTarget()
+        if chestPoint then
+            -- This forces the camera crosshair directly onto the chest point
+            -- regardless of your FOV or distance from the target.
+            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, chestPoint)
         end
     end
 end)
 
--- // BUTTON LOGIC
+-- // BUTTON INTERACTION
 MainToggle.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
-    MainToggle.Text = AIM_ENABLED and "FULL SCREEN: ON" or "FULL SCREEN: OFF"
-    MainToggle.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 0, 0)
+    
+    if AIM_ENABLED then
+        MainToggle.Text = "CHEST LOCK: ON"
+        MainToggle.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    else
+        MainToggle.Text = "CHEST LOCK: OFF"
+        MainToggle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    end
 end)
