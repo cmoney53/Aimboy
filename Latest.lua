@@ -1,34 +1,46 @@
-ua
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui") -- Using CoreGui to ensure visibility
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
+-- Wait for character to ensure script doesn't error on start
+if not player.Character then player.CharacterAdded:Wait() end
+
 -- // SETTINGS
 local AIM_ENABLED = false
-local MAX_DISTANCE = 100000 -- Infinite Range
-local VERTICAL_OFFSET = 2.6 -- Keeps aim on chest, not feet (Increase to 3.0 if still low)
+local MAX_DISTANCE = 100000 
+local VERTICAL_OFFSET = 2.6 
 
--- // UI SETUP (Mobile Optimized)
-local ScreenGui = Instance.new("ScreenGui", player.PlayerGui)
-ScreenGui.ResetOnSpawn = false
+-- // CLEAN UP PREVIOUS UI (Prevents multiple buttons if you run it twice)
+local oldGui = CoreGui:FindFirstChild("MobileChestLock")
+if oldGui then oldGui:Destroy() end
+
+-- // UI SETUP
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MobileChestLock"
+ScreenGui.Parent = CoreGui -- This puts it above all game menus
 ScreenGui.IgnoreGuiInset = true
-ScreenGui.DisplayOrder = 999
 
-local MainToggle = Instance.new("TextButton", ScreenGui)
-MainToggle.Name = "ChestLockToggle"
+local MainToggle = Instance.new("TextButton")
+MainToggle.Parent = ScreenGui
 MainToggle.Size = UDim2.new(0, 150, 0, 50)
-MainToggle.Position = UDim2.new(0.05, 0, 0.45, 0) -- Side of screen for thumb
+MainToggle.Position = UDim2.new(0.05, 0, 0.45, 0)
 MainToggle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainToggle.BorderSizePixel = 2
+MainToggle.BorderColor3 = Color3.fromRGB(255, 255, 255)
 MainToggle.Text = "CHEST LOCK: OFF"
 MainToggle.TextColor3 = Color3.new(1, 1, 1)
 MainToggle.Font = Enum.Font.GothamBold
 MainToggle.TextSize = 14
-Instance.new("UICorner", MainToggle)
+MainToggle.Active = true
+MainToggle.Draggable = true -- You can move it if it's in the way
 
--- // TARGETING LOGIC (Full Screen Scan)
+local Corner = Instance.new("UICorner")
+Corner.Parent = MainToggle
+
+-- // TARGETING LOGIC
 local function getTarget()
     local targetPos = nil
     local shortestMouseDist = math.huge
@@ -36,21 +48,15 @@ local function getTarget()
 
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player and p.Character then
-            -- Specifically targeting the chest area
             local root = p.Character:FindFirstChild("HumanoidRootPart")
             local hum = p.Character:FindFirstChild("Humanoid")
             
             if root and hum and hum.Health > 0 then
-                -- This math creates a point at the upper-chest level
                 local worldPoint = root.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
-                
-                -- Check if they are visible on your phone screen
                 local pos, onScreen = camera:WorldToViewportPoint(worldPoint)
                 
                 if onScreen then
                     local mouseDist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
-                    
-                    -- Locks to the person closest to your crosshair
                     if mouseDist < shortestMouseDist then
                         targetPos = worldPoint
                         shortestMouseDist = mouseDist
@@ -62,14 +68,11 @@ local function getTarget()
     return targetPos
 end
 
--- // THE SHIFT-LOCK BYPASS
--- We use RenderStepped to overwrite the camera's "dip" every single frame
+-- // SHIFT-LOCK BYPASS LOOP
 RunService.RenderStepped:Connect(function()
     if AIM_ENABLED then
         local chestPoint = getTarget()
         if chestPoint then
-            -- This forces the camera crosshair directly onto the chest point
-            -- regardless of your FOV or distance from the target.
             camera.CFrame = CFrame.lookAt(camera.CFrame.Position, chestPoint)
         end
     end
@@ -78,12 +81,6 @@ end)
 -- // BUTTON INTERACTION
 MainToggle.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
-    
-    if AIM_ENABLED then
-        MainToggle.Text = "CHEST LOCK: ON"
-        MainToggle.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    else
-        MainToggle.Text = "CHEST LOCK: OFF"
-        MainToggle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    end
+    MainToggle.Text = AIM_ENABLED and "CHEST LOCK: ON" or "CHEST LOCK: OFF"
+    MainToggle.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(30, 30, 30)
 end)
