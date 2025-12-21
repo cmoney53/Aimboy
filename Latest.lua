@@ -1,170 +1,152 @@
-local getsynasset = getsynasset or getcustomasset
-local syn = syn or nil
-if syn == nil then
-	local Hash = loadstring(game:HttpGet("https://raw.githubusercontent.com/zzerexx/scripts/main/Libraries/Hash.lua"), "HashLib")()
-	local gethui = gethui or get_hidden_ui or get_hidden_gui or hiddenUI
-	syn = {
-		crypt = {
-			hash = Hash.sha384
-		},
-		protect_gui = function(obj)
-			obj.Parent = gethui()
-		end
-	}
+a
+
+--[[
+    Dex: Developer Edition
+    Modified for: Stealth, Command Searching, and Mid-Game Execution
+    Base: LorekeeperZinnia Dex
+]]
+
+local cloneref = (cloneref or function(...) return ... end)
+local service = setmetatable({}, {
+    __index = function(self, name)
+        local serv = game:GetService(name)
+        self[name] = cloneref(serv)
+        return self[name]
+    end
+})
+
+-- PREVENT DETECTION: Randomize UI Name and use Hidden Containers
+local dexName = ""
+for i = 1, 15 do dexName = dexName .. string.char(math.random(65, 90)) end
+
+local gethui = gethui or get_hidden_ui or get_hidden_gui
+local protectgui = function(gui)
+    gui.Name = dexName
+    if gethui then
+        gui.Parent = gethui()
+    elseif syn and syn.protect_gui then
+        syn.protect_gui(gui)
+    else
+        gui.Parent = service.CoreGui
+    end
 end
 
--- Main vars
-local Main, Explorer, Properties, ScriptViewer, DefaultSettings, Notebook, Serializer, Lib
-local API, RMD
+-- 1. COMMAND EXECUTOR MODULE
+local function openExecutor(suggestion)
+    local screen = Instance.new("ScreenGui")
+    protectgui(screen)
+    
+    local frame = Instance.new("Frame", screen)
+    frame.Size = UDim2.new(0, 350, 0, 150)
+    frame.Position = UDim2.new(0.5, -175, 0.5, -75)
+    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    frame.BorderSizePixel = 0
+    frame.Active = true
+    frame.Draggable = true
 
--- Default Settings [cite: 6, 7]
-DefaultSettings = (function()
-	local rgb = Color3.fromRGB
-	return {
-		Explorer = { _Recurse = true, Sorting = true, TeleportToOffset = Vector3.new(0,0,0), ClickToRename = true, AutoUpdateSearch = true, AutoUpdateMode = 0, PartSelectionBox = true, GuiSelectionBox = true, CopyPathUseGetChildren = true },
-		Properties = { _Recurse = true, MaxConflictCheck = 50, ShowDeprecated = false, ShowHidden = false, ClearOnFocus = false, LoadstringInput = true, NumberRounding = 3, ShowAttributes = false, MaxAttributes = 50, ScaleType = 1 },
-		Theme = {
-			_Recurse = true,
-			Main1 = rgb(52,52,52), Main2 = rgb(45,45,45), Outline1 = rgb(33,33,33), Outline2 = rgb(55,55,55), Outline3 = rgb(30,30,30), TextBox = rgb(38,38,38), Menu = rgb(32,32,32), ListSelection = rgb(11,90,175), Button = rgb(60,60,60), Highlight = rgb(75,75,75), Text = rgb(255,255,255), PlaceholderText = rgb(100,100,100), Important = rgb(255,0,0),
-			Syntax = { Text = rgb(204,204,204), Background = rgb(36,36,36), Keyword = rgb(248,109,124), String = rgb(173,241,149), Number = rgb(255,198,0) }
-		}
-	}
-end)()
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.Text = "MID-GAME COMMAND EXECUTOR"
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    title.BorderSizePixel = 0
 
-local Settings = {}
-local Apps = {}
-local env = {}
-local service = setmetatable({},{__index = function(self,name) local serv = game:GetService(name) self[name] = serv return serv end})
-local plr = service.Players.LocalPlayer or service.Players.PlayerAdded:wait()
+    local box = Instance.new("TextBox", frame)
+    box.Size = UDim2.new(1, -20, 0, 60)
+    box.Position = UDim2.new(0, 10, 0, 40)
+    box.Text = suggestion or ""
+    box.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    box.TextColor3 = Color3.new(1, 1, 1)
+    box.ClearTextOnFocus = false
+    box.TextWrapped = true
+    box.Font = Enum.Font.Code
 
--- UI Creation Helper [cite: 8]
-local create = function(data)
-	local insts = {}
-	for i,v in pairs(data) do insts[v[1]] = Instance.new(v[2]) end
-	for _,v in pairs(data) do
-		for prop,val in pairs(v[3]) do
-			if type(val) == "table" then insts[v[1]][prop] = insts[val[1]] else insts[v[1]][prop] = val end
-		end
-	end
-	return insts[1]
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(1, -20, 0, 30)
+    btn.Position = UDim2.new(0, 10, 0, 110)
+    btn.Text = "EXECUTE"
+    btn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+
+    btn.MouseButton1Click:Connect(function()
+        local code = box.Text
+        local func, err = loadstring(code)
+        if func then 
+            task.spawn(func) 
+        else 
+            warn("EXECUTION ERROR: " .. tostring(err))
+        end
+    end)
 end
 
-Main = (function()
-	local Main = {}
-	Main.ModuleList = {"Explorer","Properties","ScriptViewer"}
-	Main.Elevated = false
-	Main.GitRepoName = "zzerexx/Dex"
-	Main.AppControls = {}
+-- 2. SEARCH FOR COMMANDS MODULE
+local function searchForCommands()
+    print("Dex: Scanning for command remotes...")
+    local found = "-- Search results:\n"
+    local count = 0
+    for _, v in pairs(game:GetDescendants()) do
+        if (v:IsA("RemoteEvent") or v:IsA("RemoteFunction")) then
+            local name = v.Name:lower()
+            if name:find("admin") or name:find("cmd") or name:find("command") then
+                found = found .. "-- Found: " .. v:GetFullName() .. "\ngame." .. v:GetFullName() .. ":FireServer('command_here')\n"
+                count = count + 1
+            end
+        end
+        if count >= 5 then break end -- Limit results for readability
+    end
+    
+    if count == 0 then found = "-- No obvious command remotes found." end
+    openExecutor(found)
+end
 
-	-- BYPASS & STEALTH INIT 
-	Main.InitEnv = function()
-		-- Randomize interface name to bypass detection
-		local randomName = ""
-		for i = 1, 12 do randomName = randomName .. string.char(math.random(65, 90)) end
-		
-		env.readfile = readfile; env.writefile = writefile; env.appendfile = appendfile;
-		env.getupvalues = debug.getupvalues or getupvals; env.getconstants = debug.getconstants or getconsts;
-		env.getreg = getreg; env.gethui = gethui or get_hidden_ui;
-		
-		env.protectgui = function(obj)
-			obj.Name = randomName
-			if env.gethui then obj.Parent = env.gethui() elseif syn and syn.protect_gui then syn.protect_gui(obj) end
-		end
-		
-		Main.Elevated = pcall(function() return service.CoreGui:GetFullName() end)
-		Main.GuiHolder = (env.gethui and env.gethui()) or (Main.Elevated and service.CoreGui) or plr:FindFirstChildOfClass("PlayerGui")
-	end
+-- 3. MAIN GUI INITIALIZATION
+local function startDexSuite()
+    local mainGui = Instance.new("ScreenGui")
+    protectgui(mainGui)
 
-	-- CUSTOM COMMAND EXECUTOR [NEW FEATURE]
-	Main.OpenExecutor = function(foundCmd)
-		local execFrame = create({
-			{1,"Frame",{BackgroundColor3=Color3.fromRGB(45,45,45),BorderSizePixel=0,Name="ExecutorWindow",Size=UDim2.new(0,350,0,120),Position=UDim2.new(0.5,-175,0.5,-60)}},
-			{2,"TextBox",{BackgroundColor3=Color3.fromRGB(30,30,30),BorderSizePixel=0,Name="Input",Parent={1},Position=UDim2.new(0,10,0,40),Size=UDim2.new(1,-20,0,30),Text=foundCmd or "",TextColor3=Color3.new(1,1,1),PlaceholderText="Enter script/command..."}},
-			{3,"TextButton",{BackgroundColor3=Color3.fromRGB(60,60,60),BorderSizePixel=0,Name="Run",Parent={1},Position=UDim2.new(0,10,0,80),Size=UDim2.new(1,-20,0,30),Text="Execute Mid-Game",TextColor3=Color3.new(1,1,1)}}
-		})
-		Main.ShowGui(execFrame)
-		execFrame.Run.MouseButton1Click:Connect(function()
-			local code = execFrame.Input.Text
-			local func, err = loadstring(code)
-			if func then task.spawn(func) else warn("DEX EXEC ERROR: "..err) end
-		end)
-	end
+    -- Floating Toggle Button
+    local openBtn = Instance.new("TextButton", mainGui)
+    openBtn.Size = UDim2.new(0, 60, 0, 30)
+    openBtn.Position = UDim2.new(0, 10, 0.4, 0)
+    openBtn.Text = "DEV MENU"
+    openBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    openBtn.TextColor3 = Color3.new(1, 1, 1)
+    openBtn.BorderSizePixel = 0
 
-	-- SEARCH FOR COMMANDS LOGIC [NEW FEATURE]
-	Main.SearchForCommands = function()
-		print("DEX: Searching for vulnerable remotes...")
-		local found = "print('No remotes found')"
-		for _, v in pairs(game:GetDescendants()) do
-			if (v:IsA("RemoteEvent") or v:IsA("RemoteFunction")) and (v.Name:lower():find("admin") or v.Name:lower():find("cmd")) then
-				found = "-- Remote Found: " .. v:GetFullName() .. "\ngame." .. v:GetFullName() .. ":FireServer('args_here')"
-				break
-			end
-		end
-		Main.OpenExecutor(found)
-	end
+    local menuFrame = Instance.new("Frame", openBtn)
+    menuFrame.Size = UDim2.new(0, 180, 0, 120)
+    menuFrame.Position = UDim2.new(1, 10, 0, 0)
+    menuFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    menuFrame.Visible = false
+    menuFrame.BorderSizePixel = 0
 
-	Main.LoadModule = function(name) [cite: 9, 10]
-		local filePath = "dex/ModuleCache/"..name..".lua"
-		local moduleStr = game:HttpGet("https://raw.githubusercontent.com/"..Main.GitRepoName.."/master/modules/"..name..".lua")
-		if env.writefile then pcall(env.writefile, filePath, moduleStr) end
-		local control = loadstring(moduleStr)()
-		Main.AppControls[name] = control
-		control.InitDeps(Main.GetInitDeps())
-		Apps[name] = control.Main()
-		return Apps[name]
-	end
+    local layout = Instance.new("UIListLayout", menuFrame)
+    layout.Padding = UDim.new(0, 2)
 
-	Main.LoadModules = function() [cite: 11]
-		for _,v in pairs(Main.ModuleList) do Main.LoadModule(v) end
-		Explorer, Properties, ScriptViewer = Apps.Explorer, Apps.Properties, Apps.ScriptViewer
-	end
+    local function addOption(name, fn)
+        local b = Instance.new("TextButton", menuFrame)
+        b.Size = UDim2.new(1, 0, 0, 38)
+        b.Text = name
+        b.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.BorderSizePixel = 0
+        b.MouseButton1Click:Connect(fn)
+    end
 
-	Main.CreateMainGui = function() [cite: 26]
-		-- Core Dex Menu creation
-		Main.InitEnv()
-		local gui = create({
-			{1,"ScreenGui",{IgnoreGuiInset=true,Name="DexMenu"}},
-			{2,"TextButton",{BackgroundColor3=Color3.fromRGB(45,45,45),Name="OpenButton",Parent={1},Position=UDim2.new(0.5,-16,0,2),Size=UDim2.new(0,32,0,32),Text="Dex",TextColor3=Color3.new(1,1,1)}},
-			{3,"Frame",{BackgroundColor3=Color3.fromRGB(45,45,45),Name="MainFrame",Parent={2},Position=UDim2.new(0.5,-112,1,5),Size=UDim2.new(0,224,0,250),Visible=false}},
-			{4,"UIGridLayout",{CellSize=UDim2.new(0,66,0,74),Parent={3},Position=UDim2.new(0,7,0,8)}}
-		})
-		
-		-- Add the new Search for Commands button
-		local cmdBtn = Instance.new("TextButton", gui.OpenButton.MainFrame)
-		cmdBtn.Size = UDim2.new(0,66,0,74)
-		cmdBtn.Text = "Search Cmds"
-		cmdBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-		cmdBtn.TextColor3 = Color3.new(1,1,1)
-		cmdBtn.MouseButton1Click:Connect(Main.SearchForCommands)
+    -- Add buttons to the developer menu
+    addOption("Search for Commands", searchForCommands)
+    addOption("Open Executor", function() openExecutor() end)
+    addOption("Load Original Dex", function()
+        menuFrame.Visible = false
+        -- Load the base Dex script from your provided content
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/LorekeeperZinnia/Dex/master/main.lua"))()
+    end)
 
-		gui.OpenButton.MouseButton1Click:Connect(function()
-			gui.OpenButton.MainFrame.Visible = not gui.OpenButton.MainFrame.Visible
-		end)
-		
-		Main.ShowGui(gui)
-	end
+    openBtn.MouseButton1Click:Connect(function()
+        menuFrame.Visible = not menuFrame.Visible
+    end)
+end
 
-	Main.ShowGui = function(gui) [cite: 20]
-		if env.protectgui then env.protectgui(gui) end
-		gui.Parent = Main.GuiHolder
-	end
-
-	Main.FetchAPI = function() return service.HttpService:JSONDecode(game:HttpGet("http://setup.roblox.com/".. (Main.RobloxVersion or "version-43e6015569f64757") .."-API-Dump.json")) end
-	Main.FetchRMD = function() return game:HttpGet("https://raw.githubusercontent.com/CloneTrooper1019/Roblox-Client-Tracker/roblox/ReflectionMetadata.xml") end
-
-	Main.Init = function() [cite: 27, 32]
-		Main.InitEnv()
-		if env.makefolder then makefolder("dex"); makefolder("dex/ModuleCache") end
-		API = Main.FetchAPI()
-		RMD = Main.FetchRMD()
-		Main.LoadModules()
-		Main.CreateMainGui()
-		print("DEX: Developer Mode Active. UI Hidden and Protected.")
-	end
-
-	Main.GetInitDeps = function() return {Main=Main, env=env, service=service, plr=plr, Settings=Settings} end
-
-	return Main
-end)()
-
-Main.Init()
+-- Run
+task.spawn(startDexSuite)
+print("Dex Developer Suite: Bypassed & Loaded.")
