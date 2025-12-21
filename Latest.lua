@@ -1,5 +1,3 @@
-a
-
 --[[
     ULTIMATE DEVELOPER DEX WRAPPER
     Base: LorekeeperZinnia Dex
