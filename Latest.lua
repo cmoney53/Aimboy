@@ -1,273 +1,113 @@
-
 --[[
-    UNIVERSAL CODE HARVESTER (GUI OUTPUT) - THE FINAL, UNRESTRICTED SCANNER
-    
-    This script searches the entire game for ALL types of callable functions 
-    that match any known exploit keyword and displays them in an interactive GUI.
+    DEX MOBILE: MASTER DEVELOPER EDITION
+    Optimized for: Delta, Fluxus, Arceus X, Hydrogen, and Cod3x
+    Integrated: Universal Harvester, Mobile Executor, and Hidden GUI Finder
 ]]
 
-local Game = game
-local Players = Game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local SimpleNotify 
-if not LocalPlayer then return end
+local cloneref = (cloneref or function(...) return ... end)
+local game = workspace.Parent
+local service = setmetatable({}, {
+    __index = function(self, name) return cloneref(game:GetService(name)) end
+})
 
-SimpleNotify = function(text)
-    print("--- [CODE HARVESTER] " .. text)
+-- 1. MOBILE STEALTH & TOUCH-FIX
+local dexName = "MobileSuite_" .. math.random(100, 999)
+local gethui = gethui or get_hidden_ui or get_hidden_gui
+local function protect(gui)
+    gui.Name = dexName
+    if gethui then gui.Parent = gethui()
+    elseif syn and syn.protect_gui then syn.protect_gui(gui)
+    else gui.Parent = service.CoreGui end
 end
 
--- Exhaustive list of keywords covering ALL major exploit and dev vectors
-local SUSPICIOUS_KEYWORDS = {
-    -- 1. Movement/Teleportation
-    "teleport", "tp", "move", "position", "pos", "warp", "goto", "cframe", "jumpto", "setcframe",
-    
-    -- 2. Admin/Actions
-    "admin", "kick", "ban", "kill", "respawn", "damage", "health", "clear", "tool", "give", 
-    "take", "award", "execute", "command", "server", "client", "setprop", "property", "override",
-    
-    -- 3. Inventory/Economy
-    "item", "inventory", "purchase", "sell", "equip", "unequip", "shop", "currency", "cash", "coins",
-    
-    -- 4. Statistics/Game State
-    "stat", "update", "value", "setvalue", "leaderstat", "gamestate", "time", "weather", 
-    "replicate", "sync", "load", "save", "data", "playerdata",
-    
-    -- 5. Character/Model Manipulation
-    "char", "character", "setprimary", "setparent", "destroy", "clothe", "outfit", "accessory",
-    
-    -- 6. Debug/Hidden Functions
-    "debug", "test", "dev", "fix", "error", "message"
+-- 2. UNIVERSAL HARVESTER LOGIC (Mobile Optimized)
+local KEYWORDS = {
+    "money", "cash", "gold", "gems", "add", "give", "admin", "cmd", 
+    "tp", "teleport", "kill", "ban", "spawn", "item", "inventory"
 }
 
--- Comprehensive list of services to scan
-local SERVICES_TO_SCAN = {
-    Game:GetService("Workspace"),
-    Game:GetService("ReplicatedStorage"),
-    Game:GetService("ReplicatedFirst"),
-    Game:GetService("StarterGui"),
-    Game:GetService("StarterPlayer"):FindFirstChild("StarterCharacterScripts"),
-    Game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts"),
-    Game:GetService("SoundService"),
-    Game:GetService("Lighting"),
-}
-
-local foundRemotes = {}
-
--- Function to check if an instance is a callable remote/bindable object
-local function IsCallableObject(instance)
-    return instance:IsA("RemoteEvent") or 
-           instance:IsA("RemoteFunction") or
-           instance:IsA("BindableEvent") or
-           instance:IsA("BindableFunction")
+local function RunMobileHarvest()
+    local found = "-- [[ MOBILE HARVEST RESULTS ]] --\n\n"
+    local count = 0
+    for _, v in pairs(game:GetDescendants()) do
+        if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+            local n = v.Name:lower()
+            for _, key in ipairs(KEYWORDS) do
+                if n:find(key) then
+                    found = found .. "-- Found: " .. v.Name .. "\n"
+                    found = found .. "game." .. v:GetFullName() .. (v:IsA("RemoteEvent") and ":FireServer()" or ":InvokeServer()") .. "\n\n"
+                    count = count + 1
+                    break
+                end
+            end
+        end
+        if count > 30 then break end -- Prevent mobile lag
+    end
+    return found
 end
 
--- Recursive function to search for all callable objects matching keywords
-local function DeepSearchForRemotes(instance, path)
-    if not instance then return end
+-- 3. MOBILE EXECUTOR UI (Large Touch Targets)
+local function OpenMobileExecutor(defaultTxt)
+    local sg = Instance.new("ScreenGui"); protect(sg)
+    local frame = Instance.new("Frame", sg)
+    frame.Size = UDim2.new(0.9, 0, 0.6, 0)
+    frame.Position = UDim2.new(0.05, 0, 0.2, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.Active = true; frame.Draggable = true
 
-    if IsCallableObject(instance) then
-        local instancePath = path .. "." .. instance.Name
-        local lowerName = string.lower(instance.Name)
-        
-        local categories = {}
-        for _, keyword in ipairs(SUSPICIOUS_KEYWORDS) do
-            if string.find(lowerName, keyword) then
-                table.insert(categories, keyword)
-            end
-        end
+    local box = Instance.new("TextBox", frame)
+    box.Size = UDim2.new(1, -20, 0.7, 0); box.Position = UDim2.new(0, 10, 0, 10)
+    box.Text = defaultTxt or "-- Type or Paste Code Here"
+    box.MultiLine = true; box.TextWrapped = true; box.ClearTextOnFocus = false
+    box.BackgroundColor3 = Color3.fromRGB(15, 15, 15); box.TextColor3 = Color3.new(0, 1, 0)
+    box.TextSize = 14; box.Font = Enum.Font.Code; box.TextYAlignment = Enum.TextYAlignment.Top
 
-        if #categories > 0 then
-            table.insert(foundRemotes, {
-                Name = instance.Name, 
-                Path = instancePath, 
-                Type = instance.ClassName,
-                Categories = categories
-            })
-        end
-    end
+    local run = Instance.new("TextButton", frame)
+    run.Size = UDim2.new(0.45, 0, 0, 60); run.Position = UDim2.new(0, 10, 0.8, 0)
+    run.Text = "EXECUTE"; run.BackgroundColor3 = Color3.fromRGB(0, 120, 215); run.TextColor3 = Color3.new(1, 1, 1)
+    run.MouseButton1Click:Connect(function() loadstring(box.Text)() end)
 
-    -- Recurse through children
-    for _, child in ipairs(instance:GetChildren()) do
-        -- Skip objects with huge numbers of children
-        if #child:GetChildren() < 1000 and 
-           not child:IsA("Configuration") and 
-           not child:IsA("MaterialService")
-        then
-            -- Skip top-level services already in the SERVICES_TO_SCAN list
-            local isTopLevel = false
-            for _, service in ipairs(SERVICES_TO_SCAN) do
-                if child == service then isTopLevel = true; break end
-            end
-            
-            if not isTopLevel then
-                DeepSearchForRemotes(child, path .. "." .. child.Name)
-            end
-        end
-    end
+    local close = Instance.new("TextButton", frame)
+    close.Size = UDim2.new(0.45, 0, 0, 60); close.Position = UDim2.new(0.53, 0, 0.8, 0)
+    close.Text = "CLOSE"; close.BackgroundColor3 = Color3.fromRGB(150, 0, 0); close.TextColor3 = Color3.new(1, 1, 1)
+    close.MouseButton1Click:Connect(function() sg:Destroy() end)
 end
 
--- ====================================================================
--- GUI AND DISPLAY LOGIC
--- ====================================================================
-
-local CoreGui = Game:GetService("CoreGui")
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "CodeHarvesterGUI"
-screenGui.Parent = CoreGui
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 400, 0, 500) -- Larger frame for list
-frame.Position = UDim2.new(0.5, -200, 0.5, -250)
-frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-frame.BorderSizePixel = 2
-frame.BorderColor3 = Color3.fromRGB(15, 15, 15)
-frame.Active = true
-frame.Draggable = true
-frame.Parent = screenGui
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "Universal Code Harvester (Final Tool)"
-title.TextColor3 = Color3.fromRGB(255, 100, 0)
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 20
-title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-title.Parent = frame
-
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(1, -20, 0, 40)
-button.Position = UDim2.new(0, 10, 0, 35)
-button.Text = "RUN ULTIMATE HARVEST"
-button.TextColor3 = Color3.fromRGB(255, 255, 255)
-button.Font = Enum.Font.SourceSansBold
-button.TextSize = 18
-button.BackgroundColor3 = Color3.fromRGB(200, 0, 255)
-button.Parent = frame
-
-local statusBox = Instance.new("TextBox")
-statusBox.Size = UDim2.new(1, -20, 0, 25)
-statusBox.Position = UDim2.new(0, 10, 1, -30) -- Placed at the very bottom
-statusBox.Text = "Click a command to copy its path."
-statusBox.PlaceholderText = ""
-statusBox.TextSize = 14
-statusBox.Font = Enum.Font.SourceSans
-statusBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-statusBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-statusBox.Parent = frame
-statusBox.ClearTextOnFocus = false
-
-local resultsFrame = Instance.new("ScrollingFrame")
-resultsFrame.Size = UDim2.new(1, -20, 1, -140) -- Fills remaining space
-resultsFrame.Position = UDim2.new(0, 10, 0, 80)
-resultsFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-resultsFrame.BorderSizePixel = 0
-resultsFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-resultsFrame.ScrollBarThickness = 6
-resultsFrame.Parent = frame
-
-local listLayout = Instance.new("UIListLayout")
-listLayout.FillDirection = Enum.FillDirection.Vertical
-listLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-listLayout.Padding = UDim.new(0, 2)
-listLayout.Parent = resultsFrame
-
--- Function to create a clickable button for a remote
-local function CreateRemoteButton(remoteData)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 25)
-    btn.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-    btn.BorderColor3 = Color3.fromRGB(15, 15, 15)
-    btn.BorderSizePixel = 1
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.Font = Enum.Font.SourceSans
-    btn.TextSize = 14
+-- 4. THE HUB (Main Mobile Toggle)
+local function InitMobileSuite()
+    local sg = Instance.new("ScreenGui"); protect(sg)
     
-    local nameColor = remoteData.Type == "RemoteEvent" and "<font color='#FFC04D'>" or "<font color='#4DFFFF'>" -- Yellow for Event, Cyan for Function
+    local btn = Instance.new("TextButton", sg)
+    btn.Size = UDim2.new(0, 70, 0, 70) -- Big circle for thumbs
+    btn.Position = UDim2.new(0, 5, 0.4, 0)
+    btn.Text = "DEV"; btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40); btn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
 
-    btn.Text = string.format("  %s%s</font> | %s | Matches: %s", 
-        nameColor, 
-        remoteData.Name, 
-        remoteData.Type,
-        table.concat(remoteData.Categories, ", ")
-    )
-    btn.RichText = true
-    btn.Parent = resultsFrame
+    local menu = Instance.new("Frame", btn)
+    menu.Size = UDim2.new(0, 220, 0, 250); menu.Position = UDim2.new(1, 10, -1, 0)
+    menu.Visible = false; menu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    local list = Instance.new("UIListLayout", menu); list.Padding = UDim.new(0, 5)
 
-    -- On Click, copy the path to the clipboard/status box
-    btn.MouseButton1Click:Connect(function()
-        if setclipboard then
-            setclipboard(remoteData.Path)
-            statusBox.Text = "Copied Path: " .. remoteData.Path
-            statusBox.TextColor3 = Color3.fromRGB(0, 255, 100)
-        else
-            statusBox.Text = "Path: " .. remoteData.Path .. " (Copy manually from this box)"
-            statusBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-            statusBox.TextEditable = true
+    local function addOpt(name, fn)
+        local b = Instance.new("TextButton", menu)
+        b.Size = UDim2.new(1, 0, 0, 55); b.Text = name
+        b.BackgroundColor3 = Color3.fromRGB(50, 50, 50); b.TextColor3 = Color3.new(1,1,1)
+        b.MouseButton1Click:Connect(fn)
+    end
+
+    addOpt("Harvest Money/Cmds", function() OpenMobileExecutor(RunMobileHarvest()) end)
+    addOpt("Reveal Hidden GUIs", function()
+        for _, v in pairs(game:GetDescendants()) do
+            if v:IsA("ScreenGui") then v.Enabled = true elseif v:IsA("GuiObject") then v.Visible = true end
         end
     end)
-    
-    return btn
+    addOpt("Open Mobile Exec", function() OpenMobileExecutor() end)
+    addOpt("Load Full Mobile Dex", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/main/dex.lua"))()
+    end)
+
+    btn.MouseButton1Click:Connect(function() menu.Visible = not menu.Visible end)
 end
 
--- Function to display all harvested results in the GUI
-local function DisplayResults()
-    -- Clear previous results
-    for _, child in ipairs(resultsFrame:GetChildren()) do
-        if child:IsA("TextButton") then
-            child:Destroy()
-        end
-    end
-
-    if #foundRemotes == 0 then
-        statusBox.Text = "No suspicious commands found. Security is high."
-        resultsFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-        return
-    end
-
-    -- Create buttons for all found remotes
-    for _, remote in ipairs(foundRemotes) do
-        CreateRemoteButton(remote)
-    end
-    
-    -- Resize the Canvas to fit all items
-    local totalHeight = #foundRemotes * 27 -- 25px height + 2px padding
-    resultsFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-    
-    statusBox.Text = string.format("HARVEST COMPLETE: %d commands found. Click to copy path.", #foundRemotes)
-    statusBox.TextColor3 = Color3.fromRGB(0, 255, 100)
-end
-
--- Main function to run the deep scan
-local function RunRemoteScan()
-    table.clear(foundRemotes)
-    SimpleNotify("Starting ULTIMATE CODE HARVEST across all game services...")
-    
-    button.Text = "HARVESTING... (Wait for Console Output)"
-    button.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-    statusBox.Text = "Scanning game objects. Please wait..."
-    statusBox.TextColor3 = Color3.fromRGB(255, 255, 0)
-    
-    local startTime = os.clock()
-    
-    for _, service in ipairs(SERVICES_TO_SCAN) do
-        SimpleNotify("Scanning: " .. (service and service.Name or "nil"))
-        DeepSearchForRemotes(service, "game." .. (service and service.Name or "nil"))
-    end
-    
-    local endTime = os.clock()
-    local duration = string.format("%.2f", endTime - startTime)
-
-    SimpleNotify("==================================================")
-    SimpleNotify(string.format("HARVEST COMPLETE in %s seconds. Found %d total callable targets.", duration, #foundRemotes))
-    
-    -- Call display function after scan completes
-    DisplayResults()
-    
-    button.Text = "RE-RUN ULTIMATE HARVEST"
-    button.BackgroundColor3 = Color3.fromRGB(200, 0, 255)
-end
-
-button.MouseButton1Click:Connect(function()
-    task.spawn(RunRemoteScan)
-end)
+task.spawn(InitMobileSuite)
+print("Mobile Developer Suite Loaded Successfully.")
