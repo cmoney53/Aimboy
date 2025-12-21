@@ -8,20 +8,19 @@ local camera = workspace.CurrentCamera
 
 -- // SETTINGS
 local AIM_ENABLED = false
-local FREE_AIM_ENABLED = false
-local AUTO_SHOOT = false -- This now acts as "Click to Shoot"
+local FREE_AIM_ACTIVE = false
+local IS_TOUCHING = false
 local LOCKED_TARGET = nil
-local VERTICAL_OFFSET = 2.4 
+local VERTICAL_OFFSET = 2.4 -- Chest/Upper Body height
 
--- // UI CLEANUP
-if CoreGui:FindFirstChild("MobileMegaSuite") then CoreGui.MobileMegaSuite:Destroy() end
-
+-- // UI SETUP
+if CoreGui:FindFirstChild("MobileControlSuite") then CoreGui.MobileControlSuite:Destroy() end
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "MobileMegaSuite"
+ScreenGui.Name = "MobileControlSuite"
 
 local function createBtn(text, pos, color)
     local btn = Instance.new("TextButton", ScreenGui)
-    btn.Size = UDim2.new(0, 150, 0, 45)
+    btn.Size = UDim2.new(0, 160, 0, 45)
     btn.Position = pos
     btn.BackgroundColor3 = color
     btn.Text = text
@@ -33,9 +32,20 @@ local function createBtn(text, pos, color)
     return btn
 end
 
-local LockBtn = createBtn("AIMBOT: OFF", UDim2.new(0.05, 0, 0.35, 0), Color3.fromRGB(30, 30, 30))
-local FreeBtn = createBtn("FREE AIM: OFF", UDim2.new(0.05, 0, 0.43, 0), Color3.fromRGB(30, 30, 30))
-local ShootBtn = createBtn("ANYWHERE SHOOT: OFF", UDim2.new(0.05, 0, 0.51, 0), Color3.fromRGB(30, 30, 30))
+local LockBtn = createBtn("AIMBOT: OFF", UDim2.new(0.05, 0, 0.4, 0), Color3.fromRGB(30, 30, 30))
+local FreeBtn = createBtn("FREE AIM (TAP TO SHOOT): OFF", UDim2.new(0.05, 0, 0.48, 0), Color3.fromRGB(30, 30, 30))
+
+-- // INPUT DETECTION: Detects any tap on the screen
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        IS_TOUCHING = true
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        IS_TOUCHING = false
+    end
+end)
 
 -- // TARGETING LOGIC
 local function getBestTarget()
@@ -58,63 +68,50 @@ local function getBestTarget()
     return target
 end
 
--- // INPUT DETECTION (SHOOT ANYWHERE)
-local IsTouching = false
-UserInputService.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        IsTouching = true
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        IsTouching = false
-    end
-end)
-
--- // MAIN ENGINE
+-- // MAIN RUN LOOP
 RunService.RenderStepped:Connect(function()
-    -- 1. FREE AIM: Forcefully kill Shift-Lock rotation
+    -- 1. THE FREE AIM OVERRIDE
     if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.AutoRotate = not FREE_AIM_ENABLED
+        if FREE_AIM_ACTIVE then
+            -- Force character to stop turning with the camera
+            player.Character.Humanoid.AutoRotate = false 
+            
+            -- SHOOT ANYWHERE: Trigger tool whenever screen is touched
+            if IS_TOUCHING then
+                local tool = player.Character:FindFirstChildOfClass("Tool")
+                if tool then tool:Activate() end
+            end
+        else
+            -- Restore game's default Shift Lock behavior
+            player.Character.Humanoid.AutoRotate = true 
+        end
     end
 
-    -- 2. AIMBOT: Chest/Leg Correction
+    -- 2. AIMBOT: Chest/Body Correction
     if AIM_ENABLED then
         if not LOCKED_TARGET or not LOCKED_TARGET:FindFirstChild("Humanoid") or LOCKED_TARGET.Humanoid.Health <= 0 then
             LOCKED_TARGET = getBestTarget()
         end
         if LOCKED_TARGET and LOCKED_TARGET:FindFirstChild("HumanoidRootPart") then
             local targetPos = LOCKED_TARGET.HumanoidRootPart.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
+            
+            -- Force camera to look at target
             camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetPos)
         end
     else
         LOCKED_TARGET = nil
     end
-
-    -- 3. SHOOT ANYWHERE: Triggers when you touch the screen
-    if AUTO_SHOOT and IsTouching then
-        local tool = player.Character:FindFirstChildOfClass("Tool")
-        if tool then
-            tool:Activate()
-        end
-    end
 end)
 
--- // BUTTONS
+-- // BUTTON CONNECTORS
 LockBtn.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
-    LockBtn.Text = AIM_ENABLED and "AIM: ACTIVE" or "AIMBOT: OFF"
+    LockBtn.Text = AIM_ENABLED and "AIMBOT: ACTIVE" or "AIMBOT: OFF"
     LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(30, 30, 30)
 end)
 
 FreeBtn.MouseButton1Click:Connect(function()
-    FREE_AIM_ENABLED = not FREE_AIM_ENABLED
-    FreeBtn.Text = FREE_AIM_ENABLED and "FREE AIM: ON" or "FREE AIM: OFF"
-    FreeBtn.BackgroundColor3 = FREE_AIM_ENABLED and Color3.fromRGB(200, 150, 0) or Color3.fromRGB(30, 30, 30)
-end)
-
-ShootBtn.MouseButton1Click:Connect(function()
-    AUTO_SHOOT = not AUTO_SHOOT
-    ShootBtn.Text = AUTO_SHOOT and "SHOOT ANYWHERE: ON" or "ANYWHERE SHOOT: OFF"
-    ShootBtn.BackgroundColor3 = AUTO_SHOOT and Color3.fromRGB(200, 0, 50) or Color3.fromRGB(30, 30, 30)
+    FREE_AIM_ACTIVE = not FREE_AIM_ACTIVE
+    FreeBtn.Text = FREE_AIM_ACTIVE and "FREE AIM: ON" or "FREE AIM (TAP TO SHOOT): OFF"
+    FreeBtn.BackgroundColor3 = FREE_AIM_ACTIVE and Color3.fromRGB(200, 150, 0) or Color3.fromRGB(30, 30, 30)
 end)
