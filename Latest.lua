@@ -1,5 +1,3 @@
-a
-
 --[[
     Dex: Developer Edition
     Modified for: Stealth, Command Searching, and Mid-Game Execution
