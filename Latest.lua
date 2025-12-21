@@ -1,116 +1,146 @@
 --[[
-    ULTIMATE DEVELOPER DEX WRAPPER
-    Base: LorekeeperZinnia Dex
-    Features: Remote Spy, Money Finder, Hidden GUI Reveal, Mid-Game Executor
+    REMOTE EVENT SPY - A TOOL TO FIND EXPLOITABLE REMOTE EVENTS
+    
+    Since generic 'Bring' hacks failed, this script searches the entire game 
+    environment for RemoteEvents with suspicious names that developers might 
+    have used for admin tools or character manipulation.
+    
+    If you find one, you can use the name with a 'FireServer' command.
 ]]
+local Game = game
+local Players = Game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local SimpleNotify -- Placeholder for a notification function
+if not LocalPlayer then return end
 
-local cloneref = (cloneref or function(...) return ... end)
-local game = workspace.Parent
-local service = setmetatable({}, {
-    __index = function(self, name)
-        return cloneref(game:GetService(name))
-    end
-})
-
--- 1. STEALTH & PROTECTION
-local dexName = "DevSuite_" .. math.random(100, 999)
-local gethui = gethui or get_hidden_ui or get_hidden_gui
-local function protect(gui)
-    gui.Name = dexName
-    if gethui then gui.Parent = gethui()
-    elseif syn and syn.protect_gui then syn.protect_gui(gui)
-    else gui.Parent = service.CoreGui end
+-- Helper to print to console or notify (reusing the console print for simplicity)
+SimpleNotify = function(text)
+    print("[RemoteSpy] " .. text)
 end
 
--- 2. SCANNER LOGIC (SUSPICIOUS COMMANDS & MONEY)
-local KEYWORDS = {
-    "money", "cash", "gold", "gems", "currency", "add", "give", "reward",
-    "teleport", "tp", "admin", "cmd", "ban", "kick", "kill", "spawn"
+local SUSPICIOUS_KEYWORDS = {
+    "teleport", "tp", "move", "position", "pos", "warp", "goto", 
+    "admin", "kick", "ban", "kill", "respawn", "cframe", "setplayer", "setchar"
 }
 
-local function RunDeepScan()
-    local results = "-- [[ SCANNER FOUND EXPLOITABLE REMOTES ]] --\n\n"
-    local found = 0
-    for _, v in pairs(game:GetDescendants()) do
-        if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
-            local name = v.Name:lower()
-            for _, key in ipairs(KEYWORDS) do
-                if name:find(key) then
-                    results = results .. "-- Target: " .. v.Name .. " (" .. v.ClassName .. ")\n"
-                    results = results .. "game." .. v:GetFullName() .. (v:IsA("RemoteEvent") and ":FireServer(" or ":InvokeServer(") .. ")\n\n"
-                    found = found + 1
-                    break
-                end
+-- Recursive function to search for remote events matching keywords
+local function DeepSearchForRemotes(instance, results, path)
+    -- Check if the instance is a RemoteEvent or RemoteFunction
+    if instance:IsA("RemoteEvent") or instance:IsA("RemoteFunction") then
+        local instancePath = path .. "." .. instance.Name
+        local lowerName = string.lower(instance.Name)
+        
+        for _, keyword in ipairs(SUSPICIOUS_KEYWORDS) do
+            if string.find(lowerName, keyword) then
+                table.insert(results, {Name = instance.Name, Path = instancePath, Type = instance.ClassName})
+                return -- Stop searching this branch once found
             end
         end
     end
-    return (found > 0 and results or "-- No suspicious remotes found.")
-end
 
--- 3. GUI REVEALER
-local function RevealAll()
-    local c = 0
-    for _, v in pairs(game:GetDescendants()) do
-        if v:IsA("ScreenGui") then
-            v.Enabled = true; c = c + 1
-        elseif v:IsA("GuiObject") then
-            v.Visible = true; v.Transparency = 0
+    -- Recurse through children
+    for _, child in ipairs(instance:GetChildren()) do
+        -- Skip core services that are huge and unlikely to contain exploits
+        if child.Name ~= "CoreGui" and child.Name ~= "ReplicatedStorage" and child.Name ~= "Players" then
+            DeepSearchForRemotes(child, results, path .. "." .. child.Name)
         end
     end
-    print("[Dex Dev] Forced " .. c .. " GUIs to show.")
 end
 
--- 4. THE INTERFACE
-local function OpenExecutor(txt)
-    local sg = Instance.new("ScreenGui"); protect(sg)
-    local f = Instance.new("Frame", sg)
-    f.Size = UDim2.new(0, 450, 0, 300); f.Position = UDim2.new(0.5, -225, 0.5, -150)
-    f.BackgroundColor3 = Color3.fromRGB(30,30,30); f.Active = true; f.Draggable = true
+-- Main function to run the deep scan
+local function RunRemoteScan()
+    SimpleNotify("Starting Deep Remote Event Scan for exploit targets...")
     
-    local t = Instance.new("TextBox", f)
-    t.Size = UDim2.new(1, -20, 1, -100); t.Position = UDim2.new(0, 10, 0, 40)
-    t.Text = txt or "-- Mid-Game Scripting"; t.MultiLine = true; t.TextWrapped = true
-    t.BackgroundColor3 = Color3.fromRGB(20,20,20); t.TextColor3 = Color3.new(0,1,0); t.ClearTextOnFocus = false
+    local startTime = os.clock()
+    local foundRemotes = {}
     
-    local run = Instance.new("TextButton", f)
-    run.Size = UDim2.new(0, 210, 0, 40); run.Position = UDim2.new(0, 10, 1, -50)
-    run.Text = "EXECUTE"; run.BackgroundColor3 = Color3.fromRGB(0, 120, 215); run.TextColor3 = Color3.new(1,1,1)
-    run.MouseButton1Click:Connect(function() loadstring(t.Text)() end)
+    -- Start search from Workspace and ServerScriptService/ReplicatedFirst for best coverage
+    DeepSearchForRemotes(Game:GetService("Workspace"), foundRemotes, "game.Workspace")
+    DeepSearchForRemotes(Game:GetService("ReplicatedFirst"), foundRemotes, "game.ReplicatedFirst")
+    
+    local endTime = os.clock()
+    local duration = string.format("%.2f", endTime - startTime)
 
-    local close = Instance.new("TextButton", f)
-    close.Size = UDim2.new(0, 210, 0, 40); close.Position = UDim2.new(1, -220, 1, -50)
-    close.Text = "CLOSE"; close.BackgroundColor3 = Color3.fromRGB(150, 0, 0); close.TextColor3 = Color3.new(1,1,1)
-    close.MouseButton1Click:Connect(function() sg:Destroy() end)
-end
-
--- 5. THE MASTER TOGGLE
-local function Init()
-    local sg = Instance.new("ScreenGui"); protect(sg)
-    local btn = Instance.new("TextButton", sg)
-    btn.Size = UDim2.new(0, 100, 0, 40); btn.Position = UDim2.new(0, 10, 0.4, 0)
-    btn.Text = "DEV PANEL"; btn.BackgroundColor3 = Color3.fromRGB(45,45,45); btn.TextColor3 = Color3.new(1,1,1)
-
-    local menu = Instance.new("Frame", btn)
-    menu.Size = UDim2.new(0, 200, 0, 200); menu.Position = UDim2.new(1, 10, 0, 0)
-    menu.Visible = false; menu.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    local l = Instance.new("UIListLayout", menu)
-
-    local function add(n, fn)
-        local b = Instance.new("TextButton", menu)
-        b.Size = UDim2.new(1, 0, 0, 50); b.Text = n
-        b.BackgroundColor3 = Color3.fromRGB(55,55,55); b.TextColor3 = Color3.new(1,1,1)
-        b.MouseButton1Click:Connect(fn)
+    SimpleNotify(string.format("Scan finished in %s seconds. Found %d potential exploit targets:", duration, #foundRemotes))
+    
+    if #foundRemotes > 0 then
+        for i, remote in ipairs(foundRemotes) do
+            SimpleNotify(string.format("  [%d] %s: %s (Type: %s)", i, remote.Name, remote.Path, remote.Type))
+        end
+        SimpleNotify("Copy one of the paths (e.g., 'game.Workspace.TeleportEvent') and try to fire it manually.")
+    else
+        SimpleNotify("No suspicious remote events found with generic keywords.")
     end
-
-    add("Scan for Money/Cmds", function() OpenExecutor(RunDeepScan()) end)
-    add("Reveal Hidden GUIs", RevealAll)
-    add("Open Blank Executor", function() OpenExecutor() end)
-    add("Load Original Dex", function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/LorekeeperZinnia/Dex/master/main.lua"))()
-    end)
-
-    btn.MouseButton1Click:Connect(function() menu.Visible = not menu.Visible end)
 end
 
-task.spawn(Init)
-print("Dex Developer Toolset Loaded.")
+-- ====================================================================
+-- GUI SETUP 
+-- ====================================================================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "RemoteSpyGui"
+gui.IgnoreGuiInset = true
+gui.Parent = Game:GetService("CoreGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "SpyFrame"
+mainFrame.Size = UDim2.new(0, 300, 0, 150)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BorderSizePixel = 2
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Name = "TitleBar"
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Text = "Remote Event Spy (Final Tool)"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 18
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.Parent = mainFrame
+
+local description = Instance.new("TextLabel")
+description.Name = "DescriptionLabel"
+description.Size = UDim2.new(1, -20, 0, 40)
+description.Position = UDim2.new(0, 10, 0, 35)
+description.Text = "Click 'Scan' to search for hidden teleport/admin RemoteEvents in the game. Results print to the executor console."
+description.TextColor3 = Color3.fromRGB(180, 180, 180)
+description.Font = Enum.Font.SourceSans
+description.TextSize = 14
+description.BackgroundTransparency = 1
+description.TextWrapped = true
+description.Parent = mainFrame
+
+local scanButton = Instance.new("TextButton")
+scanButton.Name = "ScanButton"
+scanButton.Size = UDim2.new(1, -20, 0, 40)
+scanButton.Position = UDim2.new(0, 10, 0, 90)
+scanButton.Text = "RUN DEEP SCAN"
+scanButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+scanButton.Font = Enum.Font.SourceSansBold
+scanButton.TextSize = 20
+scanButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+scanButton.Parent = mainFrame
+
+scanButton.MouseButton1Click:Connect(RunRemoteScan)
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "CloseButton"
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -30, 0, 0)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 20
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Parent = title
+
+closeBtn.MouseButton1Click:Connect(function()
+    gui:Destroy()
+end)
+
+SimpleNotify("Remote Event Spy loaded. Click RUN DEEP SCAN to find game-specific exploit targets.")
