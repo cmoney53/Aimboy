@@ -11,36 +11,36 @@ local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local LOCKED_TARGET = nil
 
--- // TUNING
-local VERTICAL_OFFSET = 0 -- 0 = Stomach/Chest (Center of Body)
-local SMOOTHNESS = 0.25   -- 1 is instant lock, 0.1 is very slow/legit
-local MAX_DISTANCE = 1000 -- Max studs away to target someone
+-- // AGGRESSIVE SETTINGS
+local VERTICAL_OFFSET = 0 -- 0 = Stomach (Direct Center)
+local SNAP_STRENGTH = 1   -- 1 = Instant Lock (No smoothing, very strong)
+local MAX_DISTANCE = 2000 -- Increased range
 
 -- // UI SETUP
-if CoreGui:FindFirstChild("UniversalAimbot") then CoreGui.UniversalAimbot:Destroy() end
+if CoreGui:FindFirstChild("MobileGodSuite") then CoreGui.MobileGodSuite:Destroy() end
 
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "UniversalAimbot"
+ScreenGui.Name = "MobileGodSuite"
 
 local function createBtn(text, pos, color)
     local btn = Instance.new("TextButton", ScreenGui)
-    btn.Size = UDim2.new(0, 150, 0, 45)
+    btn.Size = UDim2.new(0, 160, 0, 50)
     btn.Position = pos
     btn.BackgroundColor3 = color
     btn.Text = text
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 13
+    btn.TextSize = 14
     btn.Draggable = true
     btn.Active = true
     Instance.new("UICorner", btn)
     return btn
 end
 
-local LockBtn = createBtn("AIMBOT: OFF", UDim2.new(0.05, 0, 0.4, 0), Color3.fromRGB(30, 30, 30))
-local ShootBtn = createBtn("TRIGGER: OFF", UDim2.new(0.05, 0, 0.48, 0), Color3.fromRGB(30, 30, 30))
+local LockBtn = createBtn("STRONG AIM: OFF", UDim2.new(0.05, 0, 0.4, 0), Color3.fromRGB(20, 20, 20))
+local ShootBtn = createBtn("AUTO FIRE: OFF", UDim2.new(0.05, 0, 0.5, 0), Color3.fromRGB(20, 20, 20))
 
--- // CLOSEST PLAYER LOGIC
+-- // AGGRESSIVE TARGETING
 local function getClosestPlayer()
     local target, shortestDistance = nil, MAX_DISTANCE
 
@@ -52,17 +52,12 @@ local function getClosestPlayer()
             local root = p.Character:FindFirstChild("HumanoidRootPart")
             local hum = p.Character:FindFirstChild("Humanoid")
             
-            -- Check if player is alive and on a different team
-            if root and hum and hum.Health > 0 and (p.Team ~= player.Team or p.Team == nil) then
+            -- Team check can be removed if you want to aim at everyone
+            if root and hum and hum.Health > 0 then
                 local dist = (root.Position - myPos).Magnitude
-                
                 if dist < shortestDistance then
-                    -- Final check: Ensure they are actually visible on screen before locking
-                    local _, onScreen = camera:WorldToViewportPoint(root.Position)
-                    if onScreen then
-                        target = p.Character
-                        shortestDistance = dist
-                    end
+                    target = p.Character
+                    shortestDistance = dist
                 end
             end
         end
@@ -70,53 +65,61 @@ local function getClosestPlayer()
     return target
 end
 
--- // INPUT (PC + PHONE)
-local IsPressed = false
+-- // INPUT
+local IsActive = false
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        IsPressed = true
+        IsActive = true
     end
 end)
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        IsPressed = false
+        IsActive = false
     end
 end)
 
--- // MAIN LOOP
+-- // MAIN ENGINE (STRENGTH FOCUS)
 RunService.RenderStepped:Connect(function()
     if AIM_ENABLED then
-        -- Always check for the closest person every frame
         LOCKED_TARGET = getClosestPlayer()
         
         if LOCKED_TARGET and LOCKED_TARGET:FindFirstChild("HumanoidRootPart") then
             local targetPos = LOCKED_TARGET.HumanoidRootPart.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
-            local targetCF = CFrame.lookAt(camera.CFrame.Position, targetPos)
             
-            -- Smoothing for Phone/PC
-            camera.CFrame = camera.CFrame:Lerp(targetCF, SMOOTHNESS)
+            -- FORCED CAMERA LOCK (Strongest Method)
+            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetPos)
+            
+            -- Prevent character from spinning wildly on mobile
+            if player.Character and player.Character:FindFirstChild("Humanoid") then
+                player.Character.Humanoid.AutoRotate = false
+                -- Force player to face target (Optional, very strong)
+                player.Character.HumanoidRootPart.CFrame = CFrame.lookAt(player.Character.HumanoidRootPart.Position, Vector3.new(targetPos.X, player.Character.HumanoidRootPart.Position.Y, targetPos.Z))
+            end
         end
     else
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.AutoRotate = true
+        end
         LOCKED_TARGET = nil
     end
 
-    -- Trigger Bot
-    if AUTO_SHOOT and IsPressed then
+    -- FIRE LOGIC
+    if AUTO_SHOOT and IsActive then
         local tool = player.Character:FindFirstChildOfClass("Tool")
         if tool then tool:Activate() end
     end
 end)
 
--- // BUTTON CLICKS
+-- // BUTTONS
 LockBtn.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
-    LockBtn.Text = AIM_ENABLED and "AIMBOT: ACTIVE" or "AIMBOT: OFF"
-    LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(30, 30, 30)
+    LockBtn.Text = AIM_ENABLED and "AIM: LOCKED" or "STRONG AIM: OFF"
+    LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(20, 20, 20)
 end)
 
 ShootBtn.MouseButton1Click:Connect(function()
     AUTO_SHOOT = not AUTO_SHOOT
-    ShootBtn.Text = AUTO_SHOOT and "TRIGGER: ON" or "TRIGGER: OFF"
-    ShootBtn.BackgroundColor3 = AUTO_SHOOT and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(30, 30, 30)
+    ShootBtn.Text = AUTO_SHOOT and "FIRE: ACTIVE" or "AUTO FIRE: OFF"
+    ShootBtn.BackgroundColor3 = AUTO_SHOOT and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(20, 20, 20)
 end)
