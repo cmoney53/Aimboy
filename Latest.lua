@@ -6,19 +6,19 @@ local camera = workspace.CurrentCamera
 -- // SETTINGS
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
-local TARGET_TYPE = "Head" -- Options: "Head", "Chest", "Legs"
+local TARGET_TYPE = "Head"
 
 -- // UI SETUP
 local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-ScreenGui.Name = "UniversalAimSuite"
+ScreenGui.Name = "AggressiveSnapSuite"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
 
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 160, 0, 250)
 MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.BackgroundTransparency = 0.3
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MainFrame.BackgroundTransparency = 0.1
 Instance.new("UICorner", MainFrame)
 
 local function createBtn(text, pos, color)
@@ -34,40 +34,44 @@ local function createBtn(text, pos, color)
     return btn
 end
 
-local LockBtn = createBtn("AIMBOT: OFF", UDim2.new(0, 10, 0, 10), Color3.fromRGB(50, 50, 50))
-local ShootBtn = createBtn("AUTO FIRE: OFF", UDim2.new(0, 10, 0, 50), Color3.fromRGB(50, 50, 50))
+local LockBtn = createBtn("SNAP LOCK: OFF", UDim2.new(0, 10, 0, 10), Color3.fromRGB(40, 40, 40))
+local ShootBtn = createBtn("AUTO FIRE: OFF", UDim2.new(0, 10, 0, 50), Color3.fromRGB(40, 40, 40))
+local HeadBtn = createBtn("TARGET: FOREHEAD", UDim2.new(0, 10, 0, 110), Color3.fromRGB(200, 0, 0))
+local ChestBtn = createBtn("TARGET: CHEST", UDim2.new(0, 10, 0, 155), Color3.fromRGB(40, 40, 40))
+local LegBtn = createBtn("TARGET: LEGS", UDim2.new(0, 10, 0, 200), Color3.fromRGB(40, 40, 40))
 
--- Body Part Buttons
-local HeadBtn = createBtn("TARGET: HEAD", UDim2.new(0, 10, 0, 110), Color3.fromRGB(150, 0, 0))
-local ChestBtn = createBtn("TARGET: CHEST", UDim2.new(0, 10, 0, 155), Color3.fromRGB(50, 50, 50))
-local LegBtn = createBtn("TARGET: LEGS", UDim2.new(0, 10, 0, 200), Color3.fromRGB(50, 50, 50))
-
--- // TARGETING HELPER (Finds the right part for R6 and R15)
-local function getBodyPart(char)
+-- // THE TARGET FINDER
+local function getTargetPosition(char)
     if TARGET_TYPE == "Head" then
-        return char:FindFirstChild("Head")
+        local head = char:FindFirstChild("Head")
+        if head then
+            -- Aims 0.2 studs above the center of the head (Forehead area)
+            return head.Position + Vector3.new(0, 0.25, 0)
+        end
     elseif TARGET_TYPE == "Chest" then
-        return char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+        local chest = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+        return chest and chest.Position
     elseif TARGET_TYPE == "Legs" then
-        return char:FindFirstChild("LowerTorso") or char:FindFirstChild("LeftLeg") or char:FindFirstChild("LeftLowerLeg")
+        local leg = char:FindFirstChild("LeftFoot") or char:FindFirstChild("RightFoot") or char:FindFirstChild("LowerTorso")
+        return leg and leg.Position
     end
-    return char:FindFirstChild("HumanoidRootPart")
+    return nil
 end
 
--- // MAIN ENGINE
+-- // INSTANT SNAP ENGINE
 RunService.RenderStepped:Connect(function()
     if AIM_ENABLED then
-        local targetPart = nil
+        local closestTargetPos = nil
         local shortestDist = 2000
         
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") then
                 if p.Character.Humanoid.Health > 0 then
-                    local part = getBodyPart(p.Character)
-                    if part then
-                        local dist = (part.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    local pos = getTargetPosition(p.Character)
+                    if pos then
+                        local dist = (pos - player.Character.HumanoidRootPart.Position).Magnitude
                         if dist < shortestDist then
-                            targetPart = part
+                            closestTargetPos = pos
                             shortestDist = dist
                         end
                     end
@@ -75,8 +79,9 @@ RunService.RenderStepped:Connect(function()
             end
         end
         
-        if targetPart then
-            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetPart.Position)
+        if closestTargetPos then
+            -- INSTANT SNAP: No smoothing, direct CFrame overwrite
+            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, closestTargetPos)
         end
     end
 
@@ -89,22 +94,22 @@ end)
 -- // BUTTON LOGIC
 LockBtn.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
-    LockBtn.Text = AIM_ENABLED and "AIMBOT: ON" or "AIMBOT: OFF"
-    LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(50, 50, 50)
+    LockBtn.Text = AIM_ENABLED and "SNAP LOCK: ON" or "SNAP LOCK: OFF"
+    LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(40, 40, 40)
 end)
 
 ShootBtn.MouseButton1Click:Connect(function()
     AUTO_SHOOT = not AUTO_SHOOT
-    ShootBtn.Text = AUTO_SHOOT and "AUTO FIRE: ON" or "AUTO FIRE: OFF"
-    ShootBtn.BackgroundColor3 = AUTO_SHOOT and Color3.fromRGB(0, 150, 50) or Color3.fromRGB(50, 50, 50)
+    ShootBtn.Text = AUTO_SHOOT and "FIRE: ON" or "FIRE: OFF"
+    ShootBtn.BackgroundColor3 = AUTO_SHOOT and Color3.fromRGB(0, 200, 50) or Color3.fromRGB(40, 40, 40)
 end)
 
 local function updateUI(btn, type)
     TARGET_TYPE = type
-    HeadBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    ChestBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    LegBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    btn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+    HeadBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    ChestBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    LegBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
 end
 
 HeadBtn.MouseButton1Click:Connect(function() updateUI(HeadBtn, "Head") end)
