@@ -1,8 +1,5 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
@@ -10,85 +7,80 @@ local camera = workspace.CurrentCamera
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local TARGET_PART = "Head"
-local CHECK_VISIBILITY = true -- Won't lock through walls if true
 
--- // UI SETUP
-if CoreGui:FindFirstChild("MobileGodSuite") then CoreGui.MobileGodSuite:Destroy() end
+-- // UI SETUP (Now using PlayerGui for better visibility)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AimOptionsSuite"
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
 
-local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "MobileGodSuite"
-
+-- Function to make buttons easily
 local function createBtn(text, pos, color, sizeX)
-    local btn = Instance.new("TextButton", ScreenGui)
+    local btn = Instance.new("TextButton")
+    btn.Parent = ScreenGui
     btn.Size = UDim2.new(0, sizeX or 160, 0, 45)
     btn.Position = pos
     btn.BackgroundColor3 = color
     btn.Text = text
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 13
-    btn.Draggable = true
+    btn.TextSize = 14
     btn.Active = true
-    Instance.new("UICorner", btn)
+    btn.Draggable = true -- You can drag them if they block your view
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+    
     return btn
 end
 
--- // MAIN BUTTONS
-local MainLock = createBtn("AIMBOT: OFF", UDim2.new(0.05, 0, 0.3, 0), Color3.fromRGB(30, 30, 30))
-local ShootBtn = createBtn("AUTO FIRE: OFF", UDim2.new(0.05, 0, 0.37, 0), Color3.fromRGB(30, 30, 30))
+-- // CREATE BUTTONS (Positioned on the left)
+local MainLock = createBtn("AIMBOT: OFF", UDim2.new(0.02, 0, 0.2, 0), Color3.fromRGB(30, 30, 30))
+local ShootBtn = createBtn("AUTO FIRE: OFF", UDim2.new(0.02, 0, 0.27, 0), Color3.fromRGB(30, 30, 30))
 
--- // OPTION BUTTONS (TARGETING)
-local HeadBtn = createBtn("AIM: HEAD", UDim2.new(0.05, 0, 0.47, 0), Color3.fromRGB(150, 50, 50), 100)
-local ChestBtn = createBtn("AIM: CHEST", UDim2.new(0.05, 110, 0.47, 0), Color3.fromRGB(50, 50, 50), 100)
-local LegBtn = createBtn("AIM: LEGS", UDim2.new(0.05, 220, 0.47, 0), Color3.fromRGB(50, 50, 50), 100)
+-- Small labels for the options
+local label = Instance.new("TextLabel", ScreenGui)
+label.Text = "TARGET OPTIONS:"
+label.Position = UDim2.new(0.02, 0, 0.35, 0)
+label.Size = UDim2.new(0, 160, 0, 20)
+label.BackgroundTransparency = 1
+label.TextColor3 = Color3.new(1,1,1)
+label.Font = Enum.Font.GothamBold
+label.TextSize = 12
 
--- // VISIBILITY CHECK FUNCTION
-local function isVisible(targetPart)
-    if not CHECK_VISIBILITY then return true end
-    local ray = Ray.new(camera.CFrame.Position, (targetPart.Position - camera.CFrame.Position).Unit * 1000)
-    local hit = workspace:FindPartOnRayWithIgnoreList(ray, {player.Character, targetPart.Parent})
-    return hit == nil
-end
+local HeadBtn = createBtn("HEAD", UDim2.new(0.02, 0, 0.38, 0), Color3.fromRGB(150, 50, 50), 50)
+local ChestBtn = createBtn("CHEST", UDim2.new(0.02, 55, 0.38, 0), Color3.fromRGB(50, 50, 50), 50)
+local LegBtn = createBtn("LEGS", UDim2.new(0.02, 110, 0.38, 0), Color3.fromRGB(50, 50, 50), 50)
 
--- // TARGETING ENGINE
-local function getBestTarget()
-    local closestTarget = nil
-    local maxDist = 2000
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            local part = p.Character:FindFirstChild(TARGET_PART) or p.Character:FindFirstChild("HumanoidRootPart")
-            if part then
-                local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
-                if onScreen then -- Only targets people you can actually see on screen
-                    local dist = (part.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                    if dist < maxDist and isVisible(part) then
-                        closestTarget = part
-                        maxDist = dist
+-- // LOGIC
+RunService.RenderStepped:Connect(function()
+    if AIM_ENABLED then
+        local target = nil
+        local dist = 2000
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and p.Character and p.Character:FindFirstChild(TARGET_PART) then
+                local hum = p.Character:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    local d = (p.Character[TARGET_PART].Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if d < dist then
+                        target = p.Character[TARGET_PART]
+                        dist = d
                     end
                 end
             end
         end
-    end
-    return closestTarget
-end
-
--- // RUN LOOP
-RunService.RenderStepped:Connect(function()
-    if AIM_ENABLED then
-        local target = getBestTarget()
         if target then
             camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target.Position)
         end
     end
-
     if AUTO_SHOOT then
         local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
         if tool then tool:Activate() end
     end
 end)
 
--- // BUTTON LOGIC
+-- // BUTTON CONNECTIONS
 MainLock.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
     MainLock.Text = AIM_ENABLED and "AIMBOT: ON" or "AIMBOT: OFF"
@@ -101,25 +93,26 @@ ShootBtn.MouseButton1Click:Connect(function()
     ShootBtn.BackgroundColor3 = AUTO_SHOOT and Color3.fromRGB(0, 180, 50) or Color3.fromRGB(30, 30, 30)
 end)
 
--- // TARGET SELECTOR LOGIC
-local function updateTargetVisuals(activeBtn)
-    HeadBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    ChestBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    LegBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    activeBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+local function resetSelection()
+    HeadBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    ChestBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    LegBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
 end
 
 HeadBtn.MouseButton1Click:Connect(function()
     TARGET_PART = "Head"
-    updateTargetVisuals(HeadBtn)
+    resetSelection()
+    HeadBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
 end)
 
 ChestBtn.MouseButton1Click:Connect(function()
-    TARGET_PART = "UpperTorso" -- Works for R15 (Chest)
-    updateTargetVisuals(ChestBtn)
+    TARGET_PART = "UpperTorso"
+    resetSelection()
+    ChestBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
 end)
 
 LegBtn.MouseButton1Click:Connect(function()
-    TARGET_PART = "LeftFoot" -- Aiming for lower body
-    updateTargetVisuals(LegBtn)
+    TARGET_PART = "LeftFoot"
+    resetSelection()
+    LegBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
 end)
