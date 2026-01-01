@@ -10,7 +10,7 @@ local TARGET_TYPE = "Head"
 
 -- // UI SETUP
 local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-ScreenGui.Name = "AggressiveSnapSuite"
+ScreenGui.Name = "VisibleSnapSuite"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
 
@@ -40,20 +40,40 @@ local HeadBtn = createBtn("TARGET: FOREHEAD", UDim2.new(0, 10, 0, 110), Color3.f
 local ChestBtn = createBtn("TARGET: CHEST", UDim2.new(0, 10, 0, 155), Color3.fromRGB(40, 40, 40))
 local LegBtn = createBtn("TARGET: LEGS", UDim2.new(0, 10, 0, 200), Color3.fromRGB(40, 40, 40))
 
+-- // VISIBILITY CHECK (WALL CHECK)
+local function isVisible(targetPos, targetChar)
+    local origin = camera.CFrame.Position
+    local direction = (targetPos - origin).Unit * (targetPos - origin).Magnitude
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    -- Ignore your own character and the target's character parts
+    raycastParams.FilterDescendantsInstances = {player.Character, targetChar}
+    raycastParams.IgnoreWater = true
+
+    local result = workspace:Raycast(origin, direction, raycastParams)
+    
+    -- If result is nil, nothing hit between camera and target (Path is clear)
+    return result == nil
+end
+
 -- // THE TARGET FINDER
 local function getTargetPosition(char)
+    local pos = nil
     if TARGET_TYPE == "Head" then
         local head = char:FindFirstChild("Head")
-        if head then
-            -- Aims 0.2 studs above the center of the head (Forehead area)
-            return head.Position + Vector3.new(0, 0.25, 0)
-        end
+        if head then pos = head.Position + Vector3.new(0, 0.26, 0) end -- Forehead
     elseif TARGET_TYPE == "Chest" then
         local chest = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
-        return chest and chest.Position
+        if chest then pos = chest.Position end
     elseif TARGET_TYPE == "Legs" then
         local leg = char:FindFirstChild("LeftFoot") or char:FindFirstChild("RightFoot") or char:FindFirstChild("LowerTorso")
-        return leg and leg.Position
+        if leg then pos = leg.Position end
+    end
+    
+    -- Only return the position if it's visible
+    if pos and isVisible(pos, char) then
+        return pos
     end
     return nil
 end
@@ -80,7 +100,6 @@ RunService.RenderStepped:Connect(function()
         end
         
         if closestTargetPos then
-            -- INSTANT SNAP: No smoothing, direct CFrame overwrite
             camera.CFrame = CFrame.lookAt(camera.CFrame.Position, closestTargetPos)
         end
     end
