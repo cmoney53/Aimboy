@@ -9,9 +9,12 @@ local camera = workspace.CurrentCamera
 -- // SETTINGS
 local AIM_ENABLED = false
 local FREE_AIM_ENABLED = false
-local AUTO_SHOOT = false -- This now acts as "Click to Shoot"
+local AUTO_SHOOT = false 
 local LOCKED_TARGET = nil
-local VERTICAL_OFFSET = 2.4 
+
+-- // CHANGED: Set to 0 to aim at the body (Center Mass). 
+-- // Set to roughly 2.0 for Head, or -2.0 for Legs.
+local VERTICAL_OFFSET = 0 
 
 -- // UI CLEANUP
 if CoreGui:FindFirstChild("MobileMegaSuite") then CoreGui.MobileMegaSuite:Destroy() end
@@ -37,20 +40,35 @@ local LockBtn = createBtn("AIMBOT: OFF", UDim2.new(0.05, 0, 0.35, 0), Color3.fro
 local FreeBtn = createBtn("FREE AIM: OFF", UDim2.new(0.05, 0, 0.43, 0), Color3.fromRGB(30, 30, 30))
 local ShootBtn = createBtn("ANYWHERE SHOOT: OFF", UDim2.new(0.05, 0, 0.51, 0), Color3.fromRGB(30, 30, 30))
 
+-- // HELPER: Get Body Part
+-- // This specifically looks for the Torso for better body aiming
+local function getBodyPart(character)
+    return character:FindFirstChild("UpperTorso") -- R15 Body
+        or character:FindFirstChild("Torso")      -- R6 Body
+        or character:FindFirstChild("HumanoidRootPart") -- Fallback
+end
+
 -- // TARGETING LOGIC
 local function getBestTarget()
     local target, shortestDist = nil, math.huge
     local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
 
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+        if p ~= player and p.Character then
+            local part = getBodyPart(p.Character)
             local hum = p.Character:FindFirstChild("Humanoid")
-            if hum and hum.Health > 0 then
-                local worldPoint = p.Character.HumanoidRootPart.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
+            
+            if part and hum and hum.Health > 0 then
+                -- Calculate position with the offset (0 means direct center of body)
+                local worldPoint = part.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
                 local pos, onScreen = camera:WorldToViewportPoint(worldPoint)
+                
                 if onScreen then
                     local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
-                    if dist < shortestDist then target = p.Character shortestDist = dist end
+                    if dist < shortestDist then 
+                        target = p.Character 
+                        shortestDist = dist 
+                    end
                 end
             end
         end
@@ -78,14 +96,18 @@ RunService.RenderStepped:Connect(function()
         player.Character.Humanoid.AutoRotate = not FREE_AIM_ENABLED
     end
 
-    -- 2. AIMBOT: Chest/Leg Correction
+    -- 2. AIMBOT: Logic
     if AIM_ENABLED then
         if not LOCKED_TARGET or not LOCKED_TARGET:FindFirstChild("Humanoid") or LOCKED_TARGET.Humanoid.Health <= 0 then
             LOCKED_TARGET = getBestTarget()
         end
-        if LOCKED_TARGET and LOCKED_TARGET:FindFirstChild("HumanoidRootPart") then
-            local targetPos = LOCKED_TARGET.HumanoidRootPart.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
-            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetPos)
+        
+        if LOCKED_TARGET then
+            local part = getBodyPart(LOCKED_TARGET)
+            if part then
+                local targetPos = part.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
+                camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetPos)
+            end
         end
     else
         LOCKED_TARGET = nil
