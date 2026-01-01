@@ -11,56 +11,57 @@ local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local LOCKED_TARGET = nil
 
--- // PC & MOBILE TUNING
-local VERTICAL_OFFSET = 0 -- 0 = Stomach/Chest (Perfect for Shift Lock)
-local SMOOTHNESS = 0.25   -- Lower = smoother/legit, Higher = snappier/stronger
-local FOV_RADIUS = 300    -- How close the enemy must be to your crosshair to lock
+-- // TUNING
+local VERTICAL_OFFSET = 0 -- 0 = Stomach/Chest (Center of Body)
+local SMOOTHNESS = 0.25   -- 1 is instant lock, 0.1 is very slow/legit
+local MAX_DISTANCE = 1000 -- Max studs away to target someone
 
 -- // UI SETUP
-if CoreGui:FindFirstChild("MobileMegaSuite") then CoreGui.MobileMegaSuite:Destroy() end
+if CoreGui:FindFirstChild("UniversalAimbot") then CoreGui.UniversalAimbot:Destroy() end
 
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "MobileMegaSuite"
+ScreenGui.Name = "UniversalAimbot"
 
 local function createBtn(text, pos, color)
     local btn = Instance.new("TextButton", ScreenGui)
-    btn.Size = UDim2.new(0, 140, 0, 45)
+    btn.Size = UDim2.new(0, 150, 0, 45)
     btn.Position = pos
     btn.BackgroundColor3 = color
     btn.Text = text
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 13
-    btn.Draggable = true -- VERY IMPORTANT FOR PHONE USERS
+    btn.Draggable = true
     btn.Active = true
     Instance.new("UICorner", btn)
     return btn
 end
 
-local LockBtn = createBtn("AIM: OFF", UDim2.new(0.05, 0, 0.35, 0), Color3.fromRGB(30, 30, 30))
-local ShootBtn = createBtn("TRIGGER: OFF", UDim2.new(0.05, 0, 0.43, 0), Color3.fromRGB(30, 30, 30))
+local LockBtn = createBtn("AIMBOT: OFF", UDim2.new(0.05, 0, 0.4, 0), Color3.fromRGB(30, 30, 30))
+local ShootBtn = createBtn("TRIGGER: OFF", UDim2.new(0.05, 0, 0.48, 0), Color3.fromRGB(30, 30, 30))
 
--- // TARGETING LOGIC
-local function getBodyPart(char)
-    return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
-end
+-- // CLOSEST PLAYER LOGIC
+local function getClosestPlayer()
+    local target, shortestDistance = nil, MAX_DISTANCE
 
-local function getBestTarget()
-    local target, shortestDist = nil, math.huge
-    local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return nil end
+    local myPos = player.Character.HumanoidRootPart.Position
 
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and (p.Team ~= player.Team or p.Team == nil) then
-            local part = getBodyPart(p.Character)
+        if p ~= player and p.Character then
+            local root = p.Character:FindFirstChild("HumanoidRootPart")
             local hum = p.Character:FindFirstChild("Humanoid")
             
-            if part and hum and hum.Health > 0 then
-                local pos, onScreen = camera:WorldToViewportPoint(part.Position)
-                if onScreen then
-                    local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
-                    if dist < FOV_RADIUS and dist < shortestDist then
+            -- Check if player is alive and on a different team
+            if root and hum and hum.Health > 0 and (p.Team ~= player.Team or p.Team == nil) then
+                local dist = (root.Position - myPos).Magnitude
+                
+                if dist < shortestDistance then
+                    -- Final check: Ensure they are actually visible on screen before locking
+                    local _, onScreen = camera:WorldToViewportPoint(root.Position)
+                    if onScreen then
                         target = p.Character
-                        shortestDist = dist
+                        shortestDistance = dist
                     end
                 end
             end
@@ -69,61 +70,48 @@ local function getBestTarget()
     return target
 end
 
--- // PC & PHONE INPUT (Taps or Clicks)
-local IsActiveInput = false
+-- // INPUT (PC + PHONE)
+local IsPressed = false
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        IsActiveInput = true
+        IsPressed = true
     end
 end)
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        IsActiveInput = false
+        IsPressed = false
     end
 end)
 
--- // PC KEYBINDS (Q to toggle Aim, Z to toggle Shoot)
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.Q then
-        LockBtn.MouseButton1Click:Fire()
-    elseif input.KeyCode == Enum.KeyCode.Z then
-        ShootBtn.MouseButton1Click:Fire()
-    end
-end)
-
--- // MAIN ENGINE
+-- // MAIN LOOP
 RunService.RenderStepped:Connect(function()
     if AIM_ENABLED then
-        if not LOCKED_TARGET or not LOCKED_TARGET:FindFirstChild("Humanoid") or LOCKED_TARGET.Humanoid.Health <= 0 then
-            LOCKED_TARGET = getBestTarget()
-        end
+        -- Always check for the closest person every frame
+        LOCKED_TARGET = getClosestPlayer()
         
-        if LOCKED_TARGET then
-            local part = getBodyPart(LOCKED_TARGET)
-            if part then
-                local targetPos = part.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
-                local targetCF = CFrame.lookAt(camera.CFrame.Position, targetPos)
-                -- LERP creates the "Sticky/Magnetic" feel for Phones and PC
-                camera.CFrame = camera.CFrame:Lerp(targetCF, SMOOTHNESS)
-            end
+        if LOCKED_TARGET and LOCKED_TARGET:FindFirstChild("HumanoidRootPart") then
+            local targetPos = LOCKED_TARGET.HumanoidRootPart.Position + Vector3.new(0, VERTICAL_OFFSET, 0)
+            local targetCF = CFrame.lookAt(camera.CFrame.Position, targetPos)
+            
+            -- Smoothing for Phone/PC
+            camera.CFrame = camera.CFrame:Lerp(targetCF, SMOOTHNESS)
         end
     else
         LOCKED_TARGET = nil
     end
 
-    -- TRIGGER BOT: Shoots while you are touching/holding screen or mouse
-    if AUTO_SHOOT and IsActiveInput then
+    -- Trigger Bot
+    if AUTO_SHOOT and IsPressed then
         local tool = player.Character:FindFirstChildOfClass("Tool")
         if tool then tool:Activate() end
     end
 end)
 
--- // BUTTON LOGIC
+-- // BUTTON CLICKS
 LockBtn.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
-    LockBtn.Text = AIM_ENABLED and "AIM: ON" or "AIM: OFF"
+    LockBtn.Text = AIM_ENABLED and "AIMBOT: ACTIVE" or "AIMBOT: OFF"
     LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(30, 30, 30)
 end)
 
