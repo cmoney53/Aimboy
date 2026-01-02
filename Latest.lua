@@ -28,7 +28,7 @@ Instance.new("UICorner", Main)
 -- TITLE BAR (Always Visible)
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -60, 0, 35)
-Title.Text = "  ELITE V9 MASTER"
+Title.Text = "  cmoney test"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
