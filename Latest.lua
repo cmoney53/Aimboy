@@ -1,5 +1,5 @@
 -- // FORCE CLEAR ALL PREVIOUS VERSIONS
-local VERSION_TAG = "ELITE_V21_ULTRA_FINAL"
+local VERSION_TAG = "ELITE_V21_HIGHLIGHT_FIX"
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
@@ -46,7 +46,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 -- Update Player Count
 spawn(function()
     while wait(1) do
-        Title.Text = "  Cash_Aimbot| PLRS: " .. #Players:GetPlayers()
+        Title.Text = "  V21 | PLRS: " .. #Players:GetPlayers()
     end
 end)
 
@@ -71,7 +71,7 @@ local function makeBtn(txt, y, color)
 end
 
 local LockBtn = makeBtn("SNAP LOCK: OFF", 5, Color3.fromRGB(35, 35, 35))
-local ESPBtn = makeBtn("ULTRA ESP: OFF", 45, Color3.fromRGB(35, 35, 35))
+local ESPBtn = makeBtn("ALIVE ESP: OFF", 45, Color3.fromRGB(35, 35, 35))
 local ShootBtn = makeBtn("AUTO FIRE: OFF", 85, Color3.fromRGB(35, 35, 35))
 local HeadBtn = makeBtn("TARGET: FOREHEAD", 155, Color3.fromRGB(180, 0, 0))
 local ChestBtn = makeBtn("TARGET: CHEST", 195, Color3.fromRGB(35, 35, 35))
@@ -103,21 +103,24 @@ local UIList = Instance.new("UIListLayout", PListFrame)
 UIList.Padding = UDim.new(0, 2)
 Instance.new("UICorner", PListFrame)
 
--- // ULTRA ESP FUNCTION
-local function ApplyUltraESP(p)
-    if p == player or not p.Character then return end
-    local hrp = p.Character:WaitForChild("HumanoidRootPart", 5)
-    if hrp and not hrp:FindFirstChild("EliteBox") then
-        local box = Instance.new("BoxHandleAdornment")
-        box.Name = "EliteBox"
-        box.Size = Vector3.new(4, 6, 0.5)
-        box.AlwaysOnTop = true
-        box.ZIndex = 10
-        box.Transparency = 0.5
-        box.Color3 = Color3.fromRGB(255, 0, 0)
-        box.Adornee = hrp
-        box.Parent = hrp
+-- // ESP HIGHLIGHTER FUNCTION
+local function ApplyHighlight(p)
+    if p == player then return end
+    local char = p.Character or p.CharacterAdded:Wait()
+    
+    local highlight = char:FindFirstChild("EliteHighlight")
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "EliteHighlight"
+        highlight.Parent = char
     end
+    
+    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Enabled = ESP_ENABLED
 end
 
 -- // CORE LOGIC
@@ -154,14 +157,18 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
         if tPos then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, tPos) end
     end
     
-    -- ULTRA ESP LOOP
+    -- ESP UPDATE LOOP
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local box = p.Character.HumanoidRootPart:FindFirstChild("EliteBox")
+        if p ~= player and p.Character then
+            local highlight = p.Character:FindFirstChild("EliteHighlight")
             if ESP_ENABLED then
-                if not box then ApplyUltraESP(p) else box.Visible = true end
+                if not highlight then
+                    ApplyHighlight(p)
+                else
+                    highlight.Enabled = true
+                end
             else
-                if box then box.Visible = false end
+                if highlight then highlight.Enabled = false end
             end
         end
     end
@@ -170,6 +177,14 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
         local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
         if tool then tool:Activate() end
     end
+end)
+
+-- Ensure new players/respawns get highlighed
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function()
+        wait(1)
+        if ESP_ENABLED then ApplyHighlight(p) end
+    end)
 end)
 
 -- // PLAYER LIST LOGIC
@@ -210,7 +225,7 @@ end)
 
 ESPBtn.MouseButton1Click:Connect(function()
     ESP_ENABLED = not ESP_ENABLED
-    ESPBtn.Text = ESP_ENABLED and "ULTRA ESP: ON" or "ULTRA ESP: OFF"
+    ESPBtn.Text = ESP_ENABLED and "ALIVE ESP: ON" or "ALIVE ESP: OFF"
     ESPBtn.BackgroundColor3 = ESP_ENABLED and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(35, 35, 35)
 end)
 
