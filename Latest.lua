@@ -1,5 +1,5 @@
 -- // FORCE CLEAR ALL PREVIOUS VERSIONS
-local VERSION_TAG = "ELITE_V20_ESP_EDITION"
+local VERSION_TAG = "ELITE_V21_FINAL_FIX"
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
@@ -7,7 +7,7 @@ local camera = workspace.CurrentCamera
 
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
 for _, oldUI in pairs(player:WaitForChild("PlayerGui"):GetChildren()) do
-    if oldUI.Name:find("Elite") or oldUI.Name:find("AIMBOT") or oldUI.Name:find("V1") then
+    if oldUI.Name:find("Elite") or oldUI.Name:find("AIMBOT") or oldUI.Name:find("V2") then
         oldUI:Destroy()
     end
 end
@@ -27,7 +27,7 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 200, 0, 360) -- Increased size for ESP button
+Main.Size = UDim2.new(0, 200, 0, 360)
 Main.Position = UDim2.new(0.05, 0, 0.3, 0)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
@@ -36,12 +36,19 @@ Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  ELITE MASTER V20"
-Title.TextColor3 = Color3.fromRGB(0, 200, 255)
+Title.Text = "  V21 | PLRS: " .. #Players:GetPlayers()
+Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
 Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Update Player Count in Title
+spawn(function()
+    while wait(1) do
+        Title.Text = "  V21 | PLRS: " .. #Players:GetPlayers()
+    end
+end)
 
 -- CONTENT
 local Content = Instance.new("Frame", Main)
@@ -58,6 +65,7 @@ local function makeBtn(txt, y, color)
     b.TextColor3 = Color3.new(1, 1, 1)
     b.Font = Enum.Font.GothamBold
     b.TextSize = 10
+    b.ZIndex = 5
     Instance.new("UICorner", b)
     return b
 end
@@ -77,6 +85,7 @@ local function createTopBtn(text, xPos)
     b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     b.Text = text
     b.TextColor3 = Color3.new(1, 1, 1)
+    b.ZIndex = 6
     Instance.new("UICorner", b)
     return b
 end
@@ -87,29 +96,19 @@ local PListToggle = createTopBtn("👥", -60)
 local PListFrame = Instance.new("ScrollingFrame", ScreenGui)
 PListFrame.Size = UDim2.new(0, 200, 0, 0)
 PListFrame.Visible = false
-PListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-PListFrame.ZIndex = 10
-Instance.new("UIListLayout", PListFrame).Padding = UDim.new(0, 2)
+PListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+PListFrame.ZIndex = 20
+PListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+PListFrame.ScrollBarThickness = 4
+local UIList = Instance.new("UIListLayout", PListFrame)
+UIList.Padding = UDim.new(0, 2)
 Instance.new("UICorner", PListFrame)
 
--- // ESP BOX LOGIC
-local function createESP(p)
-    local Box = Instance.new("BoxHandleAdornment")
-    Box.Name = "EliteESP"
-    Box.AlwaysOnTop = true
-    Box.ZIndex = 5
-    Box.Adornee = p.Character
-    Box.Color3 = Color3.fromRGB(0, 255, 150)
-    Box.Size = Vector3.new(4, 6, 1)
-    Box.Transparency = 0.6
-    Box.Parent = p.Character:WaitForChild("HumanoidRootPart")
-
-    local Tracer = Instance.new("Beam") -- Simple built-in tracer logic
-    -- (Simplified ESP used here for performance and compatibility)
-end
-
--- // CORE ENGINE
+-- // ESP & CORE LOGIC
 getgenv().AimConnection = RunService.RenderStepped:Connect(function()
+    -- Sync List position to Main
+    PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
+    
     if AIM_ENABLED then
         local tPos, dist = nil, 2000
         for _, p in pairs(Players:GetPlayers()) do
@@ -122,7 +121,6 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                     
                     if part then
                         local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.26, 0) or part.Position
-                        -- Your Wall Check
                         local origin = camera.CFrame.Position
                         local dir = (finalPos - origin).Unit * (finalPos - origin).Magnitude
                         local rp = RaycastParams.new()
@@ -141,7 +139,7 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     
     -- ESP UPDATE
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+        if p ~= player and p.Character then
             local highlight = p.Character:FindFirstChild("EliteHighlight")
             if ESP_ENABLED then
                 if not highlight then
@@ -149,11 +147,8 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                     highlight.Name = "EliteHighlight"
                     highlight.FillColor = Color3.fromRGB(255, 0, 0)
                     highlight.OutlineColor = Color3.new(1, 1, 1)
-                    highlight.FillTransparency = 0.5
                 end
-            else
-                if highlight then highlight:Destroy() end
-            end
+            elseif highlight then highlight:Destroy() end
         end
     end
 
@@ -161,10 +156,44 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
         local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
         if tool then tool:Activate() end
     end
-    PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
 end)
 
--- // BUTTONS
+-- // PLAYER LIST REFRESH FUNCTION
+local function updatePlayerListUI()
+    for _, c in pairs(PListFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+    local count = 0
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then
+            count = count + 1
+            local b = Instance.new("TextButton", PListFrame)
+            b.Size = UDim2.new(1, -10, 0, 30)
+            b.ZIndex = 21
+            b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+            b.Text = p.Name .. (WHITELISTED[p.Name] and " [WL]" or "")
+            b.TextColor3 = Color3.new(1, 1, 1)
+            b.Font = Enum.Font.Gotham
+            b.MouseButton1Click:Connect(function()
+                WHITELISTED[p.Name] = not WHITELISTED[p.Name]
+                b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+                b.Text = p.Name .. (WHITELISTED[p.Name] and " [WL]" or "")
+            end)
+            Instance.new("UICorner", b)
+        end
+    end
+    PListFrame.CanvasSize = UDim2.new(0, 0, 0, count * 32)
+end
+
+-- // CONNECTIONS
+PListToggle.MouseButton1Click:Connect(function()
+    PListFrame.Visible = not PListFrame.Visible
+    if PListFrame.Visible then
+        updatePlayerListUI()
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 150), "Out", "Quad", 0.2, true)
+    else
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
+    end
+end)
+
 ESPBtn.MouseButton1Click:Connect(function()
     ESP_ENABLED = not ESP_ENABLED
     ESPBtn.Text = ESP_ENABLED and "VISUAL ESP: ON" or "VISUAL ESP: OFF"
@@ -187,28 +216,7 @@ MinBtn.MouseButton1Click:Connect(function()
     IS_MINIMIZED = not IS_MINIMIZED
     Content.Visible = not IS_MINIMIZED
     Main:TweenSize(IS_MINIMIZED and UDim2.new(0, 200, 0, 35) or UDim2.new(0, 200, 0, 360), "Out", "Quad", 0.2, true)
-end)
-
-PListToggle.MouseButton1Click:Connect(function()
-    PListFrame.Visible = not PListFrame.Visible
-    if PListFrame.Visible then
-        for _, c in pairs(PListFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player then
-                local b = Instance.new("TextButton", PListFrame)
-                b.Size = UDim2.new(1, -10, 0, 30); b.Text = p.Name; b.TextColor3 = Color3.new(1,1,1)
-                b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                b.MouseButton1Click:Connect(function()
-                    WHITELISTED[p.Name] = not WHITELISTED[p.Name]
-                    b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                end)
-                Instance.new("UICorner", b)
-            end
-        end
-        PListFrame:TweenSize(UDim2.new(0, 200, 0, 150), "Out", "Quad", 0.2, true)
-    else
-        PListFrame:TweenSize(UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
-    end
+    if IS_MINIMIZED then PListFrame.Visible = false end
 end)
 
 local function setT(btn, t)
