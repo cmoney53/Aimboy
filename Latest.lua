@@ -1,5 +1,5 @@
 -- // CLEANUP PREVIOUS
-local UI_NAME = "EliteV9_Final"
+local UI_NAME = "EliteV11_WallCheck"
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
 local player = game:GetService("Players").LocalPlayer
 local oldUI = player:WaitForChild("PlayerGui"):FindFirstChild(UI_NAME)
@@ -28,7 +28,7 @@ Instance.new("UICorner", Main)
 -- TITLE BAR
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  ELITE V9 MASTER"
+Title.Text = "  ELITE V11 MASTER"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -77,42 +77,31 @@ PListToggle.BackgroundColor3 = Color3.fromRGB(45,45,45)
 PListToggle.TextColor3 = Color3.new(1,1,1)
 Instance.new("UICorner", PListToggle)
 
--- PLAYER LIST FRAME (COLLAPSIBLE)
+-- PLAYER LIST FRAME
 local PListFrame = Instance.new("ScrollingFrame", Main)
-PListFrame.Size = UDim2.new(1, 0, 0, 0) -- Hidden by default
+PListFrame.Size = UDim2.new(1, 0, 0, 0)
 PListFrame.Position = UDim2.new(0, 0, 1, 5)
-PListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 PListFrame.Visible = false
+PListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 PListFrame.BorderSizePixel = 0
 PListFrame.ScrollBarThickness = 3
-local UIList = Instance.new("UIListLayout", PListFrame)
-UIList.Padding = UDim.new(0, 2)
+Instance.new("UIListLayout", PListFrame).Padding = UDim.new(0, 2)
 Instance.new("UICorner", PListFrame)
 
--- // PLAYER LIST UPDATE
-local function UpdateList()
-    for _, child in pairs(PListFrame:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
-    end
-    for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-        if p ~= player then
-            local b = Instance.new("TextButton", PListFrame)
-            b.Size = UDim2.new(1, -10, 0, 30)
-            b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-            b.Text = WHITELISTED[p.Name] and p.Name .. " (IGNORED)" or p.Name
-            b.TextColor3 = Color3.new(1,1,1)
-            b.Font = Enum.Font.Gotham
-            b.TextSize = 10
-            Instance.new("UICorner", b)
-            
-            b.MouseButton1Click:Connect(function()
-                WHITELISTED[p.Name] = not WHITELISTED[p.Name]
-                b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                b.Text = WHITELISTED[p.Name] and p.Name .. " (IGNORED)" or p.Name
-            end)
-        end
-    end
-    PListFrame.CanvasSize = UDim2.new(0, 0, 0, #PListFrame:GetChildren() * 32)
+-- // VISIBILITY CHECK FUNCTION
+local function isVisible(targetPos, targetChar)
+    local origin = workspace.CurrentCamera.CFrame.Position
+    local direction = (targetPos - origin)
+    
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    -- Ignore yourself and the person you are looking at
+    rayParams.FilterDescendantsInstances = {player.Character, targetChar}
+    
+    local result = workspace:Raycast(origin, direction, rayParams)
+    
+    -- If result is nil, nothing is blocking the view
+    return result == nil
 end
 
 -- // CORE ENGINE
@@ -128,8 +117,12 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
                     
                     if part then
                         local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.28, 0) or part.Position
-                        local d = (finalPos - workspace.CurrentCamera.CFrame.Position).Magnitude
-                        if d < dist then tPos = finalPos dist = d end
+                        
+                        -- ONLY SNAP IF VISIBLE
+                        if isVisible(finalPos, p.Character) then
+                            local d = (finalPos - workspace.CurrentCamera.CFrame.Position).Magnitude
+                            if d < dist then tPos = finalPos dist = d end
+                        end
                     end
                 end
             end
@@ -142,7 +135,7 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
     end
 end)
 
--- // BUTTON CONNECTIONS
+-- // UI LOGIC (Minimize / Player List / Buttons)
 MinBtn.MouseButton1Click:Connect(function()
     IS_MINIMIZED = not IS_MINIMIZED
     Content.Visible = not IS_MINIMIZED
@@ -155,7 +148,23 @@ PListToggle.MouseButton1Click:Connect(function()
     if IS_MINIMIZED then return end
     PListFrame.Visible = not PListFrame.Visible
     if PListFrame.Visible then
-        UpdateList()
+        for _, c in pairs(PListFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= player then
+                local b = Instance.new("TextButton", PListFrame)
+                b.Size = UDim2.new(1, -10, 0, 30)
+                b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+                b.Text = WHITELISTED[p.Name] and p.Name .. " (IGNORED)" or p.Name
+                b.TextColor3 = Color3.new(1,1,1)
+                b.Font = Enum.Font.Gotham
+                b.MouseButton1Click:Connect(function()
+                    WHITELISTED[p.Name] = not WHITELISTED[p.Name]
+                    b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+                    b.Text = WHITELISTED[p.Name] and p.Name .. " (IGNORED)" or p.Name
+                end)
+                Instance.new("UICorner", b)
+            end
+        end
         PListFrame:TweenSize(UDim2.new(1, 0, 0, 150), "Out", "Quad", 0.2, true)
     else
         PListFrame:TweenSize(UDim2.new(1, 0, 0, 0), "Out", "Quad", 0.2, true)
