@@ -1,5 +1,5 @@
 -- // CLEANUP PREVIOUS
-local UI_NAME = "EliteV11_WallCheck"
+local UI_NAME = "EliteMasterV12"
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
 local player = game:GetService("Players").LocalPlayer
 local oldUI = player:WaitForChild("PlayerGui"):FindFirstChild(UI_NAME)
@@ -28,12 +28,27 @@ Instance.new("UICorner", Main)
 -- TITLE BAR
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  ELITE V11 MASTER"
+Title.Text = "  ELITE MASTER V12"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
 Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- TOP CONTROLS
+local function createTopBtn(text, xPos)
+    local b = Instance.new("TextButton", Main)
+    b.Size = UDim2.new(0, 25, 0, 25)
+    b.Position = UDim2.new(1, xPos, 0, 5)
+    b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", b)
+    return b
+end
+
+local MinBtn = createTopBtn("-", -30)
+local PListToggle = createTopBtn("👥", -60)
 
 -- CONTENT CONTAINER
 local Content = Instance.new("Frame", Main)
@@ -50,7 +65,7 @@ local function makeBtn(txt, y, color)
     b.TextColor3 = Color3.new(1, 1, 1)
     b.Font = Enum.Font.GothamBold
     b.TextSize = 11
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    Instance.new("UICorner", b)
     return b
 end
 
@@ -59,23 +74,6 @@ local ShootBtn = makeBtn("AUTO FIRE: OFF", 48, Color3.fromRGB(35, 35, 35))
 local HeadBtn = makeBtn("TARGET: FOREHEAD", 115, Color3.fromRGB(180, 0, 0))
 local ChestBtn = makeBtn("TARGET: CHEST", 160, Color3.fromRGB(35, 35, 35))
 local LegBtn = makeBtn("TARGET: LEGS", 205, Color3.fromRGB(35, 35, 35))
-
--- TOP CONTROLS (Minimize & Player List)
-local MinBtn = Instance.new("TextButton", Main)
-MinBtn.Size = UDim2.new(0, 25, 0, 25)
-MinBtn.Position = UDim2.new(1, -30, 0, 5)
-MinBtn.Text = "-"
-MinBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
-MinBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", MinBtn)
-
-local PListToggle = Instance.new("TextButton", Main)
-PListToggle.Size = UDim2.new(0, 25, 0, 25)
-PListToggle.Position = UDim2.new(1, -60, 0, 5)
-PListToggle.Text = "👥"
-PListToggle.BackgroundColor3 = Color3.fromRGB(45,45,45)
-PListToggle.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", PListToggle)
 
 -- PLAYER LIST FRAME
 local PListFrame = Instance.new("ScrollingFrame", Main)
@@ -88,21 +86,18 @@ PListFrame.ScrollBarThickness = 3
 Instance.new("UIListLayout", PListFrame).Padding = UDim.new(0, 2)
 Instance.new("UICorner", PListFrame)
 
--- // VISIBILITY CHECK FUNCTION
+-- // YOUR WORKED WALL CHECK LOGIC
 local function isVisible(targetPos, targetChar)
     local camera = workspace.CurrentCamera
     local origin = camera.CFrame.Position
-    local direction = (targetPos - origin)
+    local direction = (targetPos - origin).Unit * (targetPos - origin).Magnitude
     
-    local rayParams = RaycastParams.new()
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-    -- Ignore your character and the target character to prevent ray clipping
-    rayParams.FilterDescendantsInstances = {player.Character, targetChar}
-    rayParams.IgnoreWater = true
-    
-    local result = workspace:Raycast(origin, direction, rayParams)
-    
-    -- If result is nil, nothing blocked the line of sight
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {player.Character, targetChar}
+    raycastParams.IgnoreWater = true
+
+    local result = workspace:Raycast(origin, direction, raycastParams)
     return result == nil
 end
 
@@ -112,20 +107,26 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
     if AIM_ENABLED then
         local tPos, dist = nil, 2000
         for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+            -- Team check + Whitelist check
             if p ~= player and not WHITELISTED[p.Name] and (not player.Team or p.Team ~= player.Team) then
-                if p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-                    -- Identify the target part
-                    local part = (TARGET_TYPE == "Head" and p.Character:FindFirstChild("Head")) or 
-                                 (TARGET_TYPE == "Chest" and (p.Character:FindFirstChild("UpperTorso") or p.Character:FindFirstChild("Torso"))) or 
-                                 (p.Character:FindFirstChild("LeftFoot") or p.Character:FindFirstChild("LowerTorso"))
+                local char = p.Character
+                if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                    -- Target Part Finder
+                    local part = nil
+                    if TARGET_TYPE == "Head" then
+                        part = char:FindFirstChild("Head")
+                    elseif TARGET_TYPE == "Chest" then
+                        part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+                    else
+                        part = char:FindFirstChild("LeftFoot") or char:FindFirstChild("RightFoot") or char:FindFirstChild("LowerTorso")
+                    end
                     
                     if part then
-                        -- Apply Forehead Offset if aiming for head
-                        local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.28, 0) or part.Position
+                        local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.26, 0) or part.Position
                         
-                        -- CRITICAL: Check if target is behind a wall
-                        if isVisible(finalPos, p.Character) then
-                            local d = (finalPos - camera.CFrame.Position).Magnitude
+                        -- Using your specific wall check logic
+                        if isVisible(finalPos, char) then
+                            local d = (finalPos - player.Character.HumanoidRootPart.Position).Magnitude
                             if d < dist then tPos = finalPos dist = d end
                         end
                     end
@@ -140,7 +141,7 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
     end
 end)
 
--- // UI BUTTON LOGIC
+-- // UI CONNECTIONS
 MinBtn.MouseButton1Click:Connect(function()
     IS_MINIMIZED = not IS_MINIMIZED
     Content.Visible = not IS_MINIMIZED
@@ -149,7 +150,6 @@ MinBtn.MouseButton1Click:Connect(function()
 end)
 
 PListToggle.MouseButton1Click:Connect(function()
-    if IS_MINIMIZED then return end
     PListFrame.Visible = not PListFrame.Visible
     if PListFrame.Visible then
         for _, c in pairs(PListFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
@@ -159,7 +159,7 @@ PListToggle.MouseButton1Click:Connect(function()
                 b.Size = UDim2.new(1, -10, 0, 30)
                 b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
                 b.Text = WHITELISTED[p.Name] and p.Name .. " (IGNORED)" or p.Name
-                b.TextColor3 = Color3.new(1,1,1)
+                b.TextColor3 = Color3.new(1, 1, 1)
                 b.Font = Enum.Font.Gotham
                 b.MouseButton1Click:Connect(function()
                     WHITELISTED[p.Name] = not WHITELISTED[p.Name]
