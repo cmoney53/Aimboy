@@ -1,5 +1,5 @@
--- // CLEANUP PREVIOUS EXECUTION
-local UI_NAME = "AIMBOT v13"
+-- // CLEANUP PREVIOUS
+local UI_NAME = "EliteMasterV14_ScrollFix"
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
 local player = game:GetService("Players").LocalPlayer
 local oldUI = player:WaitForChild("PlayerGui"):FindFirstChild(UI_NAME)
@@ -9,7 +9,7 @@ if oldUI then oldUI:Destroy() end
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local TARGET_TYPE = "Head"
-local WHITELISTED = {} -- ONLY people in here will be ignored
+local WHITELISTED = {}
 local IS_MINIMIZED = false
 
 -- // UI SETUP
@@ -28,27 +28,12 @@ Instance.new("UICorner", Main)
 -- TITLE BAR
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  AIMBOT v13"
+Title.Text = "  ELITE MASTER V14"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
 Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
-
--- TOP CONTROLS
-local function createTopBtn(text, xPos)
-    local b = Instance.new("TextButton", Main)
-    b.Size = UDim2.new(0, 25, 0, 25)
-    b.Position = UDim2.new(1, xPos, 0, 5)
-    b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    b.Text = text
-    b.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", b)
-    return b
-end
-
-local MinBtn = createTopBtn("-", -30)
-local PListToggle = createTopBtn("👥", -60)
 
 -- CONTENT CONTAINER
 local Content = Instance.new("Frame", Main)
@@ -75,56 +60,62 @@ local HeadBtn = makeBtn("TARGET: FOREHEAD", 115, Color3.fromRGB(180, 0, 0))
 local ChestBtn = makeBtn("TARGET: CHEST", 160, Color3.fromRGB(35, 35, 35))
 local LegBtn = makeBtn("TARGET: LEGS", 205, Color3.fromRGB(35, 35, 35))
 
--- PLAYER LIST FRAME
-local PListFrame = Instance.new("ScrollingFrame", Main)
-PListFrame.Size = UDim2.new(1, 0, 0, 0)
-PListFrame.Position = UDim2.new(0, 0, 1, 5)
+-- TOP BUTTONS
+local function createTopBtn(text, xPos)
+    local b = Instance.new("TextButton", Main)
+    b.Size = UDim2.new(0, 25, 0, 25)
+    b.Position = UDim2.new(1, xPos, 0, 5)
+    b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", b)
+    return b
+end
+
+local MinBtn = createTopBtn("-", -30)
+local PListToggle = createTopBtn("👥", -60)
+
+-- PLAYER LIST (Parented to ScreenGui so it scrolls independently)
+local PListFrame = Instance.new("ScrollingFrame", ScreenGui)
+PListFrame.Size = UDim2.new(0, 200, 0, 0)
 PListFrame.Visible = false
 PListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 PListFrame.BorderSizePixel = 0
-PListFrame.ScrollBarThickness = 3
+PListFrame.ScrollBarThickness = 4
+PListFrame.ZIndex = 10
 Instance.new("UIListLayout", PListFrame).Padding = UDim.new(0, 2)
 Instance.new("UICorner", PListFrame)
 
--- // YOUR WORKED WALL CHECK LOGIC
+-- Sync Player List Position to Main Frame
+RunService.Heartbeat:Connect(function()
+    PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
+end)
+
+-- // WALL CHECK LOGIC
 local function isVisible(targetPos, targetChar)
-    local camera = workspace.CurrentCamera
     local origin = camera.CFrame.Position
     local direction = (targetPos - origin).Unit * (targetPos - origin).Magnitude
-    
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
     raycastParams.FilterDescendantsInstances = {player.Character, targetChar}
-    raycastParams.IgnoreWater = true
-
     local result = workspace:Raycast(origin, direction, raycastParams)
     return result == nil
 end
 
 -- // CORE ENGINE
-getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(function()
-    local camera = workspace.CurrentCamera
+getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     if AIM_ENABLED then
         local tPos, dist = nil, 2000
         for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-            -- TEAM CHECK REMOVED: Now only checks if NOT Whitelisted
             if p ~= player and not WHITELISTED[p.Name] then
                 local char = p.Character
                 if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                    -- Target Part Finder
-                    local part = nil
-                    if TARGET_TYPE == "Head" then
-                        part = char:FindFirstChild("Head")
-                    elseif TARGET_TYPE == "Chest" then
-                        part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
-                    else
-                        part = char:FindFirstChild("LeftFoot") or char:FindFirstChild("RightFoot") or char:FindFirstChild("LowerTorso")
-                    end
+                    local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or 
+                                 (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or 
+                                 (char:FindFirstChild("LeftFoot") or char:FindFirstChild("LowerTorso"))
                     
                     if part then
                         local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.26, 0) or part.Position
-                        
-                        -- Wall Check Logic
                         if isVisible(finalPos, char) then
                             local d = (finalPos - player.Character.HumanoidRootPart.Position).Magnitude
                             if d < dist then tPos = finalPos dist = d end
@@ -141,7 +132,7 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
     end
 end)
 
--- // UI CONNECTIONS
+-- // UI LOGIC
 MinBtn.MouseButton1Click:Connect(function()
     IS_MINIMIZED = not IS_MINIMIZED
     Content.Visible = not IS_MINIMIZED
@@ -158,20 +149,20 @@ PListToggle.MouseButton1Click:Connect(function()
                 local b = Instance.new("TextButton", PListFrame)
                 b.Size = UDim2.new(1, -10, 0, 30)
                 b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                b.Text = WHITELISTED[p.Name] and p.Name .. " (WHITELISTED)" or p.Name
-                b.TextColor3 = Color3.new(1, 1, 1)
+                b.Text = WHITELISTED[p.Name] and p.Name .. " (WL)" or p.Name
+                b.TextColor3 = Color3.new(1,1,1)
                 b.Font = Enum.Font.Gotham
                 b.MouseButton1Click:Connect(function()
                     WHITELISTED[p.Name] = not WHITELISTED[p.Name]
                     b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                    b.Text = WHITELISTED[p.Name] and p.Name .. " (WHITELISTED)" or p.Name
+                    b.Text = WHITELISTED[p.Name] and p.Name .. " (WL)" or p.Name
                 end)
                 Instance.new("UICorner", b)
             end
         end
-        PListFrame:TweenSize(UDim2.new(1, 0, 0, 150), "Out", "Quad", 0.2, true)
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 150), "Out", "Quad", 0.2, true)
     else
-        PListFrame:TweenSize(UDim2.new(1, 0, 0, 0), "Out", "Quad", 0.2, true)
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
     end
 end)
 
