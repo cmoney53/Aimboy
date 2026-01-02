@@ -1,5 +1,5 @@
 -- // CLEANUP PREVIOUS EXECUTION
-local UI_NAME = "AIMBOT v13"
+local UI_NAME = "AIMBOT_v16_Final"
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
 local player = game:GetService("Players").LocalPlayer
 local oldUI = player:WaitForChild("PlayerGui"):FindFirstChild(UI_NAME)
@@ -9,13 +9,14 @@ if oldUI then oldUI:Destroy() end
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local TARGET_TYPE = "Head"
-local WHITELISTED = {} -- ONLY people in here will be ignored
+local WHITELISTED = {} 
 local IS_MINIMIZED = false
 
 -- // UI SETUP
 local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 ScreenGui.Name = UI_NAME
 ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 200, 0, 320)
@@ -28,7 +29,7 @@ Instance.new("UICorner", Main)
 -- TITLE BAR
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  AIMBOT v13"
+Title.Text = "  AIMBOT v16"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -75,16 +76,21 @@ local HeadBtn = makeBtn("TARGET: FOREHEAD", 115, Color3.fromRGB(180, 0, 0))
 local ChestBtn = makeBtn("TARGET: CHEST", 160, Color3.fromRGB(35, 35, 35))
 local LegBtn = makeBtn("TARGET: LEGS", 205, Color3.fromRGB(35, 35, 35))
 
--- PLAYER LIST FRAME
-local PListFrame = Instance.new("ScrollingFrame", Main)
-PListFrame.Size = UDim2.new(1, 0, 0, 0)
-PListFrame.Position = UDim2.new(0, 0, 1, 5)
+-- PLAYER LIST (Parented to ScreenGui to fix scrolling)
+local PListFrame = Instance.new("ScrollingFrame", ScreenGui)
+PListFrame.Size = UDim2.new(0, 200, 0, 0)
 PListFrame.Visible = false
 PListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 PListFrame.BorderSizePixel = 0
-PListFrame.ScrollBarThickness = 3
+PListFrame.ScrollBarThickness = 4
+PListFrame.ZIndex = 10
 Instance.new("UIListLayout", PListFrame).Padding = UDim.new(0, 2)
 Instance.new("UICorner", PListFrame)
+
+-- Keeps Player List attached to the Main Menu even while dragging
+game:GetService("RunService").Heartbeat:Connect(function()
+    PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
+end)
 
 -- // YOUR WORKED WALL CHECK LOGIC
 local function isVisible(targetPos, targetChar)
@@ -107,11 +113,9 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
     if AIM_ENABLED then
         local tPos, dist = nil, 2000
         for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-            -- TEAM CHECK REMOVED: Now only checks if NOT Whitelisted
             if p ~= player and not WHITELISTED[p.Name] then
                 local char = p.Character
                 if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                    -- Target Part Finder
                     local part = nil
                     if TARGET_TYPE == "Head" then
                         part = char:FindFirstChild("Head")
@@ -123,8 +127,6 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
                     
                     if part then
                         local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.26, 0) or part.Position
-                        
-                        -- Wall Check Logic
                         if isVisible(finalPos, char) then
                             local d = (finalPos - player.Character.HumanoidRootPart.Position).Magnitude
                             if d < dist then tPos = finalPos dist = d end
@@ -169,9 +171,9 @@ PListToggle.MouseButton1Click:Connect(function()
                 Instance.new("UICorner", b)
             end
         end
-        PListFrame:TweenSize(UDim2.new(1, 0, 0, 150), "Out", "Quad", 0.2, true)
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 150), "Out", "Quad", 0.2, true)
     else
-        PListFrame:TweenSize(UDim2.new(1, 0, 0, 0), "Out", "Quad", 0.2, true)
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
     end
 end)
 
