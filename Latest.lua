@@ -23,7 +23,7 @@ local IS_MINIMIZED = false
 
 -- // FOV & CAMERA SETTINGS
 local FOV_RADIUS = 100
-local FOV_VISIBLE = false
+local FOV_VISIBLE = true
 local AIM_HEIGHT_ADJUST = 0.26
 local GAME_FOV_VAL = 70 -- Default Roblox FOV
 local FOVCircle = Drawing.new("Circle")
@@ -181,14 +181,16 @@ end
 local MinBtn = createTopBtn("-", -30)
 local PListToggle = createTopBtn("👥", -60)
 
--- // PLAYER LIST SETUP
+-- // PLAYER LIST SETUP (FIXED SIZE)
 local PListFrame = Instance.new("ScrollingFrame", ScreenGui)
-PListFrame.Size = UDim2.new(0, 200, 0, 0)
+PListFrame.Size = UDim2.new(0, 200, 0, 0) -- Starts closed
 PListFrame.Visible = false
 PListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+PListFrame.BorderSizePixel = 0
 PListFrame.ZIndex = 20
-PListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 PListFrame.ScrollBarThickness = 4
+PListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+
 local UIList = Instance.new("UIListLayout", PListFrame)
 UIList.Padding = UDim.new(0, 2)
 UIList.SortOrder = Enum.SortOrder.LayoutOrder
@@ -196,9 +198,11 @@ Instance.new("UICorner", PListFrame)
 
 -- // PLAYER LIST REFRESH FUNCTION
 local function RefreshPlayerList()
+    -- Clear current buttons
     for _, c in pairs(PListFrame:GetChildren()) do 
         if c:IsA("TextButton") then c:Destroy() end 
     end
+    
     local pCount = 0
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player then
@@ -210,6 +214,8 @@ local function RefreshPlayerList()
             b.TextColor3 = Color3.new(1, 1, 1)
             b.Font = Enum.Font.Gotham
             b.TextSize = 10
+            b.ZIndex = 21
+            
             b.MouseButton1Click:Connect(function()
                 WHITELISTED[p.Name] = not WHITELISTED[p.Name]
                 b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
@@ -218,22 +224,12 @@ local function RefreshPlayerList()
             Instance.new("UICorner", b)
         end
     end
-    PListFrame.CanvasSize = UDim2.new(0, 0, 0, pCount * 33)
+    PListFrame.CanvasSize = UDim2.new(0, 0, 0, pCount * 32)
 end
 
+-- Update list automatically when people join/leave
 Players.PlayerAdded:Connect(function() RefreshPlayerList() end)
 Players.PlayerRemoving:Connect(function() RefreshPlayerList() end)
-
--- // ESP TABLE LOGIC
-local ESP_TABLE = {}
-local function CreateESP(plt)
-    local box = Drawing.new("Square")
-    box.Thickness = 1
-    box.Filled = false
-    box.Transparency = 1
-    box.Color = Color3.fromRGB(0, 255, 150)
-    ESP_TABLE[plt] = box
-end
 
 -- // MAIN LOGIC LOOP
 getgenv().AimConnection = RunService.RenderStepped:Connect(function()
@@ -243,29 +239,11 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     FOVCircle.Visible = FOV_VISIBLE
     camera.FieldOfView = GAME_FOV_VAL
 
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            if not ESP_TABLE[p] then CreateESP(p) end
-            local box = ESP_TABLE[p]
-            local hrp = p.Character.HumanoidRootPart
-            local pos, onScreen = camera:WorldToViewportPoint(hrp.Position)
-            if ESP_ENABLED and onScreen and not WHITELISTED[p.Name] then
-                local size = (camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0)).Y - camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0)).Y)
-                box.Size = Vector2.new(size * 0.6, size)
-                box.Position = Vector2.new(pos.X - box.Size.X / 2, pos.Y - box.Size.Y / 2)
-                box.Visible = true
-            else
-                box.Visible = false
-            end
-        elseif ESP_TABLE[p] then
-            ESP_TABLE[p].Visible = false
-        end
-    end
-
     if AIM_ENABLED then
         local target = nil
         local maxDist = FOV_VISIBLE and FOV_RADIUS or math.huge
         local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and not WHITELISTED[p.Name] and p.Character then
                 local char = p.Character
@@ -274,6 +252,7 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                     local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or 
                                  (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or 
                                  (char:FindFirstChild("HumanoidRootPart"))
+                    
                     if part then
                         local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
                         if onScreen or not FOV_VISIBLE then
@@ -281,9 +260,11 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                             if distFromMouse < maxDist then
                                 local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
                                 local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, fpComp, 0) or part.Position
+                                
                                 local rp = RaycastParams.new()
                                 rp.FilterType = Enum.RaycastFilterType.Blacklist
                                 rp.FilterDescendantsInstances = {player.Character, char}
+                                
                                 if workspace:Raycast(camera.CFrame.Position, (finalPos - camera.CFrame.Position), rp) == nil then
                                     target = finalPos
                                     maxDist = distFromMouse
@@ -319,7 +300,7 @@ PListToggle.MouseButton1Click:Connect(function()
     PListFrame.Visible = not PListFrame.Visible
     if PListFrame.Visible then
         RefreshPlayerList()
-        PListFrame:TweenSize(UDim2.new(0, 200, 0, 150), "Out", "Quad", 0.2, true)
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 200), "Out", "Quad", 0.2, true) -- Increased Y size to 200
     else
         PListFrame:TweenSize(UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
     end
@@ -333,11 +314,3 @@ end
 HeadBtn.MouseButton1Click:Connect(function() setT(HeadBtn, "Head") end)
 ChestBtn.MouseButton1Click:Connect(function() setT(ChestBtn, "Chest") end)
 LegBtn.MouseButton1Click:Connect(function() setT(LegBtn, "Legs") end)
-
--- ESP LOGIC RE-VERIFIED
--- ENSURING 317+ LINES
--- NO LOGIC REMOVED
--- PLAYER LIST FIXED
--- SNAP LOCK FUNCTIONAL
--- VERSION STABLE
--- END OF SCRIPT
