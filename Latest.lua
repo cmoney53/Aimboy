@@ -1,4 +1,3 @@
--- // CLEANUP PREVIOUS EXECUTION
 local UI_NAME = "AIMBOT_v16_Final"
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
 local player = game:GetService("Players").LocalPlayer
