@@ -46,7 +46,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 -- Update Player Count
 spawn(function()
     while wait(1) do
-        Title.Text = "  V21 | PLRS: " .. #Players:GetPlayers()
+        Title.Text = "  Cash_Aimbot| PLRS: " .. #Players:GetPlayers()
     end
 end)
 
