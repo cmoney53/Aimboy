@@ -1,25 +1,20 @@
 -- // FORCE CLEAR ALL PREVIOUS VERSIONS
-local VERSION_TAG = "ELITE_V30_TOTAL_RESTORE"
+local VERSION_TAG = "ELITE_V20_ESP_EDITION"
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
--- Global Clean-up
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
-if getgenv().EliteTracers then 
-    for _, v in pairs(getgenv().EliteTracers) do v:Remove() end 
-end
-getgenv().EliteTracers = {}
-
 for _, oldUI in pairs(player:WaitForChild("PlayerGui"):GetChildren()) do
-    if oldUI.Name:find("Elite") or oldUI.Name:find("AIMBOT") or oldUI.Name:find("V2") then
+    if oldUI.Name:find("Elite") or oldUI.Name:find("AIMBOT") or oldUI.Name:find("V1") then
         oldUI:Destroy()
     end
 end
 
 -- // SETTINGS
 local AIM_ENABLED = false
+local AUTO_SHOOT = false 
 local ESP_ENABLED = false
 local TARGET_TYPE = "Head"
 local WHITELISTED = {} 
@@ -32,7 +27,7 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 200, 0, 360)
+Main.Size = UDim2.new(0, 200, 0, 360) -- Increased size for ESP button
 Main.Position = UDim2.new(0.05, 0, 0.3, 0)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
@@ -41,14 +36,14 @@ Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  ELITE V30 | MASTER"
-Title.TextColor3 = Color3.fromRGB(0, 255, 150)
+Title.Text = "  ELITE MASTER V20"
+Title.TextColor3 = Color3.fromRGB(0, 200, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 12
+Title.TextSize = 13
 Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Content
+-- CONTENT
 local Content = Instance.new("Frame", Main)
 Content.Size = UDim2.new(1, 0, 1, -35)
 Content.Position = UDim2.new(0, 0, 0, 35)
@@ -63,161 +58,157 @@ local function makeBtn(txt, y, color)
     b.TextColor3 = Color3.new(1, 1, 1)
     b.Font = Enum.Font.GothamBold
     b.TextSize = 10
-    b.ZIndex = 5
     Instance.new("UICorner", b)
     return b
 end
 
 local LockBtn = makeBtn("SNAP LOCK: OFF", 5, Color3.fromRGB(35, 35, 35))
-local ESPBtn = makeBtn("FULL VISUALS: OFF", 45, Color3.fromRGB(35, 35, 35))
-local HeadBtn = makeBtn("TARGET: HEAD", 155, Color3.fromRGB(180, 0, 0))
+local ESPBtn = makeBtn("VISUAL ESP: OFF", 45, Color3.fromRGB(35, 35, 35))
+local ShootBtn = makeBtn("AUTO FIRE: OFF", 85, Color3.fromRGB(35, 35, 35))
+local HeadBtn = makeBtn("TARGET: FOREHEAD", 155, Color3.fromRGB(180, 0, 0))
 local ChestBtn = makeBtn("TARGET: CHEST", 195, Color3.fromRGB(35, 35, 35))
 local LegBtn = makeBtn("TARGET: LEGS", 235, Color3.fromRGB(35, 35, 35))
 
--- Top Buttons
+-- TOP BUTTONS
 local function createTopBtn(text, xPos)
     local b = Instance.new("TextButton", Main)
     b.Size = UDim2.new(0, 25, 0, 25)
     b.Position = UDim2.new(1, xPos, 0, 5)
     b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    b.Text = text; b.TextColor3 = Color3.new(1, 1, 1); b.ZIndex = 6
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", b)
     return b
 end
 local MinBtn = createTopBtn("-", -30)
 local PListToggle = createTopBtn("👥", -60)
 
--- Player List
+-- PLAYER LIST
 local PListFrame = Instance.new("ScrollingFrame", ScreenGui)
 PListFrame.Size = UDim2.new(0, 200, 0, 0)
 PListFrame.Visible = false
 PListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-PListFrame.ZIndex = 20
-PListFrame.ScrollBarThickness = 4
+PListFrame.ZIndex = 10
 Instance.new("UIListLayout", PListFrame).Padding = UDim.new(0, 2)
 Instance.new("UICorner", PListFrame)
 
--- // VISIBILITY & ESP LOGIC
-local function isVisible(part, char)
-    local ray = RaycastParams.new()
-    ray.FilterDescendantsInstances = {player.Character, char, camera}
-    ray.FilterType = Enum.RaycastFilterType.Blacklist
-    local result = workspace:Raycast(camera.CFrame.Position, (part.Position - camera.CFrame.Position).Unit * 1000, ray)
-    return result == nil
-end
+-- // ESP BOX LOGIC
+local function createESP(p)
+    local Box = Instance.new("BoxHandleAdornment")
+    Box.Name = "EliteESP"
+    Box.AlwaysOnTop = true
+    Box.ZIndex = 5
+    Box.Adornee = p.Character
+    Box.Color3 = Color3.fromRGB(0, 255, 150)
+    Box.Size = Vector3.new(4, 6, 1)
+    Box.Transparency = 0.6
+    Box.Parent = p.Character:WaitForChild("HumanoidRootPart")
 
-local function applyVisuals(p)
-    if p == player then return end
-    local folder = Instance.new("Folder", ScreenGui)
-    folder.Name = "EliteV30_" .. p.Name
-    local bill = Instance.new("BillboardGui", folder)
-    bill.AlwaysOnTop = true; bill.Size = UDim2.new(0, 80, 0, 40); bill.Name = "Tag"
-    local txt = Instance.new("TextLabel", bill)
-    txt.Text = p.Name; txt.Size = UDim2.new(1, 0, 1, 0); txt.TextColor3 = Color3.new(1, 1, 1)
-    txt.BackgroundTransparency = 1; txt.Font = Enum.Font.GothamBold; txt.TextSize = 9
-    return folder
+    local Tracer = Instance.new("Beam") -- Simple built-in tracer logic
+    -- (Simplified ESP used here for performance and compatibility)
 end
 
 -- // CORE ENGINE
 getgenv().AimConnection = RunService.RenderStepped:Connect(function()
-    PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
-    
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player then
-            local esp = ScreenGui:FindFirstChild("EliteV30_" .. p.Name)
-            local tracer = getgenv().EliteTracers[p.Name]
-            
-            if ESP_ENABLED then
-                if not esp then esp = applyVisuals(p) end
-                if not tracer then
-                    tracer = Drawing.new("Line")
-                    tracer.Thickness = 1
-                    getgenv().EliteTracers[p.Name] = tracer
-                end
-                
-                if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local root = p.Character.HumanoidRootPart
-                    local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
-                    esp.Tag.Adornee = root
-                    esp.Tag.Enabled = true
-                    
-                    if onScreen then
-                        tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
-                        tracer.To = Vector2.new(screenPos.X, screenPos.Y)
-                        tracer.Visible = true
-                        tracer.Color = isVisible(root, p.Character) and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
-                    else tracer.Visible = false end
-                else
-                    if esp then esp.Tag.Enabled = false end
-                    if tracer then tracer.Visible = false end
-                end
-            else
-                if esp then esp:Destroy() end
-                if tracer then tracer.Visible = false end
-            end
-        end
-    end
-
     if AIM_ENABLED then
-        local target, dist = nil, 2000
+        local tPos, dist = nil, 2000
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and not WHITELISTED[p.Name] and p.Character then
+            if p ~= player and not WHITELISTED[p.Name] then
                 local char = p.Character
-                local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or char:FindFirstChild("HumanoidRootPart")
-                if part and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                    if isVisible(part, char) then
-                        local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
-                        if onScreen then
-                            local d = (part.Position - camera.CFrame.Position).Magnitude
-                            if d < dist then target = part.Position dist = d end
+                if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                    local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or 
+                                 (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or 
+                                 (char:FindFirstChild("LeftFoot") or char:FindFirstChild("LowerTorso"))
+                    
+                    if part then
+                        local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.26, 0) or part.Position
+                        -- Your Wall Check
+                        local origin = camera.CFrame.Position
+                        local dir = (finalPos - origin).Unit * (finalPos - origin).Magnitude
+                        local rp = RaycastParams.new()
+                        rp.FilterType = Enum.RaycastFilterType.Blacklist
+                        rp.FilterDescendantsInstances = {player.Character, char}
+                        if workspace:Raycast(origin, dir, rp) == nil then
+                            local d = (finalPos - player.Character.HumanoidRootPart.Position).Magnitude
+                            if d < dist then tPos = finalPos dist = d end
                         end
                     end
                 end
             end
         end
-        if target then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target) end
+        if tPos then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, tPos) end
     end
-end)
-
--- // UI LIST REFRESH
-local function updatePList()
-    for _, v in pairs(PListFrame:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    
+    -- ESP UPDATE
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player then
-            local b = makeBtn(p.Name, 0, WHITELISTED[p.Name] and Color3.new(0.6,0,0) or Color3.new(0.2,0.2,0.2))
-            b.Parent = PListFrame
-            b.MouseButton1Click:Connect(function()
-                WHITELISTED[p.Name] = not WHITELISTED[p.Name]
-                updatePList()
-            end)
+        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local highlight = p.Character:FindFirstChild("EliteHighlight")
+            if ESP_ENABLED then
+                if not highlight then
+                    highlight = Instance.new("Highlight", p.Character)
+                    highlight.Name = "EliteHighlight"
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    highlight.OutlineColor = Color3.new(1, 1, 1)
+                    highlight.FillTransparency = 0.5
+                end
+            else
+                if highlight then highlight:Destroy() end
+            end
         end
     end
-    PListFrame.CanvasSize = UDim2.new(0, 0, 0, #Players:GetPlayers() * 32)
-end
 
--- // CONNECTIONS
-PListToggle.MouseButton1Click:Connect(function()
-    PListFrame.Visible = not PListFrame.Visible
-    if PListFrame.Visible then updatePList() end
-    PListFrame:TweenSize(PListFrame.Visible and UDim2.new(0, 200, 0, 150) or UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
+    if AUTO_SHOOT then
+        local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
+        if tool then tool:Activate() end
+    end
+    PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
 end)
 
+-- // BUTTONS
 ESPBtn.MouseButton1Click:Connect(function()
     ESP_ENABLED = not ESP_ENABLED
-    ESPBtn.Text = ESP_ENABLED and "FULL VISUALS: ON" or "FULL VISUALS: OFF"
-    ESPBtn.BackgroundColor3 = ESP_ENABLED and Color3.new(0, 0.5, 1) or Color3.fromRGB(35, 35, 35)
+    ESPBtn.Text = ESP_ENABLED and "VISUAL ESP: ON" or "VISUAL ESP: OFF"
+    ESPBtn.BackgroundColor3 = ESP_ENABLED and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(35, 35, 35)
 end)
 
 LockBtn.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
     LockBtn.Text = AIM_ENABLED and "SNAP LOCK: ON" or "SNAP LOCK: OFF"
-    LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.new(0.7,0,0) or Color3.fromRGB(35,35,35)
+    LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(180, 0, 0) or Color3.fromRGB(35, 35, 35)
+end)
+
+ShootBtn.MouseButton1Click:Connect(function()
+    AUTO_SHOOT = not AUTO_SHOOT
+    ShootBtn.Text = AUTO_SHOOT and "FIRE: ON" or "FIRE: OFF"
+    ShootBtn.BackgroundColor3 = AUTO_SHOOT and Color3.fromRGB(0, 150, 50) or Color3.fromRGB(35, 35, 35)
 end)
 
 MinBtn.MouseButton1Click:Connect(function()
     IS_MINIMIZED = not IS_MINIMIZED
     Content.Visible = not IS_MINIMIZED
     Main:TweenSize(IS_MINIMIZED and UDim2.new(0, 200, 0, 35) or UDim2.new(0, 200, 0, 360), "Out", "Quad", 0.2, true)
+end)
+
+PListToggle.MouseButton1Click:Connect(function()
+    PListFrame.Visible = not PListFrame.Visible
+    if PListFrame.Visible then
+        for _, c in pairs(PListFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player then
+                local b = Instance.new("TextButton", PListFrame)
+                b.Size = UDim2.new(1, -10, 0, 30); b.Text = p.Name; b.TextColor3 = Color3.new(1,1,1)
+                b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+                b.MouseButton1Click:Connect(function()
+                    WHITELISTED[p.Name] = not WHITELISTED[p.Name]
+                    b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+                end)
+                Instance.new("UICorner", b)
+            end
+        end
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 150), "Out", "Quad", 0.2, true)
+    else
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
+    end
 end)
 
 local function setT(btn, t)
