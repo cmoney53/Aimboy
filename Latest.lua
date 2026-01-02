@@ -1,8 +1,18 @@
-local UI_NAME = "AIMBOT_v16_Final"
+-- // HARD CLEANUP (Kills all previous versions)
+local UI_NAME = "Elite_V17_Final"
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+-- Disconnect any old loops
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
-local player = game:GetService("Players").LocalPlayer
-local oldUI = player:WaitForChild("PlayerGui"):FindFirstChild(UI_NAME)
-if oldUI then oldUI:Destroy() end
+
+-- Destroy any UI with this name or common previous names
+for _, old in pairs(player:WaitForChild("PlayerGui"):GetChildren()) do
+    if old.Name == UI_NAME or old.Name == "AIMBOT v13" or old.Name == "EliteMasterV12" then
+        old:Destroy()
+    end
+end
 
 -- // SETTINGS
 local AIM_ENABLED = false
@@ -10,6 +20,7 @@ local AUTO_SHOOT = false
 local TARGET_TYPE = "Head"
 local WHITELISTED = {} 
 local IS_MINIMIZED = false
+local camera = workspace.CurrentCamera
 
 -- // UI SETUP
 local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
@@ -28,7 +39,7 @@ Instance.new("UICorner", Main)
 -- TITLE BAR
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  AIMBOT v16"
+Title.Text = "  ELITE MASTER V17"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -75,7 +86,7 @@ local HeadBtn = makeBtn("TARGET: FOREHEAD", 115, Color3.fromRGB(180, 0, 0))
 local ChestBtn = makeBtn("TARGET: CHEST", 160, Color3.fromRGB(35, 35, 35))
 local LegBtn = makeBtn("TARGET: LEGS", 205, Color3.fromRGB(35, 35, 35))
 
--- PLAYER LIST (Parented to ScreenGui to fix scrolling)
+-- PLAYER LIST (Parented to ScreenGui for Independent Scrolling)
 local PListFrame = Instance.new("ScrollingFrame", ScreenGui)
 PListFrame.Size = UDim2.new(0, 200, 0, 0)
 PListFrame.Visible = false
@@ -86,43 +97,34 @@ PListFrame.ZIndex = 10
 Instance.new("UIListLayout", PListFrame).Padding = UDim.new(0, 2)
 Instance.new("UICorner", PListFrame)
 
--- Keeps Player List attached to the Main Menu even while dragging
-game:GetService("RunService").Heartbeat:Connect(function()
+-- Keeps Player List attached to Main Menu
+RunService.Heartbeat:Connect(function()
     PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
 end)
 
--- // YOUR WORKED WALL CHECK LOGIC
+-- // WALL CHECK LOGIC
 local function isVisible(targetPos, targetChar)
-    local camera = workspace.CurrentCamera
     local origin = camera.CFrame.Position
     local direction = (targetPos - origin).Unit * (targetPos - origin).Magnitude
-    
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
     raycastParams.FilterDescendantsInstances = {player.Character, targetChar}
     raycastParams.IgnoreWater = true
-
     local result = workspace:Raycast(origin, direction, raycastParams)
     return result == nil
 end
 
 -- // CORE ENGINE
-getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(function()
-    local camera = workspace.CurrentCamera
+getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     if AIM_ENABLED then
         local tPos, dist = nil, 2000
-        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+        for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and not WHITELISTED[p.Name] then
                 local char = p.Character
                 if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                    local part = nil
-                    if TARGET_TYPE == "Head" then
-                        part = char:FindFirstChild("Head")
-                    elseif TARGET_TYPE == "Chest" then
-                        part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
-                    else
-                        part = char:FindFirstChild("LeftFoot") or char:FindFirstChild("RightFoot") or char:FindFirstChild("LowerTorso")
-                    end
+                    local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or 
+                                 (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or 
+                                 (char:FindFirstChild("LeftFoot") or char:FindFirstChild("LowerTorso"))
                     
                     if part then
                         local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.26, 0) or part.Position
@@ -142,7 +144,7 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
     end
 end)
 
--- // UI CONNECTIONS
+-- // BUTTON CONNECTIONS
 MinBtn.MouseButton1Click:Connect(function()
     IS_MINIMIZED = not IS_MINIMIZED
     Content.Visible = not IS_MINIMIZED
@@ -154,18 +156,18 @@ PListToggle.MouseButton1Click:Connect(function()
     PListFrame.Visible = not PListFrame.Visible
     if PListFrame.Visible then
         for _, c in pairs(PListFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
-        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+        for _, p in pairs(Players:GetPlayers()) do
             if p ~= player then
                 local b = Instance.new("TextButton", PListFrame)
                 b.Size = UDim2.new(1, -10, 0, 30)
                 b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                b.Text = WHITELISTED[p.Name] and p.Name .. " (WHITELISTED)" or p.Name
-                b.TextColor3 = Color3.new(1, 1, 1)
+                b.Text = WHITELISTED[p.Name] and p.Name .. " (WL)" or p.Name
+                b.TextColor3 = Color3.new(1,1,1)
                 b.Font = Enum.Font.Gotham
                 b.MouseButton1Click:Connect(function()
                     WHITELISTED[p.Name] = not WHITELISTED[p.Name]
                     b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                    b.Text = WHITELISTED[p.Name] and p.Name .. " (WHITELISTED)" or p.Name
+                    b.Text = WHITELISTED[p.Name] and p.Name .. " (WL)" or p.Name
                 end)
                 Instance.new("UICorner", b)
             end
