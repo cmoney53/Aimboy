@@ -1,170 +1,129 @@
--- // CLEANUP PREVIOUS EXECUTION
-local UI_NAME = "EliteMasterSuite_V9"
+-- // CLEANUP
+local UI_NAME = "EliteSuite_V10"
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
-
+local player = game:GetService("Players").LocalPlayer
 local oldUI = player:WaitForChild("PlayerGui"):FindFirstChild(UI_NAME)
 if oldUI then oldUI:Destroy() end
 
--- // SETTINGS & TABLES
+-- // SETTINGS
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local TARGET_TYPE = "Head"
-local WHITELISTED_PLAYERS = {} -- Players to NOT lock onto
+local WHITELISTED = {}
+local IS_MINIMIZED = false
 
--- // UI SETUP
+-- // MAIN UI
 local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 ScreenGui.Name = UI_NAME
 ScreenGui.ResetOnSpawn = false
 
--- Main Container
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 200, 0, 320)
-MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-MainFrame.Active = true
-MainFrame.Draggable = true
-Instance.new("UICorner", MainFrame)
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 200, 0, 320)
+Main.Position = UDim2.new(0.05, 0, 0.3, 0)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main)
 
--- Title Bar
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, -60, 0, 30)
-Title.Text = "  ELITE V9 MASTER"
+-- Top Bar
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, -60, 0, 35)
+Title.Text = "  ELITE MASTER V10"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
 Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Minimize/Expand Button
-local MinBtn = createMinBtn(MainFrame)
+-- Buttons (Minimize & Player List)
+local function createTopBtn(text, xOffset)
+    local b = Instance.new("TextButton", Main)
+    b.Size = UDim2.new(0, 25, 0, 25)
+    b.Position = UDim2.new(1, xOffset, 0, 5)
+    b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", b)
+    return b
+end
 
--- PLAYER LIST TOGGLE
-local PlayerListBtn = Instance.new("TextButton", MainFrame)
-PlayerListBtn.Size = UDim2.new(0, 25, 0, 25)
-PlayerListBtn.Position = UDim2.new(1, -58, 0, 3)
-PlayerListBtn.Text = "👥"
-PlayerListBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-PlayerListBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", PlayerListBtn)
+local MinBtn = createTopBtn("-", -30)
+local PListToggle = createTopBtn("👥", -60)
 
--- Scrolling Player List (Collapsible)
-local PListFrame = Instance.new("ScrollingFrame", MainFrame)
-PListFrame.Size = UDim2.new(1, -10, 0, 0) -- Starts collapsed
-PListFrame.Position = UDim2.new(0, 5, 1, 5)
-PListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-PListFrame.Visible = false
-PListFrame.CanvasSize = UDim2.new(0,0,0,0)
-PListFrame.ScrollBarThickness = 4
-Instance.new("UIListLayout", PListFrame).Padding = UDim.new(0, 2)
-Instance.new("UICorner", PListFrame)
-
--- Main Content Area
-local Content = Instance.new("Frame", MainFrame)
-Content.Size = UDim2.new(1, 0, 1, -30)
-Content.Position = UDim2.new(0, 0, 0, 30)
+-- Container for all main buttons
+local Content = Instance.new("Frame", Main)
+Content.Size = UDim2.new(1, 0, 1, -35)
+Content.Position = UDim2.new(0, 0, 0, 35)
 Content.BackgroundTransparency = 1
 
-local function createBtn(text, pos, color, parent)
-    local btn = Instance.new("TextButton", parent or Content)
-    btn.Size = UDim2.new(0, 180, 0, 35)
-    btn.Position = pos
-    btn.BackgroundColor3 = color
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11
-    Instance.new("UICorner", btn)
-    return btn
+-- Button Creator
+local function makeBtn(txt, yPos, color)
+    local b = Instance.new("TextButton", Content)
+    b.Size = UDim2.new(0, 180, 0, 38)
+    b.Position = UDim2.new(0, 10, 0, yPos)
+    b.BackgroundColor3 = color
+    b.Text = txt
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 11
+    Instance.new("UICorner", b)
+    return b
 end
 
--- Controls
-local LockBtn = createBtn("SNAP LOCK: OFF", UDim2.new(0, 10, 0, 5), Color3.fromRGB(35, 35, 35))
-local ShootBtn = createBtn("AUTO FIRE: OFF", UDim2.new(0, 10, 0, 45), Color3.fromRGB(35, 35, 35))
-local HeadBtn = createBtn("TARGET: FOREHEAD", UDim2.new(0, 10, 0, 100), Color3.fromRGB(150, 0, 0))
-local ChestBtn = createBtn("TARGET: CHEST", UDim2.new(0, 10, 0, 140), Color3.fromRGB(35, 35, 35))
-local LegBtn = createBtn("TARGET: LEGS", UDim2.new(0, 10, 0, 180), Color3.fromRGB(35, 35, 35))
+local LockBtn = makeBtn("SNAP LOCK: OFF", 5, Color3.fromRGB(35, 35, 35))
+local ShootBtn = makeBtn("AUTO FIRE: OFF", 50, Color3.fromRGB(35, 35, 35))
+local HeadBtn = makeBtn("TARGET: FOREHEAD", 110, Color3.fromRGB(180, 0, 0))
+local ChestBtn = makeBtn("TARGET: CHEST", 155, Color3.fromRGB(35, 35, 35))
+local LegBtn = makeBtn("TARGET: LEGS", 200, Color3.fromRGB(35, 35, 35))
 
--- // PLAYER LIST REFRESH
-local function updatePlayerList()
-    for _, child in pairs(PListFrame:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
-    end
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player then
-            local pBtn = Instance.new("TextButton", PListFrame)
-            pBtn.Size = UDim2.new(1, -10, 0, 25)
-            pBtn.Text = p.Name
-            pBtn.BackgroundColor3 = WHITELISTED_PLAYERS[p.Name] and Color3.fromRGB(100, 30, 30) or Color3.fromRGB(40, 40, 40)
-            pBtn.TextColor3 = Color3.new(1,1,1)
-            pBtn.Font = Enum.Font.Gotham
-            pBtn.TextSize = 10
-            Instance.new("UICorner", pBtn)
-            
-            pBtn.MouseButton1Click:Connect(function()
-                WHITELISTED_PLAYERS[p.Name] = not WHITELISTED_PLAYERS[p.Name]
-                pBtn.BackgroundColor3 = WHITELISTED_PLAYERS[p.Name] and Color3.fromRGB(100, 30, 30) or Color3.fromRGB(40, 40, 40)
-                pBtn.Text = WHITELISTED_PLAYERS[p.Name] and p.Name .. " (IGNORED)" or p.Name
-            end)
-        end
-    end
-    PListFrame.CanvasSize = UDim2.new(0,0,0, #Players:GetPlayers() * 27)
-end
+-- Player List Frame
+local PList = Instance.new("ScrollingFrame", Main)
+PList.Size = UDim2.new(1, 0, 0, 150)
+PList.Position = UDim2.new(0, 0, 1, 5)
+PList.Visible = false
+PList.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+PList.ScrollBarThickness = 4
+Instance.new("UIListLayout", PList).Padding = UDim.new(0, 2)
+Instance.new("UICorner", PList)
 
--- // UI TOGGLES
-PlayerListBtn.MouseButton1Click:Connect(function()
-    local isOpening = not PListFrame.Visible
-    if isOpening then updatePlayerList() end
-    PListFrame.Visible = isOpening
-    PListFrame:TweenSize(isOpening and UDim2.new(1, -10, 0, 150) or UDim2.new(1, -10, 0, 0), "Out", "Quad", 0.2, true)
-end)
-
--- // TARGET LOGIC
-local function getTargetPosition(char)
-    local pos = nil
+-- // FUNCTIONS
+local function getTargetPos(char)
+    local part = nil
     if TARGET_TYPE == "Head" then
-        local head = char:FindFirstChild("Head")
-        if head then pos = head.Position + Vector3.new(0, 0.28, 0) end
+        part = char:FindFirstChild("Head")
+        if part then return part.Position + Vector3.new(0, 0.28, 0) end
     elseif TARGET_TYPE == "Chest" then
-        local chest = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
-        if chest then pos = chest.Position end
-    elseif TARGET_TYPE == "Legs" then
-        local leg = char:FindFirstChild("LeftFoot") or char:FindFirstChild("RightFoot") or char:FindFirstChild("LowerTorso")
-        if leg then pos = leg.Position end
+        part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+    else
+        part = char:FindFirstChild("LeftFoot") or char:FindFirstChild("LowerTorso")
     end
-    -- Visibility Check
-    if pos then
-        local ray = RaycastParams.new()
-        ray.FilterType = Enum.RaycastFilterType.Exclude
-        ray.FilterDescendantsInstances = {player.Character, char}
-        local hit = workspace:Raycast(camera.CFrame.Position, (pos - camera.CFrame.Position), ray)
-        if hit then return nil end
-    end
-    return pos
+    return part and part.Position or nil
 end
 
--- // MAIN ENGINE
-getgenv().AimConnection = RunService.RenderStepped:Connect(function()
+local function isVisible(pos, char)
+    local ray = RaycastParams.new()
+    ray.FilterType = Enum.RaycastFilterType.Exclude
+    ray.FilterDescendantsInstances = {player.Character, char}
+    local hit = workspace:Raycast(workspace.CurrentCamera.CFrame.Position, (pos - workspace.CurrentCamera.CFrame.Position), ray)
+    return hit == nil
+end
+
+-- // CORE LOOPS
+getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(function()
     if AIM_ENABLED then
-        local closestPos, dist = nil, 2000
-        for _, p in pairs(Players:GetPlayers()) do
-            -- Checks if player is NOT in Whitelist and is Enemy
-            if p ~= player and not WHITELISTED_PLAYERS[p.Name] and (not player.Team or p.Team ~= player.Team) then
-                local char = p.Character
-                if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                    local pos = getTargetPosition(char)
-                    if pos then
-                        local d = (pos - camera.CFrame.Position).Magnitude
-                        if d < dist then closestPos = pos dist = d end
+        local targetPos, closeDist = nil, 2000
+        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= player and not WHITELISTED[p.Name] and (not player.Team or p.Team ~= player.Team) then
+                if p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    local pos = getTargetPos(p.Character)
+                    if pos and isVisible(pos, p.Character) then
+                        local d = (pos - workspace.CurrentCamera.CFrame.Position).Magnitude
+                        if d < closeDist then targetPos = pos closeDist = d end
                     end
                 end
             end
         end
-        if closestPos then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, closestPos) end
+        if targetPos then workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, targetPos) end
     end
     if AUTO_SHOOT then
         local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
@@ -172,7 +131,34 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     end
 end)
 
--- // BUTTONS SETUP
+-- // UI INTERACTIONS
+MinBtn.MouseButton1Click:Connect(function()
+    IS_MINIMIZED = not IS_MINIMIZED
+    Content.Visible = not IS_MINIMIZED
+    MinBtn.Text = IS_MINIMIZED and "+" or "-"
+    Main:TweenSize(IS_MINIMIZED and UDim2.new(0, 200, 0, 35) or UDim2.new(0, 200, 0, 320), "Out", "Quad", 0.2, true)
+end)
+
+PListToggle.MouseButton1Click:Connect(function()
+    PList.Visible = not PList.Visible
+    if PList.Visible then
+        for _, c in pairs(PList:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= player then
+                local b = Instance.new("TextButton", PList)
+                b.Size = UDim2.new(1, -10, 0, 30)
+                b.Text = p.Name
+                b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+                b.TextColor3 = Color3.new(1,1,1)
+                b.MouseButton1Click:Connect(function()
+                    WHITELISTED[p.Name] = not WHITELISTED[p.Name]
+                    b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+                end)
+            end
+        end
+    end
+end)
+
 LockBtn.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
     LockBtn.Text = AIM_ENABLED and "SNAP LOCK: ON" or "SNAP LOCK: OFF"
@@ -185,13 +171,11 @@ ShootBtn.MouseButton1Click:Connect(function()
     ShootBtn.BackgroundColor3 = AUTO_SHOOT and Color3.fromRGB(0, 150, 50) or Color3.fromRGB(35, 35, 35)
 end)
 
-local function updateSel(btn, type)
-    TARGET_TYPE = type
-    HeadBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    ChestBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    LegBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+local function setT(btn, t)
+    TARGET_TYPE = t
+    HeadBtn.BackgroundColor3, ChestBtn.BackgroundColor3, LegBtn.BackgroundColor3 = Color3.fromRGB(35,35,35), Color3.fromRGB(35,35,35), Color3.fromRGB(35,35,35)
     btn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 end
-HeadBtn.MouseButton1Click:Connect(function() updateSel(HeadBtn, "Head") end)
-ChestBtn.MouseButton1Click:Connect(function() updateSel(ChestBtn, "Chest") end)
-LegBtn.MouseButton1Click:Connect(function() updateSel(LegBtn, "Legs") end)
+HeadBtn.MouseButton1Click:Connect(function() setT(HeadBtn, "Head") end)
+ChestBtn.MouseButton1Click:Connect(function() setT(ChestBtn, "Chest") end)
+LegBtn.MouseButton1Click:Connect(function() setT(LegBtn, "Legs") end)
