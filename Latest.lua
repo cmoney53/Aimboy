@@ -1,5 +1,5 @@
--- // CLEANUP PREVIOUS
-local UI_NAME = "EliteMasterV12"
+-- // CLEANUP PREVIOUS EXECUTION
+local UI_NAME = "EliteMasterV13_NoTeam"
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
 local player = game:GetService("Players").LocalPlayer
 local oldUI = player:WaitForChild("PlayerGui"):FindFirstChild(UI_NAME)
@@ -9,7 +9,7 @@ if oldUI then oldUI:Destroy() end
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local TARGET_TYPE = "Head"
-local WHITELISTED = {}
+local WHITELISTED = {} -- ONLY people in here will be ignored
 local IS_MINIMIZED = false
 
 -- // UI SETUP
@@ -28,7 +28,7 @@ Instance.new("UICorner", Main)
 -- TITLE BAR
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  ELITE MASTER V12"
+Title.Text = "  ELITE MASTER V13"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -107,8 +107,8 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
     if AIM_ENABLED then
         local tPos, dist = nil, 2000
         for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-            -- Team check + Whitelist check
-            if p ~= player and not WHITELISTED[p.Name] and (not player.Team or p.Team ~= player.Team) then
+            -- TEAM CHECK REMOVED: Now only checks if NOT Whitelisted
+            if p ~= player and not WHITELISTED[p.Name] then
                 local char = p.Character
                 if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
                     -- Target Part Finder
@@ -116,7 +116,7 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
                     if TARGET_TYPE == "Head" then
                         part = char:FindFirstChild("Head")
                     elseif TARGET_TYPE == "Chest" then
-                        part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+                        part = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
                     else
                         part = char:FindFirstChild("LeftFoot") or char:FindFirstChild("RightFoot") or char:FindFirstChild("LowerTorso")
                     end
@@ -124,7 +124,7 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
                     if part then
                         local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.26, 0) or part.Position
                         
-                        -- Using your specific wall check logic
+                        -- Wall Check Logic
                         if isVisible(finalPos, char) then
                             local d = (finalPos - player.Character.HumanoidRootPart.Position).Magnitude
                             if d < dist then tPos = finalPos dist = d end
@@ -158,13 +158,13 @@ PListToggle.MouseButton1Click:Connect(function()
                 local b = Instance.new("TextButton", PListFrame)
                 b.Size = UDim2.new(1, -10, 0, 30)
                 b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                b.Text = WHITELISTED[p.Name] and p.Name .. " (IGNORED)" or p.Name
+                b.Text = WHITELISTED[p.Name] and p.Name .. " (WHITELISTED)" or p.Name
                 b.TextColor3 = Color3.new(1, 1, 1)
                 b.Font = Enum.Font.Gotham
                 b.MouseButton1Click:Connect(function()
                     WHITELISTED[p.Name] = not WHITELISTED[p.Name]
                     b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                    b.Text = WHITELISTED[p.Name] and p.Name .. " (IGNORED)" or p.Name
+                    b.Text = WHITELISTED[p.Name] and p.Name .. " (WHITELISTED)" or p.Name
                 end)
                 Instance.new("UICorner", b)
             end
