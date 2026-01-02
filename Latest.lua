@@ -47,7 +47,7 @@ Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  V21 | PLRS: " .. #Players:GetPlayers()
+Title.Text = "  cash | PLRS: " .. #Players:GetPlayers()
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -57,7 +57,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 -- Player Count Updater
 spawn(function()
     while wait(1) do 
-        Title.Text = "  V21 | PLRS: " .. #Players:GetPlayers() 
+        Title.Text = "  cash | PLRS: " .. #Players:GetPlayers() 
     end
 end)
 
