@@ -10,7 +10,7 @@ local TARGET_TYPE = "Head"
 
 -- // UI SETUP
 local ScreenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-ScreenGui.Name = "VisibleSnapSuite"
+ScreenGui.Name = "EliteSnapSuite"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
 
@@ -40,29 +40,31 @@ local HeadBtn = createBtn("TARGET: FOREHEAD", UDim2.new(0, 10, 0, 110), Color3.f
 local ChestBtn = createBtn("TARGET: CHEST", UDim2.new(0, 10, 0, 155), Color3.fromRGB(40, 40, 40))
 local LegBtn = createBtn("TARGET: LEGS", UDim2.new(0, 10, 0, 200), Color3.fromRGB(40, 40, 40))
 
--- // VISIBILITY CHECK (WALL CHECK)
+-- // VISIBILITY CHECK
 local function isVisible(targetPos, targetChar)
     local origin = camera.CFrame.Position
     local direction = (targetPos - origin).Unit * (targetPos - origin).Magnitude
-    
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    -- Ignore your own character and the target's character parts
     raycastParams.FilterDescendantsInstances = {player.Character, targetChar}
-    raycastParams.IgnoreWater = true
-
     local result = workspace:Raycast(origin, direction, raycastParams)
-    
-    -- If result is nil, nothing hit between camera and target (Path is clear)
     return result == nil
 end
 
--- // THE TARGET FINDER
+-- // TEAM CHECK LOGIC
+local function isEnemy(targetPlayer)
+    -- If teams aren't set up in the game, everyone is an enemy
+    if not player.Team or not targetPlayer.Team then return true end
+    -- Returns true only if teams are different
+    return player.Team ~= targetPlayer.Team
+end
+
+-- // TARGET POSITION FINDER
 local function getTargetPosition(char)
     local pos = nil
     if TARGET_TYPE == "Head" then
         local head = char:FindFirstChild("Head")
-        if head then pos = head.Position + Vector3.new(0, 0.26, 0) end -- Forehead
+        if head then pos = head.Position + Vector3.new(0, 0.26, 0) end
     elseif TARGET_TYPE == "Chest" then
         local chest = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
         if chest then pos = chest.Position end
@@ -71,7 +73,6 @@ local function getTargetPosition(char)
         if leg then pos = leg.Position end
     end
     
-    -- Only return the position if it's visible
     if pos and isVisible(pos, char) then
         return pos
     end
@@ -85,7 +86,8 @@ RunService.RenderStepped:Connect(function()
         local shortestDist = 2000
         
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") then
+            -- Added isEnemy(p) check here
+            if p ~= player and isEnemy(p) and p.Character and p.Character:FindFirstChild("Humanoid") then
                 if p.Character.Humanoid.Health > 0 then
                     local pos = getTargetPosition(p.Character)
                     if pos then
