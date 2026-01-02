@@ -23,7 +23,7 @@ local IS_MINIMIZED = false
 
 -- // FOV & CAMERA SETTINGS
 local FOV_RADIUS = 100
-local FOV_VISIBLE = true
+local FOV_VISIBLE = false
 local AIM_HEIGHT_ADJUST = 0.26
 local GAME_FOV_VAL = 70 -- Default Roblox FOV
 local FOVCircle = Drawing.new("Circle")
