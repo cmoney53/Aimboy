@@ -60,7 +60,7 @@ local HeadBtn = makeBtn("TARGET: FOREHEAD", 115, Color3.fromRGB(180, 0, 0))
 local ChestBtn = makeBtn("TARGET: CHEST", 160, Color3.fromRGB(35, 35, 35))
 local LegBtn = makeBtn("TARGET: LEGS", 205, Color3.fromRGB(35, 35, 35))
 
--- TOP CONTROLS
+-- TOP CONTROLS (Minimize & Player List)
 local MinBtn = Instance.new("TextButton", Main)
 MinBtn.Size = UDim2.new(0, 25, 0, 25)
 MinBtn.Position = UDim2.new(1, -30, 0, 5)
@@ -90,44 +90,49 @@ Instance.new("UICorner", PListFrame)
 
 -- // VISIBILITY CHECK FUNCTION
 local function isVisible(targetPos, targetChar)
-    local origin = workspace.CurrentCamera.CFrame.Position
+    local camera = workspace.CurrentCamera
+    local origin = camera.CFrame.Position
     local direction = (targetPos - origin)
     
     local rayParams = RaycastParams.new()
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
-    -- Ignore yourself and the person you are looking at
+    -- Ignore your character and the target character to prevent ray clipping
     rayParams.FilterDescendantsInstances = {player.Character, targetChar}
+    rayParams.IgnoreWater = true
     
     local result = workspace:Raycast(origin, direction, rayParams)
     
-    -- If result is nil, nothing is blocking the view
+    -- If result is nil, nothing blocked the line of sight
     return result == nil
 end
 
 -- // CORE ENGINE
 getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(function()
+    local camera = workspace.CurrentCamera
     if AIM_ENABLED then
         local tPos, dist = nil, 2000
         for _, p in pairs(game:GetService("Players"):GetPlayers()) do
             if p ~= player and not WHITELISTED[p.Name] and (not player.Team or p.Team ~= player.Team) then
                 if p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    -- Identify the target part
                     local part = (TARGET_TYPE == "Head" and p.Character:FindFirstChild("Head")) or 
                                  (TARGET_TYPE == "Chest" and (p.Character:FindFirstChild("UpperTorso") or p.Character:FindFirstChild("Torso"))) or 
                                  (p.Character:FindFirstChild("LeftFoot") or p.Character:FindFirstChild("LowerTorso"))
                     
                     if part then
+                        -- Apply Forehead Offset if aiming for head
                         local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.28, 0) or part.Position
                         
-                        -- ONLY SNAP IF VISIBLE
+                        -- CRITICAL: Check if target is behind a wall
                         if isVisible(finalPos, p.Character) then
-                            local d = (finalPos - workspace.CurrentCamera.CFrame.Position).Magnitude
+                            local d = (finalPos - camera.CFrame.Position).Magnitude
                             if d < dist then tPos = finalPos dist = d end
                         end
                     end
                 end
             end
         end
-        if tPos then workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, tPos) end
+        if tPos then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, tPos) end
     end
     if AUTO_SHOOT then
         local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
@@ -135,13 +140,12 @@ getgenv().AimConnection = game:GetService("RunService").RenderStepped:Connect(fu
     end
 end)
 
--- // UI LOGIC (Minimize / Player List / Buttons)
+-- // UI BUTTON LOGIC
 MinBtn.MouseButton1Click:Connect(function()
     IS_MINIMIZED = not IS_MINIMIZED
     Content.Visible = not IS_MINIMIZED
     MinBtn.Text = IS_MINIMIZED and "+" or "-"
     Main:TweenSize(IS_MINIMIZED and UDim2.new(0, 200, 0, 35) or UDim2.new(0, 200, 0, 320), "Out", "Quad", 0.2, true)
-    if IS_MINIMIZED then PListFrame.Visible = false end
 end)
 
 PListToggle.MouseButton1Click:Connect(function()
