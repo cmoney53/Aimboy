@@ -24,6 +24,7 @@ local IS_MINIMIZED = false
 -- // FOV SYSTEM SETTINGS
 local FOV_RADIUS = 100
 local FOV_VISIBLE = true
+local AIM_HEIGHT_ADJUST = 0.26 -- Base height for headshots
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1.5
 FOVCircle.Color = Color3.fromRGB(0, 255, 150)
@@ -185,8 +186,12 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                         if onScreen or not FOV_VISIBLE then
                             local distFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
                             if distFromMouse < maxDist then
+                                -- // FP CAMERA FOV COMPENSATION
+                                -- Adjusts height based on camera zoom (70 is standard Roblox FOV)
+                                local fpCompensation = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
+                                local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, fpCompensation, 0) or part.Position
+                                
                                 -- Raycast Logic
-                                local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.26, 0) or part.Position
                                 local dir = (finalPos - camera.CFrame.Position)
                                 local rp = RaycastParams.new()
                                 rp.FilterType = Enum.RaycastFilterType.Blacklist
