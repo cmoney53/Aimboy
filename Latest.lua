@@ -1,5 +1,5 @@
 -- // CLEANUP PREVIOUS EXECUTION
-local UI_NAME = "EliteMasterV13_NoTeam"
+local UI_NAME = "AIMBOT v13"
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
 local player = game:GetService("Players").LocalPlayer
 local oldUI = player:WaitForChild("PlayerGui"):FindFirstChild(UI_NAME)
@@ -28,7 +28,7 @@ Instance.new("UICorner", Main)
 -- TITLE BAR
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  ELITE MASTER V13"
+Title.Text = "  AIMBOT v13"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
