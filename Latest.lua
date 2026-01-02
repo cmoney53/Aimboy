@@ -1,5 +1,5 @@
 -- // FORCE CLEAR ALL PREVIOUS VERSIONS
-local VERSION_TAG = "ELITE_V21_PRO_STABLE_FULL"
+local VERSION_TAG = "ELITE_Cash_PRO_STABLE_FULL"
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
@@ -48,7 +48,7 @@ Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  V21 | PLRS: " .. #Players:GetPlayers()
+Title.Text = "  Cash | PLRS: " .. #Players:GetPlayers()
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -57,7 +57,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 
 spawn(function()
     while wait(1) do 
-        Title.Text = "  V21 | PLRS: " .. #Players:GetPlayers() 
+        Title.Text = "  Cash | PLRS: " .. #Players:GetPlayers() 
     end
 end)
 
