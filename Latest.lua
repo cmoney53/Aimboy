@@ -1,5 +1,5 @@
 -- // FORCE CLEAR ALL PREVIOUS VERSIONS
-local VERSION_TAG = "ELITE_V21_FINAL_FIX"
+local VERSION_TAG = "ELITE_V21_ULTRA_FINAL"
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
@@ -43,7 +43,7 @@ Title.TextSize = 13
 Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Update Player Count in Title
+-- Update Player Count
 spawn(function()
     while wait(1) do
         Title.Text = "  V21 | PLRS: " .. #Players:GetPlayers()
@@ -71,13 +71,12 @@ local function makeBtn(txt, y, color)
 end
 
 local LockBtn = makeBtn("SNAP LOCK: OFF", 5, Color3.fromRGB(35, 35, 35))
-local ESPBtn = makeBtn("VISUAL ESP: OFF", 45, Color3.fromRGB(35, 35, 35))
+local ESPBtn = makeBtn("ULTRA ESP: OFF", 45, Color3.fromRGB(35, 35, 35))
 local ShootBtn = makeBtn("AUTO FIRE: OFF", 85, Color3.fromRGB(35, 35, 35))
 local HeadBtn = makeBtn("TARGET: FOREHEAD", 155, Color3.fromRGB(180, 0, 0))
 local ChestBtn = makeBtn("TARGET: CHEST", 195, Color3.fromRGB(35, 35, 35))
 local LegBtn = makeBtn("TARGET: LEGS", 235, Color3.fromRGB(35, 35, 35))
 
--- TOP BUTTONS
 local function createTopBtn(text, xPos)
     local b = Instance.new("TextButton", Main)
     b.Size = UDim2.new(0, 25, 0, 25)
@@ -104,9 +103,25 @@ local UIList = Instance.new("UIListLayout", PListFrame)
 UIList.Padding = UDim.new(0, 2)
 Instance.new("UICorner", PListFrame)
 
--- // ESP & CORE LOGIC
+-- // ULTRA ESP FUNCTION
+local function ApplyUltraESP(p)
+    if p == player or not p.Character then return end
+    local hrp = p.Character:WaitForChild("HumanoidRootPart", 5)
+    if hrp and not hrp:FindFirstChild("EliteBox") then
+        local box = Instance.new("BoxHandleAdornment")
+        box.Name = "EliteBox"
+        box.Size = Vector3.new(4, 6, 0.5)
+        box.AlwaysOnTop = true
+        box.ZIndex = 10
+        box.Transparency = 0.5
+        box.Color3 = Color3.fromRGB(255, 0, 0)
+        box.Adornee = hrp
+        box.Parent = hrp
+    end
+end
+
+-- // CORE LOGIC
 getgenv().AimConnection = RunService.RenderStepped:Connect(function()
-    -- Sync List position to Main
     PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
     
     if AIM_ENABLED then
@@ -123,9 +138,11 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                         local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, 0.26, 0) or part.Position
                         local origin = camera.CFrame.Position
                         local dir = (finalPos - origin).Unit * (finalPos - origin).Magnitude
+                        
                         local rp = RaycastParams.new()
                         rp.FilterType = Enum.RaycastFilterType.Blacklist
                         rp.FilterDescendantsInstances = {player.Character, char}
+                        
                         if workspace:Raycast(origin, dir, rp) == nil then
                             local d = (finalPos - player.Character.HumanoidRootPart.Position).Magnitude
                             if d < dist then tPos = finalPos dist = d end
@@ -137,18 +154,15 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
         if tPos then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, tPos) end
     end
     
-    -- ESP UPDATE
+    -- ULTRA ESP LOOP
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local highlight = p.Character:FindFirstChild("EliteHighlight")
+        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local box = p.Character.HumanoidRootPart:FindFirstChild("EliteBox")
             if ESP_ENABLED then
-                if not highlight then
-                    highlight = Instance.new("Highlight", p.Character)
-                    highlight.Name = "EliteHighlight"
-                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                    highlight.OutlineColor = Color3.new(1, 1, 1)
-                end
-            elseif highlight then highlight:Destroy() end
+                if not box then ApplyUltraESP(p) else box.Visible = true end
+            else
+                if box then box.Visible = false end
+            end
         end
     end
 
@@ -158,7 +172,7 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     end
 end)
 
--- // PLAYER LIST REFRESH FUNCTION
+-- // PLAYER LIST LOGIC
 local function updatePlayerListUI()
     for _, c in pairs(PListFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
     local count = 0
@@ -196,7 +210,7 @@ end)
 
 ESPBtn.MouseButton1Click:Connect(function()
     ESP_ENABLED = not ESP_ENABLED
-    ESPBtn.Text = ESP_ENABLED and "VISUAL ESP: ON" or "VISUAL ESP: OFF"
+    ESPBtn.Text = ESP_ENABLED and "ULTRA ESP: ON" or "ULTRA ESP: OFF"
     ESPBtn.BackgroundColor3 = ESP_ENABLED and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(35, 35, 35)
 end)
 
