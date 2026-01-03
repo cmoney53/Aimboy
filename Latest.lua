@@ -84,6 +84,6 @@ end
 
 --- ADD YOUR SCRIPTS HERE ---
 CreateScriptButton("Aimbot", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Aimbot.lua")
-CreateScriptButton("Script Two", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/commando.lua")
+CreateScriptButton("Commando", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/commando.lua")
 CreateScriptButton("Script Three", "https://raw.githubusercontent.com/Example/Script3")
 -----------------------------
