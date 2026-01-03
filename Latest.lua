@@ -55,7 +55,7 @@ end
 
 --- CONFIGURATION AREA ---
 -- Add your GitHub links here!
-CreateScriptButton("Fly Script", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Aimbot.lua")
+CreateScriptButton("Aimbot", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Aimbot.lua")
 CreateScriptButton("Speed Hack", "https://raw.githubusercontent.com/User/Repo/main/speed.lua")
 CreateScriptButton("ESP Script", "https://raw.githubusercontent.com/User/Repo/main/esp.lua")
 --------------------------
