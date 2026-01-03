@@ -48,7 +48,7 @@ UIPadding.Parent = ScrollingFrame
 UIPadding.PaddingTop = UDim.new(0, 5)
 
 -- Function to create Neon Buttons
-local function CreateScriptButton(Name, URL)
+local function CreateScriptButton(Name, Owner, Repo, FilePath)
     local Button = Instance.new("TextButton")
     local UICornerBtn = Instance.new("UICorner")
     local UIStroke = Instance.new("UIStroke")
@@ -73,17 +73,32 @@ local function CreateScriptButton(Name, URL)
 
     Button.MouseButton1Click:Connect(function()
         print("Executing: " .. Name)
-        local success, err = pcall(function()
-            loadstring(game:HttpGet(URL, true))()
+        
+        -- Fetch the latest file URL from GitHub
+        local success, response = pcall(function()
+            return game:GetService("HttpService"):GetAsync("https://api.github.com/repos/" .. Owner .. "/" .. Repo .. "/contents/" .. FilePath)
         end)
-        if not success then
-            warn("Error: " .. err)
+
+        if success then
+            local data = game:GetService("HttpService"):JSONDecode(response)
+            local latestScriptURL = data.download_url  -- This gives the raw file URL
+            
+            -- Load the script
+            local scriptSuccess, scriptErr = pcall(function()
+                loadstring(game:HttpGet(latestScriptURL, true))()
+            end)
+
+            if not scriptSuccess then
+                warn("Error executing script: " .. scriptErr)
+            end
+        else
+            warn("Error fetching script from GitHub: " .. response)
         end
     end)
 end
 
 --- ADD YOUR SCRIPTS HERE ---
-CreateScriptButton("Aimbot", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Aimbot.lua")
-CreateScriptButton("Modded Yield", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/commando.lua")
-CreateScriptButton("Script Three", "https://raw.githubusercontent.com/Example/Script3")
+CreateScriptButton("Aimbot", "cmoney53", "Aimboy", "refs/heads/main/Aimbot.lua")
+CreateScriptButton("Modded Yield", "cmoney53", "Aimboy", "refs/heads/main/commando.lua")
+CreateScriptButton("Script Three", "Example", "RepoName", "path/to/script3.lua")
 -----------------------------
