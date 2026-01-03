@@ -178,10 +178,11 @@ local function createTopBtn(text, xPos)
     Instance.new("UICorner", b)
     return b
 end
+
 local MinBtn = createTopBtn("-", -30)
 local PListToggle = createTopBtn("👥", -60)
 
--- // PLAYER LIST SETUP (FIXED SIZE)
+-- // PLAYER LIST SETUP
 local PListFrame = Instance.new("ScrollingFrame", ScreenGui)
 PListFrame.Size = UDim2.new(0, 200, 0, 0) -- Starts closed
 PListFrame.Visible = false
@@ -198,7 +199,6 @@ Instance.new("UICorner", PListFrame)
 
 -- // PLAYER LIST REFRESH FUNCTION
 local function RefreshPlayerList()
-    -- Clear current buttons
     for _, c in pairs(PListFrame:GetChildren()) do 
         if c:IsA("TextButton") then c:Destroy() end 
     end
@@ -227,9 +227,31 @@ local function RefreshPlayerList()
     PListFrame.CanvasSize = UDim2.new(0, 0, 0, pCount * 32)
 end
 
+-- Initial refresh
+RefreshPlayerList()
+
 -- Update list automatically when people join/leave
 Players.PlayerAdded:Connect(function() RefreshPlayerList() end)
 Players.PlayerRemoving:Connect(function() RefreshPlayerList() end)
+
+-- // SIMPLE ESP SYSTEM
+local function applyESP(char)
+    if not char:FindFirstChild("HumanoidRootPart") then return end
+    if char:FindFirstChild("EliteESP") then return end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "EliteESP"
+    hl.FillColor = Color3.fromRGB(0, 255, 150)
+    hl.OutlineColor = Color3.fromRGB(0, 80, 50)
+    hl.FillTransparency = 0.5
+    hl.OutlineTransparency = 0
+    hl.Parent = char
+end
+
+local function removeESP(char)
+    local hl = char:FindFirstChild("EliteESP")
+    if hl then hl:Destroy() end
+end
 
 -- // MAIN LOGIC LOOP
 getgenv().AimConnection = RunService.RenderStepped:Connect(function()
@@ -238,6 +260,17 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     FOVCircle.Radius = FOV_RADIUS
     FOVCircle.Visible = FOV_VISIBLE
     camera.FieldOfView = GAME_FOV_VAL
+
+    -- ESP handling
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character then
+            if ESP_ENABLED then
+                applyESP(p.Character)
+            else
+                removeESP(p.Character)
+            end
+        end
+    end
 
     if AIM_ENABLED then
         local target = nil
@@ -280,15 +313,53 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
 end)
 
 -- // BUTTON CONNECTORS
-GameFOVUp.MouseButton1Click:Connect(function() GAME_FOV_VAL = math.clamp(GAME_FOV_VAL + 5, 30, 120) GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL end)
-GameFOVDown.MouseButton1Click:Connect(function() GAME_FOV_VAL = math.clamp(GAME_FOV_VAL - 5, 30, 120) GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL end)
-HeightUp.MouseButton1Click:Connect(function() AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST + 0.02) * 100) / 100 HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST end)
-HeightDown.MouseButton1Click:Connect(function() AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST - 0.02) * 100) / 100 HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST end)
-LockBtn.MouseButton1Click:Connect(function() AIM_ENABLED = not AIM_ENABLED LockBtn.Text = AIM_ENABLED and "SNAP LOCK: ON" or "SNAP LOCK: OFF" LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(180, 0, 0) or Color3.fromRGB(35, 35, 35) end)
-ESPBtn.MouseButton1Click:Connect(function() ESP_ENABLED = not ESP_ENABLED ESPBtn.Text = ESP_ENABLED and "ALIVE ESP: ON" or "ALIVE ESP: OFF" ESPBtn.BackgroundColor3 = ESP_ENABLED and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(35, 35, 35) end)
-FOVUp.MouseButton1Click:Connect(function() FOV_RADIUS = math.clamp(FOV_RADIUS + 10, 10, 2000) FOVMain.Text = "AIM FOV: " .. FOV_RADIUS end)
-FOVDown.MouseButton1Click:Connect(function() FOV_RADIUS = math.clamp(FOV_RADIUS - 10, 10, 2000) FOVMain.Text = "AIM FOV: " .. FOV_RADIUS end)
-FOVMain.MouseButton1Click:Connect(function() FOV_VISIBLE = not FOV_VISIBLE FOVMain.BackgroundColor3 = FOV_VISIBLE and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(150, 0, 0) FOVMain.Text = FOV_VISIBLE and "AIM FOV: " .. FOV_RADIUS or "GLOBAL SNAP" end)
+GameFOVUp.MouseButton1Click:Connect(function()
+    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL + 5, 30, 120)
+    GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
+end)
+
+GameFOVDown.MouseButton1Click:Connect(function()
+    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL - 5, 30, 120)
+    GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
+end)
+
+HeightUp.MouseButton1Click:Connect(function()
+    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST + 0.02) * 100) / 100
+    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
+end)
+
+HeightDown.MouseButton1Click:Connect(function()
+    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST - 0.02) * 100) / 100
+    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
+end)
+
+LockBtn.MouseButton1Click:Connect(function()
+    AIM_ENABLED = not AIM_ENABLED
+    LockBtn.Text = AIM_ENABLED and "SNAP LOCK: ON" or "SNAP LOCK: OFF"
+    LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(180, 0, 0) or Color3.fromRGB(35, 35, 35)
+end)
+
+ESPBtn.MouseButton1Click:Connect(function()
+    ESP_ENABLED = not ESP_ENABLED
+    ESPBtn.Text = ESP_ENABLED and "ALIVE ESP: ON" or "ALIVE ESP: OFF"
+    ESPBtn.BackgroundColor3 = ESP_ENABLED and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(35, 35, 35)
+end)
+
+FOVUp.MouseButton1Click:Connect(function()
+    FOV_RADIUS = math.clamp(FOV_RADIUS + 10, 10, 2000)
+    FOVMain.Text = "AIM FOV: " .. FOV_RADIUS
+end)
+
+FOVDown.MouseButton1Click:Connect(function()
+    FOV_RADIUS = math.clamp(FOV_RADIUS - 10, 10, 2000)
+    FOVMain.Text = "AIM FOV: " .. FOV_RADIUS
+end)
+
+FOVMain.MouseButton1Click:Connect(function()
+    FOV_VISIBLE = not FOV_VISIBLE
+    FOVMain.BackgroundColor3 = FOV_VISIBLE and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(150, 0, 0)
+    FOVMain.Text = FOV_VISIBLE and "AIM FOV: " .. FOV_RADIUS or "GLOBAL SNAP"
+end)
 
 MinBtn.MouseButton1Click:Connect(function()
     IS_MINIMIZED = not IS_MINIMIZED
@@ -297,20 +368,25 @@ MinBtn.MouseButton1Click:Connect(function()
 end)
 
 PListToggle.MouseButton1Click:Connect(function()
-    PListFrame.Visible = not PListFrame.Visible
-    if PListFrame.Visible then
+    if not PListFrame.Visible then
         RefreshPlayerList()
-        PListFrame:TweenSize(UDim2.new(0, 200, 0, 200), "Out", "Quad", 0.2, true) -- Increased Y size to 200
+        PListFrame.Visible = true
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 200), "Out", "Quad", 0.2, true)
     else
         PListFrame:TweenSize(UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
+        task.wait(0.2)
+        PListFrame.Visible = false
     end
 end)
 
 local function setT(btn, t)
     TARGET_TYPE = t
-    HeadBtn.BackgroundColor3, ChestBtn.BackgroundColor3, LegBtn.BackgroundColor3 = Color3.fromRGB(35,35,35), Color3.fromRGB(35,35,35), Color3.fromRGB(35,35,35)
+    HeadBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    ChestBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    LegBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
     btn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 end
+
 HeadBtn.MouseButton1Click:Connect(function() setT(HeadBtn, "Head") end)
 ChestBtn.MouseButton1Click:Connect(function() setT(ChestBtn, "Chest") end)
 LegBtn.MouseButton1Click:Connect(function() setT(LegBtn, "Legs") end)
