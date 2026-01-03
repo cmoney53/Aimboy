@@ -131,7 +131,7 @@ end
 
 if makefolder and isfolder and writefile and isfile then
 	pcall(function() -- good executor trust
-		local assets = "https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/"
+		local assets = "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/commando.lua"
 		for _, folder in {"infiniteyield", "infiniteyield/assets"} do
 			if not isfolder(folder) then
 				makefolder(folder)
@@ -146,7 +146,7 @@ if makefolder and isfolder and writefile and isfile then
 	end)
 end
 
-currentVersion = "6.3.6"
+currentVersion = " X "
 
 ScaledHolder = Instance.new("Frame")
 Scale = Instance.new("UIScale")
@@ -351,7 +351,7 @@ Title.BorderSizePixel = 0
 Title.Size = UDim2.new(0, 250, 0, 20)
 Title.Font = Enum.Font.SourceSans
 Title.TextSize = 18
-Title.Text = "Infinite Yield FE v" .. currentVersion
+Title.Text = "MODDED YIELD " .. currentVersion
 
 do
 	local emoji = ({
@@ -13123,7 +13123,7 @@ end)
 
 task.spawn(function()
 	local success, latestVersionInfo = pcall(function() 
-		local versionJson = game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/version")
+		local versionJson = game:HttpGet("https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/version")
 		return HttpService:JSONDecode(versionJson)
 	end)
 
