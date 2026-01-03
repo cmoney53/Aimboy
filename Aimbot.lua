@@ -48,7 +48,7 @@ Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  Cash | PLRS: " .. #Players:GetPlayers()
+Title.Text = "  Cash V2 | PLRS: " .. #Players:GetPlayers()
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
