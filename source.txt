@@ -282,6 +282,62 @@ listlayout = Instance.new("UIListLayout",scroll_3)
 selectChat = Instance.new("TextButton")
 selectJoin = Instance.new("TextButton")
 
+-- MINIMIZE BUTTON
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Name = "MinimizeButton"
+MinimizeButton.Parent = Holder
+MinimizeButton.BackgroundColor3 = backgroundColor
+MinimizeButton.BorderSizePixel = 0
+MinimizeButton.Position = UDim2.new(1, -25, 0, 0)
+MinimizeButton.Size = UDim2.new(0, 25, 0, 25)
+MinimizeButton.Font = Enum.Font.SourceSansBold
+MinimizeButton.Text = "-"
+MinimizeButton.TextColor3 = neonColor
+MinimizeButton.TextSize = 20
+MinimizeButton.ZIndex = 10
+
+local minimized = false
+local originalSize = UDim2.new(0, 250, 0, 220)
+
+MinimizeButton.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        Holder:TweenSize(UDim2.new(0, 250, 0, 25), "Out", "Quart", 0.3, true)
+        MinimizeButton.Text = "+"
+    else
+        Holder:TweenSize(originalSize, "Out", "Quart", 0.3, true)
+        MinimizeButton.Text = "-"
+    end
+end)
+
+-- NEON THEME SETUP
+local neonColor = Color3.fromRGB(0, 255, 255) -- Cyan Neon
+local backgroundColor = Color3.fromRGB(20, 20, 20)
+
+Holder.Name = randomString()
+Holder.Parent = ScaledHolder
+Holder.Active = true
+Holder.Draggable = true -- Makes it floating
+Holder.BackgroundColor3 = backgroundColor
+Holder.BorderSizePixel = 2
+Holder.BorderColor3 = neonColor -- Neon Glow Border
+Holder.Position = UDim2.new(1, -250, 1, -220)
+Holder.Size = UDim2.new(0, 250, 0, 220)
+Holder.ZIndex = 10
+
+Title.Name = "Title"
+Title.Parent = Holder
+Title.Active = true
+Title.BackgroundColor3 = backgroundColor
+Title.BorderSizePixel = 0
+Title.Size = UDim2.new(1, -30, 0, 20) -- Shortened to fit minimize button
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 18
+Title.Text = "NEON INTERFACE"
+Title.TextColor3 = neonColor -- Neon Text
+Title.ZIndex = 10
+
+
 function randomString()
 	local length = math.random(10,20)
 	local array = {}
