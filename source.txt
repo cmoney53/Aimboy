@@ -336,7 +336,7 @@ Title.TextSize = 18
 Title.Text = "NEON INTERFACE"
 Title.TextColor3 = neonColor -- Neon Text
 Title.ZIndex = 10
-
+end
 
 function randomString()
 	local length = math.random(10,20)
