@@ -272,16 +272,19 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- AIM logic
     if AIM_ENABLED then
         local target = nil
         local maxDist = FOV_VISIBLE and FOV_RADIUS or math.huge
         local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+        local fovMultiplier = camera.FieldOfView / 70  -- Adjust for FOV scaling
 
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and not WHITELISTED[p.Name] and p.Character then
                 local char = p.Character
                 local hum = char:FindFirstChild("Humanoid")
                 if hum and hum.Health > 0 then
+                    -- Select target part based on the type
                     local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or 
                                  (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or 
                                  (char:FindFirstChild("HumanoidRootPart"))
@@ -289,8 +292,13 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                     if part then
                         local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
                         if onScreen or not FOV_VISIBLE then
+                            -- Calculate distance from the center of the screen (aiming point)
                             local distFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                            if distFromMouse < maxDist then
+                            local adjustedDist = distFromMouse * fovMultiplier  -- Adjust distance for FOV scaling
+
+                            -- Check if this target is within the FOV range
+                            if adjustedDist < maxDist then
+                                -- Adjust aiming height based on the FOV multiplier
                                 local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
                                 local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, fpComp, 0) or part.Position
                                 
@@ -298,9 +306,10 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                                 rp.FilterType = Enum.RaycastFilterType.Blacklist
                                 rp.FilterDescendantsInstances = {player.Character, char}
                                 
+                                -- Raycast to ensure no obstruction between camera and target
                                 if workspace:Raycast(camera.CFrame.Position, (finalPos - camera.CFrame.Position), rp) == nil then
                                     target = finalPos
-                                    maxDist = distFromMouse
+                                    maxDist = adjustedDist  -- Keep track of the nearest target
                                 end
                             end
                         end
@@ -308,7 +317,11 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                 end
             end
         end
-        if target then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target) end
+
+        -- If a valid target is found, adjust the camera to aim at it
+        if target then 
+            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target)
+        end
     end
 end)
 
