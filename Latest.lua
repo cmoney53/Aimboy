@@ -85,5 +85,5 @@ end
 --- ADD YOUR SCRIPTS HERE ---
 CreateScriptButton("Aimbot", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Aimbot.lua")
 CreateScriptButton("Modded Yield", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/commando.lua")
-CreateScriptButton("Script Three", "https://raw.githubusercontent.com/Example/Script3")
+CreateScriptButton("Beta pblocker", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/blocker.lua")
 -----------------------------
