@@ -55,8 +55,8 @@ Title.TextSize = 13
 Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
-spawn(function()
-    while wait(1) do 
+task.spawn(function()
+    while task.wait(1) do 
         Title.Text = "  Cash | PLRS: " .. #Players:GetPlayers() 
     end
 end)
@@ -85,7 +85,7 @@ local LockBtn = makeBtn("SNAP LOCK: OFF", 5, Color3.fromRGB(35, 35, 35))
 local ESPBtn = makeBtn("ALIVE ESP: OFF", 45, Color3.fromRGB(35, 35, 35))
 local ShootBtn = makeBtn("AUTO FIRE: OFF", 85, Color3.fromRGB(35, 35, 35))
 
--- // GAME FOV ROW
+-- // GAME FOV ROW (Maxed at 200)
 local GameFOVDown = Instance.new("TextButton", Content)
 GameFOVDown.Size = UDim2.new(0, 40, 0, 35)
 GameFOVDown.Position = UDim2.new(0, 10, 0, 125)
@@ -184,7 +184,7 @@ local PListToggle = createTopBtn("👥", -60)
 
 -- // PLAYER LIST SETUP
 local PListFrame = Instance.new("ScrollingFrame", ScreenGui)
-PListFrame.Size = UDim2.new(0, 200, 0, 0) -- Starts closed
+PListFrame.Size = UDim2.new(0, 200, 0, 0)
 PListFrame.Visible = false
 PListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 PListFrame.BorderSizePixel = 0
@@ -197,7 +197,6 @@ UIList.Padding = UDim.new(0, 2)
 UIList.SortOrder = Enum.SortOrder.LayoutOrder
 Instance.new("UICorner", PListFrame)
 
--- // PLAYER LIST REFRESH FUNCTION
 local function RefreshPlayerList()
     for _, c in pairs(PListFrame:GetChildren()) do 
         if c:IsA("TextButton") then c:Destroy() end 
@@ -227,24 +226,19 @@ local function RefreshPlayerList()
     PListFrame.CanvasSize = UDim2.new(0, 0, 0, pCount * 32)
 end
 
--- Initial refresh
 RefreshPlayerList()
+Players.PlayerAdded:Connect(RefreshPlayerList)
+Players.PlayerRemoving:Connect(RefreshPlayerList)
 
--- Update list automatically when people join/leave
-Players.PlayerAdded:Connect(function() RefreshPlayerList() end)
-Players.PlayerRemoving:Connect(function() RefreshPlayerList() end)
-
--- // SIMPLE ESP SYSTEM
+-- // ESP LOGIC
 local function applyESP(char)
     if not char:FindFirstChild("HumanoidRootPart") then return end
     if char:FindFirstChild("EliteESP") then return end
-
     local hl = Instance.new("Highlight")
     hl.Name = "EliteESP"
     hl.FillColor = Color3.fromRGB(0, 255, 150)
     hl.OutlineColor = Color3.fromRGB(0, 80, 50)
     hl.FillTransparency = 0.5
-    hl.OutlineTransparency = 0
     hl.Parent = char
 end
 
@@ -253,7 +247,7 @@ local function removeESP(char)
     if hl then hl:Destroy() end
 end
 
--- // MAIN LOGIC LOOP
+-- // MAIN LOOP
 getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
     FOVCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
@@ -261,30 +255,23 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     FOVCircle.Visible = FOV_VISIBLE
     camera.FieldOfView = GAME_FOV_VAL
 
-    -- ESP handling
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player and p.Character then
-            if ESP_ENABLED then
-                applyESP(p.Character)
-            else
-                removeESP(p.Character)
-            end
+            if ESP_ENABLED then applyESP(p.Character) else removeESP(p.Character) end
         end
     end
 
-    -- AIM logic
     if AIM_ENABLED then
         local target = nil
         local maxDist = FOV_VISIBLE and FOV_RADIUS or math.huge
         local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-        local fovMultiplier = camera.FieldOfView / 70  -- Adjust for FOV scaling
+        local fovMultiplier = camera.FieldOfView / 70
 
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and not WHITELISTED[p.Name] and p.Character then
                 local char = p.Character
                 local hum = char:FindFirstChild("Humanoid")
                 if hum and hum.Health > 0 then
-                    -- Select target part based on the type
                     local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or 
                                  (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or 
                                  (char:FindFirstChild("HumanoidRootPart"))
@@ -292,13 +279,10 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                     if part then
                         local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
                         if onScreen or not FOV_VISIBLE then
-                            -- Calculate distance from the center of the screen (aiming point)
                             local distFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                            local adjustedDist = distFromMouse * fovMultiplier  -- Adjust distance for FOV scaling
+                            local adjustedDist = distFromMouse * fovMultiplier
 
-                            -- Check if this target is within the FOV range
                             if adjustedDist < maxDist then
-                                -- Adjust aiming height based on the FOV multiplier
                                 local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
                                 local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, fpComp, 0) or part.Position
                                 
@@ -306,10 +290,9 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                                 rp.FilterType = Enum.RaycastFilterType.Blacklist
                                 rp.FilterDescendantsInstances = {player.Character, char}
                                 
-                                -- Raycast to ensure no obstruction between camera and target
                                 if workspace:Raycast(camera.CFrame.Position, (finalPos - camera.CFrame.Position), rp) == nil then
                                     target = finalPos
-                                    maxDist = adjustedDist  -- Keep track of the nearest target
+                                    maxDist = adjustedDist
                                 end
                             end
                         end
@@ -317,35 +300,22 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                 end
             end
         end
-
-        -- If a valid target is found, adjust the camera to aim at it
-        if target then 
-            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target)
-        end
+        if target then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target) end
     end
 end)
 
--- // BUTTON CONNECTORS
+-- // UPDATED FOV CONTROLS (Max 200)
 GameFOVUp.MouseButton1Click:Connect(function()
-    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL + 5, 30, 120)
+    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL + 5, 30, 200)
     GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
 end)
 
 GameFOVDown.MouseButton1Click:Connect(function()
-    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL - 5, 0, 120)
+    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL - 5, 30, 200)
     GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
 end)
 
-HeightUp.MouseButton1Click:Connect(function()
-    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST + 0.02) * 100) / 100
-    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
-end)
-
-HeightDown.MouseButton1Click:Connect(function()
-    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST - 0.02) * 100) / 100
-    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
-end)
-
+-- // OTHER CONTROLS
 LockBtn.MouseButton1Click:Connect(function()
     AIM_ENABLED = not AIM_ENABLED
     LockBtn.Text = AIM_ENABLED and "SNAP LOCK: ON" or "SNAP LOCK: OFF"
@@ -372,6 +342,16 @@ FOVMain.MouseButton1Click:Connect(function()
     FOV_VISIBLE = not FOV_VISIBLE
     FOVMain.BackgroundColor3 = FOV_VISIBLE and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(150, 0, 0)
     FOVMain.Text = FOV_VISIBLE and "AIM FOV: " .. FOV_RADIUS or "GLOBAL SNAP"
+end)
+
+HeightUp.MouseButton1Click:Connect(function()
+    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST + 0.02) * 100) / 100
+    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
+end)
+
+HeightDown.MouseButton1Click:Connect(function()
+    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST - 0.02) * 100) / 100
+    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
 end)
 
 MinBtn.MouseButton1Click:Connect(function()
