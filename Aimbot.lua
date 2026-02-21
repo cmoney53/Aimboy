@@ -8,17 +8,17 @@ local camera = workspace.CurrentCamera
 -- Cleanup
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
 for _, oldUI in pairs(player:WaitForChild("PlayerGui"):GetChildren()) do
-    if oldUI.Name:find("Elite") or oldUI.Name:find("AIMBOT") or oldUI.Name:find("V2") then
-        oldUI:Destroy()
-    end
+    if oldUI.Name:find("Elite") or oldUI.Name:find("AIMBOT") or oldUI.Name:find("V2") then
+        oldUI:Destroy()
+    end
 end
 
 -- // SETTINGS
 local AIM_ENABLED = false
-local AUTO_SHOOT = false 
+local AUTO_SHOOT = false 
 local ESP_ENABLED = false
 local TARGET_TYPE = "Head"
-local WHITELISTED = {} 
+local WHITELISTED = {} 
 local IS_MINIMIZED = false
 
 -- // FOV & CAMERA SETTINGS
@@ -48,17 +48,17 @@ Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, -65, 0, 35)
-Title.Text = "  Cash V2 | PLRS: " .. #Players:GetPlayers()
+Title.Text = "  Cash V2 | PLRS: " .. #Players:GetPlayers()
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
 Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
-task.spawn(function()
-    while task.wait(1) do 
-        Title.Text = "  Cash | PLRS: " .. #Players:GetPlayers() 
-    end
+spawn(function()
+    while wait(1) do 
+        Title.Text = "  Cash | PLRS: " .. #Players:GetPlayers() 
+    end
 end)
 
 local Content = Instance.new("Frame", Main)
@@ -67,17 +67,17 @@ Content.Position = UDim2.new(0, 0, 0, 35)
 Content.BackgroundTransparency = 1
 
 local function makeBtn(txt, y, color)
-    local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(0, 180, 0, 35)
-    b.Position = UDim2.new(0, 10, 0, y)
-    b.BackgroundColor3 = color
-    b.Text = txt
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 10
-    b.ZIndex = 5
-    Instance.new("UICorner", b)
-    return b
+    local b = Instance.new("TextButton", Content)
+    b.Size = UDim2.new(0, 180, 0, 35)
+    b.Position = UDim2.new(0, 10, 0, y)
+    b.BackgroundColor3 = color
+    b.Text = txt
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 10
+    b.ZIndex = 5
+    Instance.new("UICorner", b)
+    return b
 end
 
 -- // CORE BUTTONS
@@ -85,7 +85,7 @@ local LockBtn = makeBtn("SNAP LOCK: OFF", 5, Color3.fromRGB(35, 35, 35))
 local ESPBtn = makeBtn("ALIVE ESP: OFF", 45, Color3.fromRGB(35, 35, 35))
 local ShootBtn = makeBtn("AUTO FIRE: OFF", 85, Color3.fromRGB(35, 35, 35))
 
--- // GAME FOV ROW (Maxed at 200)
+-- // GAME FOV ROW
 local GameFOVDown = Instance.new("TextButton", Content)
 GameFOVDown.Size = UDim2.new(0, 40, 0, 35)
 GameFOVDown.Position = UDim2.new(0, 10, 0, 125)
@@ -168,15 +168,15 @@ local ChestBtn = makeBtn("TARGET: CHEST", 295, Color3.fromRGB(35, 35, 35))
 local LegBtn = makeBtn("TARGET: LEGS", 335, Color3.fromRGB(35, 35, 35))
 
 local function createTopBtn(text, xPos)
-    local b = Instance.new("TextButton", Main)
-    b.Size = UDim2.new(0, 25, 0, 25)
-    b.Position = UDim2.new(1, xPos, 0, 5)
-    b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    b.Text = text
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.ZIndex = 6
-    Instance.new("UICorner", b)
-    return b
+    local b = Instance.new("TextButton", Main)
+    b.Size = UDim2.new(0, 25, 0, 25)
+    b.Position = UDim2.new(1, xPos, 0, 5)
+    b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.ZIndex = 6
+    Instance.new("UICorner", b)
+    return b
 end
 
 local MinBtn = createTopBtn("-", -30)
@@ -184,7 +184,7 @@ local PListToggle = createTopBtn("👥", -60)
 
 -- // PLAYER LIST SETUP
 local PListFrame = Instance.new("ScrollingFrame", ScreenGui)
-PListFrame.Size = UDim2.new(0, 200, 0, 0)
+PListFrame.Size = UDim2.new(0, 200, 0, 0) -- Starts closed
 PListFrame.Visible = false
 PListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 PListFrame.BorderSizePixel = 0
@@ -197,187 +197,207 @@ UIList.Padding = UDim.new(0, 2)
 UIList.SortOrder = Enum.SortOrder.LayoutOrder
 Instance.new("UICorner", PListFrame)
 
+-- // PLAYER LIST REFRESH FUNCTION
 local function RefreshPlayerList()
-    for _, c in pairs(PListFrame:GetChildren()) do 
-        if c:IsA("TextButton") then c:Destroy() end 
-    end
-    
-    local pCount = 0
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player then
-            pCount = pCount + 1
-            local b = Instance.new("TextButton", PListFrame)
-            b.Size = UDim2.new(1, -10, 0, 30)
-            b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-            b.Text = p.Name .. (WHITELISTED[p.Name] and " [WL]" or "")
-            b.TextColor3 = Color3.new(1, 1, 1)
-            b.Font = Enum.Font.Gotham
-            b.TextSize = 10
-            b.ZIndex = 21
-            
-            b.MouseButton1Click:Connect(function()
-                WHITELISTED[p.Name] = not WHITELISTED[p.Name]
-                b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
-                b.Text = p.Name .. (WHITELISTED[p.Name] and " [WL]" or "")
-            end)
-            Instance.new("UICorner", b)
-        end
-    end
-    PListFrame.CanvasSize = UDim2.new(0, 0, 0, pCount * 32)
+    for _, c in pairs(PListFrame:GetChildren()) do 
+        if c:IsA("TextButton") then c:Destroy() end 
+    end
+    
+    local pCount = 0
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then
+            pCount = pCount + 1
+            local b = Instance.new("TextButton", PListFrame)
+            b.Size = UDim2.new(1, -10, 0, 30)
+            b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+            b.Text = p.Name .. (WHITELISTED[p.Name] and " [WL]" or "")
+            b.TextColor3 = Color3.new(1, 1, 1)
+            b.Font = Enum.Font.Gotham
+            b.TextSize = 10
+            b.ZIndex = 21
+            
+            b.MouseButton1Click:Connect(function()
+                WHITELISTED[p.Name] = not WHITELISTED[p.Name]
+                b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
+                b.Text = p.Name .. (WHITELISTED[p.Name] and " [WL]" or "")
+            end)
+            Instance.new("UICorner", b)
+        end
+    end
+    PListFrame.CanvasSize = UDim2.new(0, 0, 0, pCount * 32)
 end
 
+-- Initial refresh
 RefreshPlayerList()
-Players.PlayerAdded:Connect(RefreshPlayerList)
-Players.PlayerRemoving:Connect(RefreshPlayerList)
 
--- // ESP LOGIC
+-- Update list automatically when people join/leave
+Players.PlayerAdded:Connect(function() RefreshPlayerList() end)
+Players.PlayerRemoving:Connect(function() RefreshPlayerList() end)
+
+-- // SIMPLE ESP SYSTEM
 local function applyESP(char)
-    if not char:FindFirstChild("HumanoidRootPart") then return end
-    if char:FindFirstChild("EliteESP") then return end
-    local hl = Instance.new("Highlight")
-    hl.Name = "EliteESP"
-    hl.FillColor = Color3.fromRGB(0, 255, 150)
-    hl.OutlineColor = Color3.fromRGB(0, 80, 50)
-    hl.FillTransparency = 0.5
-    hl.Parent = char
+    if not char:FindFirstChild("HumanoidRootPart") then return end
+    if char:FindFirstChild("EliteESP") then return end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "EliteESP"
+    hl.FillColor = Color3.fromRGB(0, 255, 150)
+    hl.OutlineColor = Color3.fromRGB(0, 80, 50)
+    hl.FillTransparency = 0.5
+    hl.OutlineTransparency = 0
+    hl.Parent = char
 end
 
 local function removeESP(char)
-    local hl = char:FindFirstChild("EliteESP")
-    if hl then hl:Destroy() end
+    local hl = char:FindFirstChild("EliteESP")
+    if hl then hl:Destroy() end
 end
 
--- // MAIN LOOP
+-- // MAIN LOGIC LOOP
 getgenv().AimConnection = RunService.RenderStepped:Connect(function()
-    PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
-    FOVCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-    FOVCircle.Radius = FOV_RADIUS
-    FOVCircle.Visible = FOV_VISIBLE
-    camera.FieldOfView = GAME_FOV_VAL
+    PListFrame.Position = Main.Position + UDim2.new(0, 0, 0, Main.AbsoluteSize.Y + 5)
+    FOVCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = FOV_RADIUS
+    FOVCircle.Visible = FOV_VISIBLE
+    camera.FieldOfView = GAME_FOV_VAL
 
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            if ESP_ENABLED then applyESP(p.Character) else removeESP(p.Character) end
-        end
-    end
+    -- ESP handling
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character then
+            if ESP_ENABLED then
+                applyESP(p.Character)
+            else
+                removeESP(p.Character)
+            end
+        end
+    end
 
-    if AIM_ENABLED then
-        local target = nil
-        local maxDist = FOV_VISIBLE and FOV_RADIUS or math.huge
-        local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-        local fovMultiplier = camera.FieldOfView / 70
+    -- AIM logic
+    if AIM_ENABLED then
+        local target = nil
+        local maxDist = FOV_VISIBLE and FOV_RADIUS or math.huge
+        local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+        local fovMultiplier = camera.FieldOfView / 70  -- Adjust for FOV scaling
 
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and not WHITELISTED[p.Name] and p.Character then
-                local char = p.Character
-                local hum = char:FindFirstChild("Humanoid")
-                if hum and hum.Health > 0 then
-                    local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or 
-                                 (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or 
-                                 (char:FindFirstChild("HumanoidRootPart"))
-                    
-                    if part then
-                        local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
-                        if onScreen or not FOV_VISIBLE then
-                            local distFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                            local adjustedDist = distFromMouse * fovMultiplier
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and not WHITELISTED[p.Name] and p.Character then
+                local char = p.Character
+                local hum = char:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    -- Select target part based on the type
+                    local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or 
+                                 (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or 
+                                 (char:FindFirstChild("HumanoidRootPart"))
+                    
+                    if part then
+                        local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+                        if onScreen or not FOV_VISIBLE then
+                            -- Calculate distance from the center of the screen (aiming point)
+                            local distFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                            local adjustedDist = distFromMouse * fovMultiplier  -- Adjust distance for FOV scaling
 
-                            if adjustedDist < maxDist then
-                                local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
-                                local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, fpComp, 0) or part.Position
-                                
-                                local rp = RaycastParams.new()
-                                rp.FilterType = Enum.RaycastFilterType.Blacklist
-                                rp.FilterDescendantsInstances = {player.Character, char}
-                                
-                                if workspace:Raycast(camera.CFrame.Position, (finalPos - camera.CFrame.Position), rp) == nil then
-                                    target = finalPos
-                                    maxDist = adjustedDist
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        if target then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target) end
-    end
+                            -- Check if this target is within the FOV range
+                            if adjustedDist < maxDist then
+                                -- Adjust aiming height based on the FOV multiplier
+                                local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
+                                local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, fpComp, 0) or part.Position
+                                
+                                local rp = RaycastParams.new()
+                                rp.FilterType = Enum.RaycastFilterType.Blacklist
+                                rp.FilterDescendantsInstances = {player.Character, char}
+                                
+                                -- Raycast to ensure no obstruction between camera and target
+                                if workspace:Raycast(camera.CFrame.Position, (finalPos - camera.CFrame.Position), rp) == nil then
+                                    target = finalPos
+                                    maxDist = adjustedDist  -- Keep track of the nearest target
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        -- If a valid target is found, adjust the camera to aim at it
+        if target then 
+            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target)
+        end
+    end
 end)
 
--- // UPDATED FOV CONTROLS (Max 200)
+-- // BUTTON CONNECTORS
 GameFOVUp.MouseButton1Click:Connect(function()
-    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL + 5, 30, 200)
-    GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
+    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL + 5, 30, 200)
+    GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
 end)
 
 GameFOVDown.MouseButton1Click:Connect(function()
-    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL - 5, 30, 200)
-    GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
-end)
-
--- // OTHER CONTROLS
-LockBtn.MouseButton1Click:Connect(function()
-    AIM_ENABLED = not AIM_ENABLED
-    LockBtn.Text = AIM_ENABLED and "SNAP LOCK: ON" or "SNAP LOCK: OFF"
-    LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(180, 0, 0) or Color3.fromRGB(35, 35, 35)
-end)
-
-ESPBtn.MouseButton1Click:Connect(function()
-    ESP_ENABLED = not ESP_ENABLED
-    ESPBtn.Text = ESP_ENABLED and "ALIVE ESP: ON" or "ALIVE ESP: OFF"
-    ESPBtn.BackgroundColor3 = ESP_ENABLED and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(35, 35, 35)
-end)
-
-FOVUp.MouseButton1Click:Connect(function()
-    FOV_RADIUS = math.clamp(FOV_RADIUS + 10, 10, 2000)
-    FOVMain.Text = "AIM FOV: " .. FOV_RADIUS
-end)
-
-FOVDown.MouseButton1Click:Connect(function()
-    FOV_RADIUS = math.clamp(FOV_RADIUS - 10, 10, 2000)
-    FOVMain.Text = "AIM FOV: " .. FOV_RADIUS
-end)
-
-FOVMain.MouseButton1Click:Connect(function()
-    FOV_VISIBLE = not FOV_VISIBLE
-    FOVMain.BackgroundColor3 = FOV_VISIBLE and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(150, 0, 0)
-    FOVMain.Text = FOV_VISIBLE and "AIM FOV: " .. FOV_RADIUS or "GLOBAL SNAP"
+    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL - 5, 0, 120)
+    GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
 end)
 
 HeightUp.MouseButton1Click:Connect(function()
-    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST + 0.02) * 100) / 100
-    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
+    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST + 0.02) * 100) / 100
+    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
 end)
 
 HeightDown.MouseButton1Click:Connect(function()
-    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST - 0.02) * 100) / 100
-    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
+    AIM_HEIGHT_ADJUST = math.round((AIM_HEIGHT_ADJUST - 0.02) * 100) / 100
+    HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
+end)
+
+LockBtn.MouseButton1Click:Connect(function()
+    AIM_ENABLED = not AIM_ENABLED
+    LockBtn.Text = AIM_ENABLED and "SNAP LOCK: ON" or "SNAP LOCK: OFF"
+    LockBtn.BackgroundColor3 = AIM_ENABLED and Color3.fromRGB(180, 0, 0) or Color3.fromRGB(35, 35, 35)
+end)
+
+ESPBtn.MouseButton1Click:Connect(function()
+    ESP_ENABLED = not ESP_ENABLED
+    ESPBtn.Text = ESP_ENABLED and "ALIVE ESP: ON" or "ALIVE ESP: OFF"
+    ESPBtn.BackgroundColor3 = ESP_ENABLED and Color3.fromRGB(0, 150, 200) or Color3.fromRGB(35, 35, 35)
+end)
+
+FOVUp.MouseButton1Click:Connect(function()
+    FOV_RADIUS = math.clamp(FOV_RADIUS + 10, 10, 2000)
+    FOVMain.Text = "AIM FOV: " .. FOV_RADIUS
+end)
+
+FOVDown.MouseButton1Click:Connect(function()
+    FOV_RADIUS = math.clamp(FOV_RADIUS - 10, 10, 2000)
+    FOVMain.Text = "AIM FOV: " .. FOV_RADIUS
+end)
+
+FOVMain.MouseButton1Click:Connect(function()
+    FOV_VISIBLE = not FOV_VISIBLE
+    FOVMain.BackgroundColor3 = FOV_VISIBLE and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(150, 0, 0)
+    FOVMain.Text = FOV_VISIBLE and "AIM FOV: " .. FOV_RADIUS or "GLOBAL SNAP"
 end)
 
 MinBtn.MouseButton1Click:Connect(function()
-    IS_MINIMIZED = not IS_MINIMIZED
-    Content.Visible = not IS_MINIMIZED
-    Main:TweenSize(IS_MINIMIZED and UDim2.new(0, 200, 0, 35) or UDim2.new(0, 200, 0, 490), "Out", "Quad", 0.2, true)
+    IS_MINIMIZED = not IS_MINIMIZED
+    Content.Visible = not IS_MINIMIZED
+    Main:TweenSize(IS_MINIMIZED and UDim2.new(0, 200, 0, 35) or UDim2.new(0, 200, 0, 490), "Out", "Quad", 0.2, true)
 end)
 
 PListToggle.MouseButton1Click:Connect(function()
-    if not PListFrame.Visible then
-        RefreshPlayerList()
-        PListFrame.Visible = true
-        PListFrame:TweenSize(UDim2.new(0, 200, 0, 200), "Out", "Quad", 0.2, true)
-    else
-        PListFrame:TweenSize(UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
-        task.wait(0.2)
-        PListFrame.Visible = false
-    end
+    if not PListFrame.Visible then
+        RefreshPlayerList()
+        PListFrame.Visible = true
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 200), "Out", "Quad", 0.2, true)
+    else
+        PListFrame:TweenSize(UDim2.new(0, 200, 0, 0), "Out", "Quad", 0.2, true)
+        task.wait(0.2)
+        PListFrame.Visible = false
+    end
 end)
 
 local function setT(btn, t)
-    TARGET_TYPE = t
-    HeadBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    ChestBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    LegBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    btn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+    TARGET_TYPE = t
+    HeadBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    ChestBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    LegBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    btn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 end
 
 HeadBtn.MouseButton1Click:Connect(function() setT(HeadBtn, "Head") end)
