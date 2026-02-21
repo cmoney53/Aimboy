@@ -327,7 +327,7 @@ end)
 
 -- // BUTTON CONNECTORS
 GameFOVUp.MouseButton1Click:Connect(function()
-    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL + 5, 30, 120)
+    GAME_FOV_VAL = math.clamp(GAME_FOV_VAL + 5, 30, 200)
     GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
 end)
 
