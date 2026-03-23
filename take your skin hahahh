@@ -1,147 +1,140 @@
 --[[
     CASHMERE SKIN THIEF
-    Features: Draggable, Minimize, Neon Green Theme, Scrollable Player List
+    Instructions: Paste into your executor and run.
+    Features: Neon Green UI, Draggable, Minimize, Click-to-Morph.
 --]]
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Destroy existing UI if it exists (for re-running the script)
+-- 1. CLEANUP (Prevents UI stacking if you run the script multiple times)
 if PlayerGui:FindFirstChild("CashmereSkinThief") then
     PlayerGui.CashmereSkinThief:Destroy()
 end
 
--- UI Setup
-local ScreenGui = Instance.new("ScreenGui")
+-- 2. UI INITIALIZATION
+local ScreenGui = Instance.new("ScreenGui", PlayerGui)
 ScreenGui.Name = "CashmereSkinThief"
-ScreenGui.Parent = PlayerGui
 ScreenGui.ResetOnSpawn = false
 
--- Main Frame
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 220, 0, 300)
-MainFrame.Position = UDim2.new(0.5, -110, 0.5, -150)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true -- Standard legacy dragging
-MainFrame.Parent = ScreenGui
+-- Main Window
+local Main = Instance.new("Frame", ScreenGui)
+Main.Name = "MainFrame"
+Main.Size = UDim2.new(0, 220, 0, 320)
+Main.Position = UDim2.new(0.5, -110, 0.5, -160)
+Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true 
 
--- Neon Rounded Corners
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = MainFrame
+-- Styling (Neon Green)
+local Corner = Instance.new("UICorner", Main)
+Corner.CornerRadius = UDim.new(0, 10)
 
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Thickness = 2
-UIStroke.Color = Color3.fromRGB(57, 255, 20) -- Neon Green
-UIStroke.Parent = MainFrame
+local Stroke = Instance.new("UIStroke", Main)
+Stroke.Thickness = 2.5
+Stroke.Color = Color3.fromRGB(50, 255, 50)
+Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
--- Title
-local Title = Instance.new("TextLabel")
+-- Title Bar
+local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundTransparency = 1
 Title.Text = "CASHMERE"
-Title.TextColor3 = Color3.fromRGB(57, 255, 20)
+Title.TextColor3 = Color3.fromRGB(50, 255, 50)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
-Title.Parent = MainFrame
 
 -- Minimize Button
-local MinBtn = Instance.new("TextButton")
+local MinBtn = Instance.new("TextButton", Main)
 MinBtn.Size = UDim2.new(0, 30, 0, 30)
 MinBtn.Position = UDim2.new(1, -35, 0, 5)
 MinBtn.BackgroundTransparency = 1
 MinBtn.Text = "−"
-MinBtn.TextColor3 = Color3.fromRGB(57, 255, 20)
+MinBtn.TextColor3 = Color3.fromRGB(50, 255, 50)
 MinBtn.TextSize = 25
-MinBtn.Parent = MainFrame
 
--- Scrolling Frame
-local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Size = UDim2.new(0.9, 0, 0.75, 0)
-ScrollFrame.Position = UDim2.new(0.05, 0, 0.18, 0)
-ScrollFrame.BackgroundTransparency = 1
-ScrollFrame.ScrollBarThickness = 3
-ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(57, 255, 20)
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-ScrollFrame.Parent = MainFrame
+-- Scrolling Player List
+local Scroll = Instance.new("ScrollingFrame", Main)
+Scroll.Size = UDim2.new(0.9, 0, 0.75, 0)
+Scroll.Position = UDim2.new(0.05, 0, 0.15, 0)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 2
+Scroll.ScrollBarImageColor3 = Color3.fromRGB(50, 255, 20)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, 6)
-UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-UIListLayout.Parent = ScrollFrame
+local Layout = Instance.new("UIListLayout", Scroll)
+Layout.Padding = UDim.new(0, 5)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
---- CORE LOGIC ---
-
--- Function to copy skin
-local function stealSkin(targetId)
-    local character = LocalPlayer.Character
-    if not character then return end
-    
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
+-- 3. CORE FUNCTIONS
+local function morphToPlayer(targetUserId)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
         local success, description = pcall(function()
-            return Players:GetHumanoidDescriptionFromUserId(targetId)
+            return Players:GetHumanoidDescriptionFromUserId(targetUserId)
         end)
         
         if success and description then
-            humanoid:ApplyDescription(description)
+            char.Humanoid:ApplyDescription(description)
+        else
+            warn("Cashmere: Failed to fetch outfit for ID " .. targetUserId)
         end
     end
 end
 
--- Refresh List function
 local function refreshList()
     -- Clear current list
-    for _, child in pairs(ScrollFrame:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
+    for _, item in pairs(Scroll:GetChildren()) do
+        if item:IsA("TextButton") then item:Destroy() end
     end
     
-    -- Populate list
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local pBtn = Instance.new("TextButton")
-            pBtn.Size = UDim2.new(1, -10, 0, 35)
-            pBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-            pBtn.Text = player.DisplayName or player.Name
-            pBtn.TextColor3 = Color3.white
-            pBtn.Font = Enum.Font.Gotham
-            pBtn.TextSize = 14
-            pBtn.Parent = ScrollFrame
+    -- Populate with current players
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local btn = Instance.new("TextButton", Scroll)
+            btn.Size = UDim2.new(1, -10, 0, 32)
+            btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+            btn.Text = p.DisplayName or p.Name
+            btn.TextColor3 = Color3.white
+            btn.Font = Enum.Font.Gotham
+            btn.TextSize = 13
             
-            local btnCorner = Instance.new("UICorner")
-            btnCorner.CornerRadius = UDim.new(0, 6)
-            btnCorner.Parent = pBtn
+            local btnCorner = Instance.new("UICorner", btn)
+            btnCorner.CornerRadius = UDim.new(0, 5)
             
-            pBtn.MouseButton1Click:Connect(function()
-                stealSkin(player.UserId)
+            -- Hover Visuals
+            btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end)
+            btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25) end)
+            
+            -- Click to Steal Skin
+            btn.MouseButton1Click:Connect(function()
+                morphToPlayer(p.UserId)
             end)
         end
     end
-    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+    -- Update Scrollable Area
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 10)
 end
 
--- Minimize Toggle logic
+-- 4. INTERACTION LOGIC
 local isMinimized = false
 MinBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
-    ScrollFrame.Visible = not isMinimized
+    Scroll.Visible = not isMinimized
     if isMinimized then
-        MainFrame:TweenSize(UDim2.new(0, 220, 0, 40), "Out", "Quad", 0.3, true)
+        Main:TweenSize(UDim2.new(0, 220, 0, 40), "Out", "Quad", 0.3, true)
         MinBtn.Text = "+"
     else
-        MainFrame:TweenSize(UDim2.new(0, 220, 0, 300), "Out", "Quad", 0.3, true)
+        Main:TweenSize(UDim2.new(0, 220, 0, 320), "Out", "Quad", 0.3, true)
         MinBtn.Text = "−"
     end
 end)
 
--- Auto-refresh on join/leave
+-- 5. INITIALIZE & EVENTS
 refreshList()
 Players.PlayerAdded:Connect(refreshList)
 Players.PlayerRemoving:Connect(refreshList)
 
-print("Cashmere Skin Thief Loaded Successfully.")
+print("Cashmere Skin Thief is active.")
