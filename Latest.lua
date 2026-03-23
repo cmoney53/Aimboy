@@ -86,6 +86,6 @@ end
 CreateScriptButton("Aimbot", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Aimbot.lua")
 CreateScriptButton("Modded Yield", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/commando.lua")
 CreateScriptButton("Beta pblocker", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/blocker.lua")
-CreateScriptButton("Fly Script", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/take%20your%20skin%20hahahh")
+CreateScriptButton("Fly Script", "https://raw.githubusercontent.com/EnterpriseExperience/MicUpSource/refs/heads/main/LifeTogether_RP.lua")
 CreateScriptButton("Keyboard (Mobile)", "https://raw.githubusercontent.com/advxzivmsky/V3rmillion/main/Keyboard.lua")
 -----------------------------
