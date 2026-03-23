@@ -1,162 +1,149 @@
---[[
-    CASHMERE SKIN THIEF: UNIVERSAL EDITION (2026)
-    - Full Deep Clone: Clothes, Hair, Hats, Faces, BodyColors
-    - Neon Green Theme
-    - Draggable & Minimizable
-    - Auto-Refreshing Player List
---]]
-
+-- // SETTINGS & GLOBALS
+local VERSION_TAG = "Cashmere_SkinThief_V2_Stable"
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- 1. CLEANUP (Removes old versions)
-if PlayerGui:FindFirstChild("CashmereSkinThief") then
-    PlayerGui.CashmereSkinThief:Destroy()
+-- Cleanup old versions
+if PlayerGui:FindFirstChild(VERSION_TAG) then
+    PlayerGui[VERSION_TAG]:Destroy()
 end
 
--- 2. UI CONSTRUCTION
+-- // UI SETUP
 local ScreenGui = Instance.new("ScreenGui", PlayerGui)
-ScreenGui.Name = "CashmereSkinThief"
+ScreenGui.Name = VERSION_TAG
 ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 230, 0, 360)
-Main.Position = UDim2.new(0.5, -115, 0.5, -180)
+Main.Size = UDim2.new(0, 200, 0, 310) -- Adjusted to fit player list
+Main.Position = UDim2.new(0.05, 0, 0.3, 0)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Main.BorderSizePixel = 0
 Main.Active = true
-Main.Draggable = true -- Legacy draggable for compatibility
+Main.Draggable = true
+Instance.new("UICorner", Main)
 
-local Corner = Instance.new("UICorner", Main)
-Corner.CornerRadius = UDim.new(0, 12)
-
+-- Neon Green Stroke (Cashmere Style)
 local Stroke = Instance.new("UIStroke", Main)
-Stroke.Thickness = 3
-Stroke.Color = Color3.fromRGB(50, 255, 50) -- Neon Green Glow
+Stroke.Thickness = 2
+Stroke.Color = Color3.fromRGB(0, 255, 150)
 
+-- Header Title
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 45)
-Title.BackgroundTransparency = 1
-Title.Text = "CASHMERE THIEF"
-Title.TextColor3 = Color3.fromRGB(50, 255, 50)
+Title.Size = UDim2.new(1, -65, 0, 35)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Text = "  Cashmere Skin Thief"
+Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
+Title.TextSize = 12
+Title.BackgroundTransparency = 1
+Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local MinBtn = Instance.new("TextButton", Main)
-MinBtn.Size = UDim2.new(0, 30, 0, 30)
-MinBtn.Position = UDim2.new(1, -35, 0, 7)
-MinBtn.BackgroundTransparency = 1
-MinBtn.Text = "−"
-MinBtn.TextColor3 = Color3.fromRGB(50, 255, 50)
-MinBtn.TextSize = 25
-
-local Scroll = Instance.new("ScrollingFrame", Main)
-Scroll.Size = UDim2.new(0.9, 0, 0.65, 0)
-Scroll.Position = UDim2.new(0.05, 0, 0.15, 0)
-Scroll.BackgroundTransparency = 1
-Scroll.ScrollBarThickness = 3
-Scroll.ScrollBarImageColor3 = Color3.fromRGB(50, 255, 50)
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-
-local Layout = Instance.new("UIListLayout", Scroll)
-Layout.Padding = UDim.new(0, 6)
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-local RefreshBtn = Instance.new("TextButton", Main)
-RefreshBtn.Size = UDim2.new(0.9, 0, 0, 35)
-RefreshBtn.Position = UDim2.new(0.05, 0, 0.86, 0)
-RefreshBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-RefreshBtn.Text = "FORCE REFRESH"
-RefreshBtn.TextColor3 = Color3.white
-RefreshBtn.Font = Enum.Font.Gotham
-RefreshBtn.TextSize = 12
-Instance.new("UICorner", RefreshBtn).CornerRadius = UDim.new(0, 8)
-
--- 3. THE "DEEP STEAL" ENGINE
+-- // THE SKIN STEAL ENGINE
 local function stealSkin(targetPlayer)
     local myChar = LocalPlayer.Character
     local targetChar = targetPlayer.Character
     
     if myChar and targetChar then
-        -- Wipe current look
+        -- 1. Wipe current appearance
         for _, item in pairs(myChar:GetChildren()) do
-            if item:IsA("Accessory") or item:IsA("Shirt") or item:IsA("Pants") or item:IsA("BodyColors") or item:IsA("ShirtGraphic") or item:IsA("CharacterMesh") then
+            if item:IsA("Accessory") or item:IsA("Shirt") or item:IsA("Pants") or item:IsA("BodyColors") or item:IsA("ShirtGraphic") then
                 item:Destroy()
             end
         end
         
-        -- Deep Clone Assets
+        -- 2. Deep Clone Clothing & Body Colors
         for _, item in pairs(targetChar:GetChildren()) do
-            if item:IsA("Shirt") or item:IsA("Pants") or item:IsA("BodyColors") or item:IsA("ShirtGraphic") or item:IsA("CharacterMesh") then
+            if item:IsA("Shirt") or item:IsA("Pants") or item:IsA("BodyColors") or item:IsA("ShirtGraphic") then
                 item:Clone().Parent = myChar
             elseif item:IsA("Accessory") then
+                -- 3. Clone Hats/Hair
                 local clone = item:Clone()
                 clone.Parent = myChar
             end
         end
         
-        -- Face Sync
-        local targetHead = targetChar:FindFirstChild("Head")
-        local myHead = myChar:FindFirstChild("Head")
-        if targetHead and myHead then
-            if targetHead:FindFirstChild("face") then
-                if myHead:FindFirstChild("face") then myHead.face:Destroy() end
-                targetHead.face:Clone().Parent = myHead
-            end
+        -- 4. Sync Face
+        local tHead = targetChar:FindFirstChild("Head")
+        local mHead = myChar:FindFirstChild("Head")
+        if tHead and mHead and tHead:FindFirstChild("face") then
+            if mHead:FindFirstChild("face") then mHead.face:Destroy() end
+            tHead.face:Clone().Parent = mHead
         end
     end
 end
 
--- 4. UI LOGIC (Populating Names)
-local function updateList()
-    for _, item in pairs(Scroll:GetChildren()) do
-        if item:IsA("TextButton") then item:Destroy() end
+-- // PLAYER LIST SETUP (From Cash V2)
+local PListFrame = Instance.new("ScrollingFrame", Main)
+PListFrame.Size = UDim2.new(1, -20, 0, 250)
+PListFrame.Position = UDim2.new(0, 10, 0, 45)
+PListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+PListFrame.BorderSizePixel = 0
+PListFrame.ScrollBarThickness = 2
+PListFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 150)
+PListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+Instance.new("UICorner", PListFrame)
+
+local UIList = Instance.new("UIListLayout", PListFrame)
+UIList.Padding = UDim.new(0, 5)
+UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- // REFRESH FUNCTION
+local function RefreshPlayerList()
+    for _, c in pairs(PListFrame:GetChildren()) do 
+        if c:IsA("TextButton") then c:Destroy() end 
     end
     
+    local pCount = 0
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            local btn = Instance.new("TextButton", Scroll)
-            btn.Size = UDim2.new(1, -10, 0, 35)
-            btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-            btn.Text = p.DisplayName or p.Name
-            btn.TextColor3 = Color3.white
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 13
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+            pCount = pCount + 1
+            local b = Instance.new("TextButton", PListFrame)
+            b.Size = UDim2.new(1, -10, 0, 30)
+            b.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            -- Using DisplayName for Life Together compatibility
+            b.Text = p.DisplayName or p.Name
+            b.TextColor3 = Color3.new(1, 1, 1)
+            b.Font = Enum.Font.Gotham
+            b.TextSize = 10
+            Instance.new("UICorner", b)
             
-            -- Visual Feedback
-            btn.MouseButton1Click:Connect(function()
+            -- Action: Steal Skin on Click
+            b.MouseButton1Click:Connect(function()
                 stealSkin(p)
-                btn.TextColor3 = Color3.fromRGB(50, 255, 50)
+                -- Visual Feedback
+                local oldColor = b.BackgroundColor3
+                b.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+                b.TextColor3 = Color3.new(0, 0, 0)
                 task.wait(0.2)
-                btn.TextColor3 = Color3.white
+                b.BackgroundColor3 = oldColor
+                b.TextColor3 = Color3.new(1, 1, 1)
             end)
         end
     end
-    Scroll.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 10)
+    PListFrame.CanvasSize = UDim2.new(0, 0, 0, pCount * 35)
 end
 
--- 5. MINIMIZE TOGGLE
-local isMin = false
+-- // MINIMIZE BUTTON
+local MinBtn = Instance.new("TextButton", Main)
+MinBtn.Size = UDim2.new(0, 25, 0, 25)
+MinBtn.Position = UDim2.new(1, -30, 0, 5)
+MinBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", MinBtn)
+
+local isMinimized = false
 MinBtn.MouseButton1Click:Connect(function()
-    isMin = not isMin
-    Scroll.Visible = not isMin
-    RefreshBtn.Visible = not isMin
-    Main:TweenSize(isMin and UDim2.new(0, 230, 0, 45) or UDim2.new(0, 230, 0, 360), "Out", "Quad", 0.3, true)
-    MinBtn.Text = isMin and "+" or "−"
+    isMinimized = not isMinimized
+    PListFrame.Visible = not isMinimized
+    Main:TweenSize(isMinimized and UDim2.new(0, 200, 0, 35) or UDim2.new(0, 200, 0, 310), "Out", "Quad", 0.2, true)
+    MinBtn.Text = isMinimized and "+" or "-"
 end)
 
--- 6. RUN
-RefreshBtn.MouseButton1Click:Connect(updateList)
-task.wait(1) -- Delay to let players load
-updateList()
+-- // INITIALIZE
+RefreshPlayerList()
+Players.PlayerAdded:Connect(RefreshPlayerList)
+Players.PlayerRemoving:Connect(RefreshPlayerList)
 
--- Auto-update list when players join/leave
-Players.PlayerAdded:Connect(function()
-    task.wait(1)
-    updateList()
-end)
-Players.PlayerRemoving:Connect(updateList)
-
-print("Cashmere Thief Loaded - Click a name to steal appearance!")
+print("Cashmere Skin Thief V2 Loaded Successfully.")
