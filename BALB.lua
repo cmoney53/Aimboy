@@ -71,16 +71,16 @@ local rebirth = ReplicatedStorage
     :WaitForChild("RebirthService")
     :WaitForChild("RF")
     :WaitForChild("Rebirth")
-local runningRebirth = false
+local running = false
 local AR = Tabs.Main:AddToggle("AR", {
     Title = "Auto Rebirth",
     Default = false
 })
 AR:OnChanged(function(state)
-    runningRebirth = state
+    running = state
     if not state then return end
     task.spawn(function()
-        while runningRebirth do
+        while running do
             pcall(function()
                 rebirth:InvokeServer()
             end)
@@ -103,16 +103,16 @@ local claim = ReplicatedStorage
     :WaitForChild("SeasonPassService")
     :WaitForChild("RF")
     :WaitForChild("ClaimPassReward")
-local runningEvent = false
+local running = false
 local ACEPR = Tabs.Main:AddToggle("ACEPR", {
     Title = "Auto Claim Event Pass Rewards",
     Default = false
 })
 ACEPR:OnChanged(function(state)
-    runningEvent = state
+    running = state
     if not state then return end
     task.spawn(function()
-        while runningEvent do
+        while running do
             local gui = player:WaitForChild("PlayerGui")
                 :WaitForChild("Windows")
                 :WaitForChild("Event")
@@ -123,19 +123,19 @@ ACEPR:OnChanged(function(state)
                 :WaitForChild("Main")
                 :WaitForChild("ScrollingFrame")
             for i = 1, 10 do
-                if not runningEvent then break end
+                if not running then break end
                 local item = gui:FindFirstChild(tostring(i))
                 if item and item:FindFirstChild("Frame") and item.Frame:FindFirstChild("Free") then
                     local free = item.Frame.Free
                     local locked = free:FindFirstChild("Locked")
                     local claimed = free:FindFirstChild("Claimed")
-                    while runningEvent and locked and locked.Visible do
+                    while running and locked and locked.Visible do
                         task.wait(0.2)
                     end
-                    if runningEvent and claimed and claimed.Visible then
+                    if running and claimed and claimed.Visible then
                         continue
                     end
-                    if runningEvent and locked and not locked.Visible then
+                    if running and locked and not locked.Visible then
                         pcall(function()
                             claim:InvokeServer("Free", i)
                         end)
@@ -161,6 +161,7 @@ local redeem = ReplicatedStorage
     :WaitForChild("RedeemCode")
 local codes = {
     "release"
+    -- add more codes here
 }
 Tabs.Main:AddButton({
     Title = "Redeem All Codes",
@@ -190,7 +191,7 @@ local upgrade = ReplicatedStorage
     :WaitForChild("Upgrade")
 local amount = 1
 local delayTime = 0.5
-local runningUpgrade = false
+local running = false
 local IMS = Tabs.Upgrades:AddInput("IMS", {
     Title = "Speed Amount",
     Default = "1",
@@ -224,10 +225,10 @@ local AMS = Tabs.Upgrades:AddToggle("AMS", {
     Default = false
 })
 AMS:OnChanged(function(state)
-    runningUpgrade = state
+    running = state
     if not state then return end
     task.spawn(function()
-        while runningUpgrade do
+        while running do
             pcall(function()
                 upgrade:InvokeServer("MovementSpeed", amount)
             end)
@@ -287,16 +288,16 @@ local function parseCash(text)
     end
     return num
 end
-local runningBuy = false
+local running = false
 local ABL = Tabs.Main:AddToggle("ABL", {
     Title = "Auto Buy Best Luckyblock",
     Default = false
 })
 ABL:OnChanged(function(state)
-    runningBuy = state
+    running = state
     if not state then return end
     task.spawn(function()
-        while runningBuy do
+        while running do
             local gui = player.PlayerGui:FindFirstChild("Windows")
             if not gui then 
                 task.wait(1)
@@ -533,16 +534,16 @@ Tabs.Brainrots:AddButton({
 -----
 -----
 Tabs.Brainrots:AddSection("Farming")
-local runningFarm = false
+local running = false
 local AutoFarmToggle = Tabs.Brainrots:AddToggle("AutoFarmToggle", {
     Title = "Auto Farm Best Brainrots",
     Default = false
 })
 AutoFarmToggle:OnChanged(function(state)
-    runningFarm = state
+    running = state
     if state then
         task.spawn(function()
-            while runningFarm do
+            while running do
                 local player = game.Players.LocalPlayer
                 local character = player.Character or player.CharacterAdded:Wait()
                 local root = character:WaitForChild("HumanoidRootPart")
@@ -562,8 +563,8 @@ AutoFarmToggle:OnChanged(function(state)
                             break
                         end
                     end
-                until ownedModel ~= nil or not runningFarm
-                if not runningFarm then break end
+                until ownedModel ~= nil or not running
+                if not running then break end
                 if ownedModel.PrimaryPart then
                     ownedModel:SetPrimaryPartCFrame(target.CFrame)
                 else
@@ -573,16 +574,113 @@ AutoFarmToggle:OnChanged(function(state)
                     end
                 end
                 task.wait(0.7)
+                if ownedModel and ownedModel.Parent == modelsFolder then
+                    if ownedModel.PrimaryPart then
+                        ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0, -5, 0))
+                    else
+                        local part = ownedModel:FindFirstChildWhichIsA("BasePart")
+                        if part then
+                            part.CFrame = target.CFrame * CFrame.new(0, -5, 0)
+                        end
+                    end
+                end
+                repeat
+                    task.wait(0.3)
+                until not running or (ownedModel == nil or ownedModel.Parent ~= modelsFolder)
+                if not running then break end
+                local oldCharacter = player.Character
+                repeat
+                    task.wait(0.2)
+                until not running or (player.Character ~= oldCharacter and player.Character ~= nil)
+                if not running then break end
+                task.wait(0.4)
+                local newChar = player.Character
+                local newRoot = newChar:WaitForChild("HumanoidRootPart")
+                newRoot.CFrame = CFrame.new(737, 39, -2118)
+                task.wait(2.1)
             end
         end)
     end
 end)
+Options.AutoFarmToggle:SetValue(false)
+-----
+-----
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local running = false
+local sliderValue = 1000
+local originalSpeed = nil
+local currentModel = nil
+local function getMyModel()
+    local folder = workspace:FindFirstChild("RunningModels")
+    if not folder then return nil end
+    for _, model in ipairs(folder:GetChildren()) do
+        if model:GetAttribute("OwnerId") == player.UserId then
+            return model
+        end
+    end
+    return nil
 end
-
+local function applySpeed()
+    local model = getMyModel()
+    if not model then
+        currentModel = nil
+        return
+    end
+    if model ~= currentModel then
+        currentModel = model
+        originalSpeed = model:GetAttribute("MovementSpeed")
+    end
+    if running then
+        if originalSpeed == nil then
+            originalSpeed = model:GetAttribute("MovementSpeed")
+        end
+        model:SetAttribute("MovementSpeed", sliderValue)
+    end
+end
+task.spawn(function()
+    while true do
+        if running then
+            applySpeed()
+        end
+        task.wait(0.2)
+    end
+end)
+local Toggle = Tabs.Stats:AddToggle("MovementToggle", {
+    Title = "Enable Custom Lucky Block Speed",
+    Default = false
+})
+Toggle:OnChanged(function()
+    running = Options.MovementToggle.Value
+    if not running then
+        local model = getMyModel()
+        if model and originalSpeed ~= nil then
+            model:SetAttribute("MovementSpeed", originalSpeed)
+        end
+        originalSpeed = nil
+        currentModel = nil
+    end
+end)
+local Slider = Tabs.Stats:AddSlider("MovementSlider", {
+    Title = "Lucky Block Speed",
+    Default = 1000,
+    Min = 50,
+    Max = 3000,
+    Rounding = 0
+})
+Slider:OnChanged(function(Value)
+    sliderValue = Value
+end)
+-----
+-----
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("FluentScriptHub")
+SaveManager:SetFolder("FluentScriptHub/specific-game")
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 Window:SelectTab(1)
+SaveManager:LoadAutoloadConfig()
+end
