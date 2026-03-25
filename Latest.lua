@@ -1,77 +1,91 @@
--- Essential Settings: Enable "LoadStringEnabled" in ServerScriptService properties!
-local Players = game:GetService("Players")
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local UICornerMain = Instance.new("UICorner")
+local Title = Instance.new("TextLabel")
+local ScrollingFrame = Instance.new("ScrollingFrame")
+local ButtonLayout = Instance.new("UIListLayout")
+local UIPadding = Instance.new("UIPadding")
 
-local function createUniversalConsole(player)
-    local sg = Instance.new("ScreenGui", player.PlayerGui)
-    sg.Name = "UniversalConsole"
-    sg.IgnoreGuiInset = true
+-- Setup ScreenGui
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Name = "CashmereHub"
 
-    local main = Instance.new("Frame", sg)
-    main.Size = UDim2.new(0, 450, 0, 220)
-    main.Position = UDim2.new(0.5, -225, 0.2, 0)
-    main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    main.Active = true
-    main.Draggable = true -- High-value for Mouse users
+-- Main Window
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- Sleek dark background
+MainFrame.Position = UDim2.new(0.5, -110, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 220, 0, 320)
+MainFrame.Active = true
+MainFrame.Draggable = true
 
-    local title = Instance.new("TextLabel", main)
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.Text = " LUAU EXECUTOR (XBOX COMPATIBLE) "
-    title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    title.TextColor3 = Color3.new(1, 1, 1)
+UICornerMain.CornerRadius = UDim.new(0, 12)
+UICornerMain.Parent = MainFrame
 
-    local box = Instance.new("TextBox", main)
-    box.Size = UDim2.new(1, -20, 0, 130)
-    box.Position = UDim2.new(0, 10, 0, 40)
-    box.MultiLine = true
-    box.TextXAlignment = Enum.TextXAlignment.Left
-    box.TextYAlignment = Enum.TextYAlignment.Top
-    box.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    box.TextColor3 = Color3.fromRGB(0, 255, 0)
-    box.Text = ""
-    box.PlaceholderText = "-- Paste/Type Script Here..."
+-- Title
+Title.Parent = MainFrame
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.Text = "CASHMERE HUB"
+Title.TextColor3 = Color3.fromRGB(0, 255, 120) -- Neon Green
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundTransparency = 1
 
-    local exec = Instance.new("TextButton", main)
-    exec.Size = UDim2.new(0.5, -15, 0, 35)
-    exec.Position = UDim2.new(0, 10, 0, 175)
-    exec.Text = "EXECUTE"
-    exec.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
-    exec.TextColor3 = Color3.new(1, 1, 1)
+-- Scrollable Area
+ScrollingFrame.Parent = MainFrame
+ScrollingFrame.Position = UDim2.new(0, 0, 0, 50)
+ScrollingFrame.Size = UDim2.new(1, 0, 1, -60)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.ScrollBarThickness = 2
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
 
-    local clear = Instance.new("TextButton", main)
-    clear.Size = UDim2.new(0.5, -15, 0, 35)
-    clear.Position = UDim2.new(0.5, 5, 0, 175)
-    clear.Text = "CLEAR"
-    clear.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
-    clear.TextColor3 = Color3.new(1, 1, 1)
+ButtonLayout.Parent = ScrollingFrame
+ButtonLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ButtonLayout.Padding = UDim.new(0, 10)
 
-    -- THE COMPATIBILITY BRIDGE
-    exec.MouseButton1Click:Connect(function()
-        local code = box.Text
-        
-        -- This "wraps" the code to prevent it from crashing if it looks for exploit-only features
-        local wrapper = [[
-            local getgenv = function() return _G end
-            local Drawing = {new = function() return {Remove = function() end} end}
-            local success, err = pcall(function()
-                ]] .. code .. [[
-            end)
-            if not success then warn("Script Error: " .. err) end
-        ]]
+UIPadding.Parent = ScrollingFrame
+UIPadding.PaddingTop = UDim.new(0, 5)
 
-        local func, parseErr = loadstring(wrapper)
-        if func then
-            task.spawn(func)
-            exec.Text = "RUNNING..."
-            task.wait(1)
-            exec.Text = "EXECUTE"
-        else
-            warn("Syntax Error: " .. parseErr)
+-- Function to create Neon Buttons
+local function CreateScriptButton(Name, URL)
+    local Button = Instance.new("TextButton")
+    local UICornerBtn = Instance.new("UICorner")
+    local UIStroke = Instance.new("UIStroke")
+
+    Button.Parent = ScrollingFrame
+    Button.Size = UDim2.new(0.85, 0, 0, 40)
+    Button.Text = Name
+    Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Button.TextColor3 = Color3.fromRGB(0, 255, 120) -- Green Text
+    Button.Font = Enum.Font.GothamSemibold
+    Button.TextSize = 14
+    Button.AutoButtonColor = true
+
+    UICornerBtn.CornerRadius = UDim.new(0, 8)
+    UICornerBtn.Parent = Button
+
+    -- Neon Border Effect
+    UIStroke.Parent = Button
+    UIStroke.Thickness = 2
+    UIStroke.Color = Color3.fromRGB(0, 255, 120) -- Neon Green Border
+    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+    Button.MouseButton1Click:Connect(function()
+        print("Executing: " .. Name)
+        local success, err = pcall(function()
+            loadstring(game:HttpGet(URL, true))()
+        end)
+        if not success then
+            warn("Error: " .. err)
         end
     end)
-
-    clear.MouseButton1Click:Connect(function() box.Text = "" end)
 end
 
-Players.PlayerAdded:Connect(function(p)
-    if p.UserId == game.CreatorId then createUniversalConsole(p) end
-end)
+--- ADD YOUR SCRIPTS HERE ---
+CreateScriptButton("Aimbot", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Aimbot.lua")
+CreateScriptButton("Modded Yield", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/commando.lua")
+CreateScriptButton("bronx", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/blocker.lua")
+CreateScriptButton("BALB", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/BALB.lua")
+CreateScriptButton("BALBX", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Balb2.lua")
+-----------------------------
