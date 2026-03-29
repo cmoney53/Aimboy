@@ -88,4 +88,5 @@ CreateScriptButton("Modded Yield", "https://raw.githubusercontent.com/cmoney53/A
 CreateScriptButton("bronx", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/blocker.lua")
 CreateScriptButton("BALB", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/BALB.lua")
 CreateScriptButton("BALBX", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Balb2.lua")
+CreateScriptButton("BALBX", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Spam_tp")
 -----------------------------
