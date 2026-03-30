@@ -89,4 +89,6 @@ CreateScriptButton("bronx", "https://raw.githubusercontent.com/cmoney53/Aimboy/r
 CreateScriptButton("BALB", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/BALB.lua")
 CreateScriptButton("BALBX", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Balb2.lua")
 CreateScriptButton("spam tp_ BEta", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/Spam_tp")
+CreateScriptButton("scanner Beta", "https://raw.githubusercontent.com/cmoney53/Aimboy/refs/heads/main/scanner%20basic")
+
 -----------------------------
