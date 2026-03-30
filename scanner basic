@@ -18,7 +18,7 @@ ScreenGui.ResetOnSpawn = false
 -- 2. STABLE DRAGGABLE SYSTEM
 local function makeDraggable(frame)
     local dragging, dragInput, dragStart, startPos
-    
+
     local function update(input)
         local delta = input.Position - dragStart
         frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
@@ -29,7 +29,7 @@ local function makeDraggable(frame)
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
-            
+
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -153,7 +153,7 @@ local function addCategoryHeader(name, color)
     local h = Instance.new("TextButton")
     h.Size = UDim2.new(1, 0, 0, 35)
     h.BackgroundColor3 = color
-    h.Text = collapsedCategories[name] and "  ▶ CATEGORY: " .. name:upper() or "  ▼ CATEGORY: " .. name:upper()
+    h.Text = "  ▼ CATEGORY: " .. name:upper()
     h.TextColor3 = Color3.fromRGB(255, 255, 255)
     h.Font = Enum.Font.SourceSansBold
     h.TextSize = 16
@@ -162,36 +162,35 @@ local function addCategoryHeader(name, color)
     h.Parent = Scroll
     Instance.new("UICorner", h)
 
+    if collapsedCategories[name] then
+        h.Text = "  ▶ CATEGORY: " .. name:upper()
+    end
+
     h.MouseButton1Click:Connect(function()
         collapsedCategories[name] = not collapsedCategories[name]
-        -- Immediate Visual Update for user
-        h.Text = collapsedCategories[name] and "  ▶ CATEGORY: " .. name:upper() or "  ▼ CATEGORY: " .. name:upper()
-        -- Re-run scan to apply visibility changes
-        _G.TriggerOmniRefresh() 
+        -- Logic to hide children is handled in the refresh loop
     end)
 end
 
 local function addEntry(obj, typeTag, category)
-    -- Don't add entries if category is collapsed
     if collapsedCategories[category] then return end
-    
+
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, 0, 0, 32)
     b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     b.Text = "  ↳ [" .. typeTag .. "] " .. obj.Name
-    
+
     -- Visual Coding
     if typeTag:find("GUI") then b.TextColor3 = Color3.fromRGB(0, 200, 255)
     elseif typeTag:find("DATA") then b.TextColor3 = Color3.fromRGB(255, 180, 0)
     elseif typeTag:find("CMD") or typeTag:find("REMOTE") then b.TextColor3 = Color3.fromRGB(57, 255, 20)
     elseif typeTag:find("UTILITY") then b.TextColor3 = Color3.fromRGB(255, 80, 80)
     else b.TextColor3 = Color3.fromRGB(200, 200, 200) end
-    
+
     b.TextXAlignment = Enum.TextXAlignment.Left
     b.Parent = Scroll
     Instance.new("UICorner", b)
 
-    -- Handle Search Filter
     if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
 
     b.MouseButton1Click:Connect(function()
@@ -204,16 +203,16 @@ local function addEntry(obj, typeTag, category)
         if clickConn then clickConn:Disconnect() end
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
             local val = tonumber(CommandBox.Text) or CommandBox.Text
-            
+
             if typeTag:find("GUI") then
-                pcall(function()
-                    obj.Enabled = true
-                    for _, v in pairs(obj:GetDescendants()) do
+                obj.Enabled = true
+                for _, v in pairs(obj:GetDescendants()) do
+                    pcall(function() 
                         if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then 
                             v.Visible = true 
                         end 
-                    end
-                end)
+                    end)
+                end
                 OutputSayer.Text = "Status: GUI Force-Opened"
             elseif typeTag == "DATA" then
                 pcall(function() obj.Value = val end)
@@ -234,11 +233,8 @@ end
 
 -- 7. THE DEEP OMNI-SCAN ENGINE (CATEGORIZED)
 local function runOmniScan()
-    -- Clear current list while keeping layout
-    for _, v in pairs(Scroll:GetChildren()) do 
-        if not v:IsA("UIListLayout") then v:Destroy() end 
-    end
-    
+    for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
+
     -- --- CATEGORY: GUIS ---
     addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
     for _, g in pairs(PlayerGui:GetChildren()) do
@@ -246,7 +242,7 @@ local function runOmniScan()
             addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis")
         end
     end
-    
+
     -- --- CATEGORY: DATA & STATS ---
     addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
     for _, v in pairs(Player:GetDescendants()) do
@@ -263,7 +259,7 @@ local function runOmniScan()
     local function deepScan(parent)
         for _, child in pairs(parent:GetChildren()) do
             local lowName = child.Name:lower()
-            
+
             -- Sort Remotes
             if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
                 addEntry(child, "REMOTE", "Remotes")
@@ -291,9 +287,6 @@ local function runOmniScan()
         pcall(function() deepScan(container) end)
     end
 end
-
--- Refresh global
-_G.TriggerOmniRefresh = runOmniScan
 
 -- 8. SEARCH & UPDATE LOOP
 Search:GetPropertyChangedSignal("Text"):Connect(function()
@@ -361,3 +354,158 @@ TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = Main
+
+-- 10. ARGUMENT SNIFFER
+local snifferActive = false
+local snifferLog = {}
+local MAX_LOG = 80
+
+-- Sniffer Window
+local SnifferGui = Instance.new("Frame")
+SnifferGui.Size = UDim2.new(0, 480, 0, 340)
+SnifferGui.Position = UDim2.new(0.5, -240, 0.5, 230)
+SnifferGui.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+SnifferGui.BorderSizePixel = 0
+SnifferGui.Active = true
+SnifferGui.ClipsDescendants = true
+SnifferGui.Visible = false
+SnifferGui.Parent = ScreenGui
+makeDraggable(SnifferGui)
+Instance.new("UICorner", SnifferGui)
+local SnifferStroke = Instance.new("UIStroke", SnifferGui)
+SnifferStroke.Color = Color3.fromRGB(255, 80, 200)
+SnifferStroke.Thickness = 2
+
+local SnifferTitle = Instance.new("TextLabel")
+SnifferTitle.Size = UDim2.new(1, -80, 0, 36)
+SnifferTitle.Position = UDim2.new(0, 10, 0, 0)
+SnifferTitle.Text = "ARG SNIFFER // LIVE"
+SnifferTitle.TextColor3 = Color3.fromRGB(255, 80, 200)
+SnifferTitle.Font = Enum.Font.Code
+SnifferTitle.BackgroundTransparency = 1
+SnifferTitle.TextXAlignment = Enum.TextXAlignment.Left
+SnifferTitle.Parent = SnifferGui
+
+local SnifferCloseBtn = Instance.new("TextButton")
+SnifferCloseBtn.Size = UDim2.new(0, 30, 0, 30)
+SnifferCloseBtn.Position = UDim2.new(1, -35, 0, 3)
+SnifferCloseBtn.Text = "X"
+SnifferCloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+SnifferCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SnifferCloseBtn.Parent = SnifferGui
+Instance.new("UICorner", SnifferCloseBtn)
+
+local ClearBtn = Instance.new("TextButton")
+ClearBtn.Size = UDim2.new(0, 60, 0, 24)
+ClearBtn.Position = UDim2.new(1, -100, 0, 6)
+ClearBtn.Text = "CLEAR"
+ClearBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ClearBtn.Font = Enum.Font.SourceSansBold
+ClearBtn.TextSize = 13
+ClearBtn.Parent = SnifferGui
+Instance.new("UICorner", ClearBtn)
+
+local SnifferScroll = Instance.new("ScrollingFrame")
+SnifferScroll.Size = UDim2.new(1, -10, 1, -44)
+SnifferScroll.Position = UDim2.new(0, 5, 0, 40)
+SnifferScroll.BackgroundTransparency = 1
+SnifferScroll.ScrollBarThickness = 5
+SnifferScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+SnifferScroll.Parent = SnifferGui
+
+local SnifferList = Instance.new("UIListLayout", SnifferScroll)
+SnifferList.Padding = UDim.new(0, 3)
+SnifferList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    SnifferScroll.CanvasSize = UDim2.new(0, 0, 0, SnifferList.AbsoluteContentSize.Y + 10)
+    SnifferScroll.CanvasPosition = Vector2.new(0, SnifferList.AbsoluteContentSize.Y)
+end)
+
+local function addSnifferEntry(remoteName, method, args)
+    local timestamp = string.format("%.1f", tick() % 1000)
+    local argStr = ""
+    for i, v in ipairs(args) do
+        local s = tostring(v)
+        if #s > 40 then s = s:sub(1, 40) .. "..." end
+        argStr = argStr .. (i > 1 and ", " or "") .. s
+    end
+    if argStr == "" then argStr = "<none>" end
+
+    local row = Instance.new("TextLabel")
+    row.Size = UDim2.new(1, -8, 0, 22)
+    row.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    row.Font = Enum.Font.Code
+    row.TextSize = 11
+    row.TextColor3 = Color3.fromRGB(255, 80, 200)
+    row.TextXAlignment = Enum.TextXAlignment.Left
+    row.TextTruncate = Enum.TextTruncate.AtEnd
+    row.Text = string.format("  [%s] %s :: %s  =>  %s", timestamp, method, remoteName, argStr)
+    row.Parent = SnifferScroll
+    Instance.new("UICorner", row)
+
+    table.insert(snifferLog, row)
+    if #snifferLog > MAX_LOG then
+        local oldest = table.remove(snifferLog, 1)
+        if oldest and oldest.Parent then oldest:Destroy() end
+    end
+end
+
+-- Hook via __namecall metamethod
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    if snifferActive then
+        if method == "FireServer" and self:IsA("RemoteEvent") then
+            local args = {...}
+            task.defer(function() addSnifferEntry(self.Name, "FireServer", args) end)
+        elseif method == "InvokeServer" and self:IsA("RemoteFunction") then
+            local args = {...}
+            task.defer(function() addSnifferEntry(self.Name, "InvokeServer", args) end)
+        elseif method == "Fire" and self:IsA("BindableEvent") then
+            local args = {...}
+            task.defer(function() addSnifferEntry(self.Name, "Fire (Bindable)", args) end)
+        end
+    end
+    return oldNamecall(self, ...)
+end)
+
+-- Toggle button anchored inside the main window (bottom-left)
+local SniffToggleBtn = Instance.new("TextButton")
+SniffToggleBtn.Size = UDim2.new(0, 120, 0, 28)
+SniffToggleBtn.Position = UDim2.new(0, 15, 1, -38)
+SniffToggleBtn.Text = "SNIFFER: OFF"
+SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 20, 60)
+SniffToggleBtn.TextColor3 = Color3.fromRGB(180, 80, 200)
+SniffToggleBtn.Font = Enum.Font.SourceSansBold
+SniffToggleBtn.TextSize = 12
+SniffToggleBtn.Parent = Main
+Instance.new("UICorner", SniffToggleBtn)
+
+SniffToggleBtn.MouseButton1Click:Connect(function()
+    snifferActive = not snifferActive
+    SnifferGui.Visible = snifferActive
+    if snifferActive then
+        SniffToggleBtn.Text = "SNIFFER: ON"
+        SniffToggleBtn.TextColor3 = Color3.fromRGB(255, 80, 200)
+        SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 10, 100)
+    else
+        SniffToggleBtn.Text = "SNIFFER: OFF"
+        SniffToggleBtn.TextColor3 = Color3.fromRGB(180, 80, 200)
+        SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 20, 60)
+    end
+end)
+
+SnifferCloseBtn.MouseButton1Click:Connect(function()
+    snifferActive = false
+    SnifferGui.Visible = false
+    SniffToggleBtn.Text = "SNIFFER: OFF"
+    SniffToggleBtn.TextColor3 = Color3.fromRGB(180, 80, 200)
+    SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 20, 60)
+end)
+
+ClearBtn.MouseButton1Click:Connect(function()
+    for _, row in ipairs(snifferLog) do
+        if row and row.Parent then row:Destroy() end
+    end
+    snifferLog = {}
+end)
