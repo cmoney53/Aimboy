@@ -69,8 +69,8 @@ Stroke.Thickness = 2
 
 -- 4. SIDE PANEL (CONTROLS & OUTPUT SAYER)
 local Side = Instance.new("Frame")
-Side.Size = UDim2.new(0, 200, 1, -50)
-Side.Position = UDim2.new(1, 5, 0, 45) 
+Side.Size = UDim2.new(0, 210, 1, 0)
+Side.Position = UDim2.new(1, 5, 0, 45)
 Side.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Side.Visible = false
 Side.Parent = Main
@@ -79,7 +79,7 @@ Instance.new("UIStroke", Side).Color = Color3.fromRGB(57, 255, 20)
 
 local CommandBox = Instance.new("TextBox")
 CommandBox.Size = UDim2.new(0.9, 0, 0, 45)
-CommandBox.Position = UDim2.new(0.05, 0, 0.05, 0)
+CommandBox.Position = UDim2.new(0.05, 0, 0, 10)
 CommandBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 CommandBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 CommandBox.ClearTextOnFocus = false
@@ -89,8 +89,8 @@ CommandBox.Parent = Side
 Instance.new("UICorner", CommandBox)
 
 local ExecuteBtn = Instance.new("TextButton")
-ExecuteBtn.Size = UDim2.new(0.9, 0, 0, 40)
-ExecuteBtn.Position = UDim2.new(0.05, 0, 0.22, 0)
+ExecuteBtn.Size = UDim2.new(0.9, 0, 0, 36)
+ExecuteBtn.Position = UDim2.new(0.05, 0, 0, 62)
 ExecuteBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
 ExecuteBtn.Text = "EXECUTE / SET"
 ExecuteBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -99,8 +99,8 @@ ExecuteBtn.Parent = Side
 Instance.new("UICorner", ExecuteBtn)
 
 local OutputSayer = Instance.new("TextLabel")
-OutputSayer.Size = UDim2.new(0.9, 0, 0, 30)
-OutputSayer.Position = UDim2.new(0.05, 0, 0.35, 0)
+OutputSayer.Size = UDim2.new(0.9, 0, 0, 26)
+OutputSayer.Position = UDim2.new(0.05, 0, 0, 105)
 OutputSayer.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 OutputSayer.Text = "Status: Awaiting Target"
 OutputSayer.TextColor3 = Color3.fromRGB(57, 255, 20)
@@ -110,15 +110,86 @@ OutputSayer.Parent = Side
 Instance.new("UICorner", OutputSayer)
 
 local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size = UDim2.new(0.9, 0, 0, 150)
-InfoLabel.Position = UDim2.new(0.05, 0, 0.48, 0)
+InfoLabel.Size = UDim2.new(0.9, 0, 0, 72)
+InfoLabel.Position = UDim2.new(0.05, 0, 0, 138)
 InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
 InfoLabel.BackgroundTransparency = 1
 InfoLabel.TextWrapped = true
-InfoLabel.TextSize = 12
+InfoLabel.TextSize = 11
 InfoLabel.TextYAlignment = Enum.TextYAlignment.Top
 InfoLabel.Font = Enum.Font.SourceSans
 InfoLabel.Parent = Side
+
+-- CMD OUTPUT LOGGER (below path info)
+local CmdOutputHeader = Instance.new("TextLabel")
+CmdOutputHeader.Size = UDim2.new(0.9, 0, 0, 18)
+CmdOutputHeader.Position = UDim2.new(0.05, 0, 0, 216)
+CmdOutputHeader.Text = "CMD OUTPUT"
+CmdOutputHeader.TextColor3 = Color3.fromRGB(57, 255, 20)
+CmdOutputHeader.BackgroundTransparency = 1
+CmdOutputHeader.Font = Enum.Font.SourceSansBold
+CmdOutputHeader.TextSize = 11
+CmdOutputHeader.TextXAlignment = Enum.TextXAlignment.Left
+CmdOutputHeader.Parent = Side
+
+local ClearLogBtn = Instance.new("TextButton")
+ClearLogBtn.Size = UDim2.new(0, 44, 0, 16)
+ClearLogBtn.Position = UDim2.new(1, -52, 0, 217)
+ClearLogBtn.Text = "CLEAR"
+ClearLogBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+ClearLogBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+ClearLogBtn.Font = Enum.Font.SourceSans
+ClearLogBtn.TextSize = 10
+ClearLogBtn.Parent = Side
+Instance.new("UICorner", ClearLogBtn)
+
+local CmdLogScroll = Instance.new("ScrollingFrame")
+CmdLogScroll.Size = UDim2.new(0.9, 0, 0, 140)
+CmdLogScroll.Position = UDim2.new(0.05, 0, 0, 237)
+CmdLogScroll.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+CmdLogScroll.BorderSizePixel = 0
+CmdLogScroll.ScrollBarThickness = 4
+CmdLogScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+CmdLogScroll.Parent = Side
+Instance.new("UICorner", CmdLogScroll)
+Instance.new("UIStroke", CmdLogScroll).Color = Color3.fromRGB(40, 80, 40)
+
+local CmdLogLayout = Instance.new("UIListLayout", CmdLogScroll)
+CmdLogLayout.Padding = UDim.new(0, 2)
+CmdLogLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    CmdLogScroll.CanvasSize = UDim2.new(0, 0, 0, CmdLogLayout.AbsoluteContentSize.Y + 6)
+    CmdLogScroll.CanvasPosition = Vector2.new(0, CmdLogLayout.AbsoluteContentSize.Y)
+end)
+
+local cmdLogEntries = {}
+local MAX_CMD_LOG = 50
+
+local function logOutput(msg, color)
+    color = color or Color3.fromRGB(57, 255, 20)
+    local ts = string.format("[%.1f]", tick() % 1000)
+    local entry = Instance.new("TextLabel")
+    entry.Size = UDim2.new(1, -4, 0, 18)
+    entry.BackgroundTransparency = 1
+    entry.Font = Enum.Font.Code
+    entry.TextSize = 10
+    entry.TextColor3 = color
+    entry.TextXAlignment = Enum.TextXAlignment.Left
+    entry.TextTruncate = Enum.TextTruncate.AtEnd
+    entry.Text = " " .. ts .. " " .. tostring(msg)
+    entry.Parent = CmdLogScroll
+    table.insert(cmdLogEntries, entry)
+    if #cmdLogEntries > MAX_CMD_LOG then
+        local old = table.remove(cmdLogEntries, 1)
+        if old and old.Parent then old:Destroy() end
+    end
+end
+
+ClearLogBtn.MouseButton1Click:Connect(function()
+    for _, e in ipairs(cmdLogEntries) do
+        if e and e.Parent then e:Destroy() end
+    end
+    cmdLogEntries = {}
+end)
 
 -- 5. LIST & INFINITE SCROLLING
 local Search = Instance.new("TextBox")
@@ -148,6 +219,31 @@ end)
 -- 6. CORE SCANNER LOGIC WITH CATEGORIES
 local clickConn = nil
 local collapsedCategories = {}
+
+-- Parses comma-separated arg string into a typed table
+-- Supports: numbers, true/false, nil, quoted strings, plain strings
+local function parseArgs(text)
+    local args = {}
+    local trimmed = text:match("^%s*(.-)%s*$")
+    if trimmed == "" then return args end
+    for part in (trimmed .. ","):gmatch("([^,]*),") do
+        local s = part:match("^%s*(.-)%s*$")
+        local num = tonumber(s)
+        if num then
+            table.insert(args, num)
+        elseif s:lower() == "true" then
+            table.insert(args, true)
+        elseif s:lower() == "false" then
+            table.insert(args, false)
+        elseif s:lower() == "nil" then
+            -- skip nil args (table.unpack will handle gaps)
+        else
+            local quoted = s:match('^"(.*)"$') or s:match("^'(.*)'$")
+            table.insert(args, quoted or s)
+        end
+    end
+    return args
+end
 
 local function addCategoryHeader(name, color)
     local h = Instance.new("TextButton")
@@ -202,30 +298,80 @@ local function addEntry(obj, typeTag, category)
 
         if clickConn then clickConn:Disconnect() end
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
-            local val = tonumber(CommandBox.Text) or CommandBox.Text
+            local args = parseArgs(CommandBox.Text)
+            local argStr = CommandBox.Text ~= "" and CommandBox.Text or "<none>"
 
             if typeTag:find("GUI") then
                 obj.Enabled = true
                 for _, v in pairs(obj:GetDescendants()) do
-                    pcall(function() 
-                        if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then 
-                            v.Visible = true 
-                        end 
+                    pcall(function()
+                        if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then
+                            v.Visible = true
+                        end
                     end)
                 end
                 OutputSayer.Text = "Status: GUI Force-Opened"
+                logOutput("GUI opened: " .. obj.Name)
+
             elseif typeTag == "DATA" then
-                pcall(function() obj.Value = val end)
-                OutputSayer.Text = "Status: Local Data Applied"
+                local setVal = #args > 0 and args[1] or CommandBox.Text
+                local ok, err = pcall(function() obj.Value = setVal end)
+                if ok then
+                    OutputSayer.Text = "Status: Local Data Applied"
+                    logOutput("SET " .. obj.Name .. " = " .. tostring(setVal))
+                else
+                    OutputSayer.Text = "Status: Set Failed"
+                    logOutput("ERR SET " .. obj.Name .. ": " .. tostring(err), Color3.fromRGB(255, 80, 80))
+                end
+
             elseif obj:IsA("RemoteEvent") then
-                obj:FireServer(val)
-                OutputSayer.Text = "Status: Remote Event Fired"
+                local ok, err = pcall(function() obj:FireServer(table.unpack(args)) end)
+                if ok then
+                    OutputSayer.Text = "Status: RemoteEvent Fired"
+                    logOutput("FIRE " .. obj.Name .. "(" .. argStr .. ")")
+                else
+                    OutputSayer.Text = "Status: Fire Failed"
+                    logOutput("ERR FIRE " .. obj.Name .. ": " .. tostring(err), Color3.fromRGB(255, 80, 80))
+                end
+
             elseif obj:IsA("RemoteFunction") then
-                OutputSayer.Text = "Status: Invoking Function..."
-                task.spawn(function() obj:InvokeServer(val) end)
+                OutputSayer.Text = "Status: Invoking..."
+                logOutput("INVOKE " .. obj.Name .. "(" .. argStr .. ") ...")
+                task.spawn(function()
+                    local ok, result = pcall(function() return obj:InvokeServer(table.unpack(args)) end)
+                    if ok then
+                        local res = tostring(result)
+                        OutputSayer.Text = "Done => " .. res:sub(1, 18)
+                        logOutput("RETURN " .. obj.Name .. " => " .. res)
+                    else
+                        OutputSayer.Text = "Status: Invoke Error"
+                        logOutput("ERR INVOKE " .. obj.Name .. ": " .. tostring(result), Color3.fromRGB(255, 80, 80))
+                    end
+                end)
+
             elseif obj:IsA("BindableEvent") then
-                obj:Fire(val)
-                OutputSayer.Text = "Status: Bindable Fired"
+                local ok, err = pcall(function() obj:Fire(table.unpack(args)) end)
+                if ok then
+                    OutputSayer.Text = "Status: Bindable Fired"
+                    logOutput("BIND:FIRE " .. obj.Name .. "(" .. argStr .. ")")
+                else
+                    OutputSayer.Text = "Status: Bind Fire Failed"
+                    logOutput("ERR BIND " .. obj.Name .. ": " .. tostring(err), Color3.fromRGB(255, 80, 80))
+                end
+
+            elseif obj:IsA("BindableFunction") then
+                logOutput("BIND:INVOKE " .. obj.Name .. "(" .. argStr .. ") ...")
+                task.spawn(function()
+                    local ok, result = pcall(function() return obj:Invoke(table.unpack(args)) end)
+                    if ok then
+                        local res = tostring(result)
+                        OutputSayer.Text = "Done => " .. res:sub(1, 18)
+                        logOutput("BIND:RETURN " .. obj.Name .. " => " .. res)
+                    else
+                        OutputSayer.Text = "Status: Invoke Error"
+                        logOutput("ERR BIND:INVOKE " .. obj.Name .. ": " .. tostring(result), Color3.fromRGB(255, 80, 80))
+                    end
+                end)
             end
         end)
     end)
@@ -356,11 +502,11 @@ TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = Main
 
 -- 10. ARGUMENT SNIFFER
-local snifferActive = false
+local snifferActive = true   -- hard sniff: always capturing from script load
 local snifferLog = {}
-local MAX_LOG = 80
+local MAX_LOG = 100
 
--- Sniffer Window
+-- Sniffer Window (starts visible — hard sniff is always on)
 local SnifferGui = Instance.new("Frame")
 SnifferGui.Size = UDim2.new(0, 480, 0, 340)
 SnifferGui.Position = UDim2.new(0.5, -240, 0.5, 230)
@@ -368,7 +514,7 @@ SnifferGui.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 SnifferGui.BorderSizePixel = 0
 SnifferGui.Active = true
 SnifferGui.ClipsDescendants = true
-SnifferGui.Visible = false
+SnifferGui.Visible = true
 SnifferGui.Parent = ScreenGui
 makeDraggable(SnifferGui)
 Instance.new("UICorner", SnifferGui)
@@ -421,25 +567,73 @@ SnifferList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     SnifferScroll.CanvasPosition = Vector2.new(0, SnifferList.AbsoluteContentSize.Y)
 end)
 
+-- Deep argument serializer — handles all Roblox types without calling IsA()
+local function serializeArg(v, depth)
+    depth = depth or 0
+    local t = typeof(v)
+    if t == "nil" then
+        return "nil"
+    elseif t == "boolean" or t == "number" then
+        return tostring(v)
+    elseif t == "string" then
+        return '"' .. v:sub(1, 60) .. (v:len() > 60 and '..."' or '"')
+    elseif t == "table" then
+        if depth >= 2 then return "{...}" end
+        local parts = {}
+        local count = 0
+        for k, val in pairs(v) do
+            count = count + 1
+            if count > 8 then table.insert(parts, "...") break end
+            local ks = type(k) == "string" and k or ("[" .. tostring(k) .. "]")
+            table.insert(parts, ks .. "=" .. serializeArg(val, depth + 1))
+        end
+        return "{" .. table.concat(parts, ", ") .. "}"
+    elseif t == "Vector3" then
+        return string.format("V3(%.2f,%.2f,%.2f)", v.X, v.Y, v.Z)
+    elseif t == "Vector2" then
+        return string.format("V2(%.2f,%.2f)", v.X, v.Y)
+    elseif t == "CFrame" then
+        local p = v.Position
+        return string.format("CF(%.1f,%.1f,%.1f)", p.X, p.Y, p.Z)
+    elseif t == "Color3" then
+        return string.format("C3(%.0f,%.0f,%.0f)", v.R*255, v.G*255, v.B*255)
+    elseif t == "UDim2" then
+        return string.format("UD2(%.2f,%d,%.2f,%d)", v.X.Scale, v.X.Offset, v.Y.Scale, v.Y.Offset)
+    elseif t == "UDim" then
+        return string.format("UD(%.2f,%d)", v.Scale, v.Offset)
+    elseif t == "EnumItem" then
+        return "Enum." .. tostring(v)
+    elseif t == "Instance" then
+        local ok, path = pcall(function() return v:GetFullName() end)
+        return ok and ("[" .. path .. "]") or "[Instance]"
+    else
+        local s = tostring(v)
+        return s:sub(1, 50)
+    end
+end
+
+local function serializeArgs(args)
+    if #args == 0 then return "<none>" end
+    local parts = {}
+    for _, v in ipairs(args) do
+        table.insert(parts, serializeArg(v))
+    end
+    return table.concat(parts, ", ")
+end
+
 local function addSnifferEntry(remoteName, method, args)
     local timestamp = string.format("%.1f", tick() % 1000)
-    local argStr = ""
-    for i, v in ipairs(args) do
-        local s = tostring(v)
-        if #s > 40 then s = s:sub(1, 40) .. "..." end
-        argStr = argStr .. (i > 1 and ", " or "") .. s
-    end
-    if argStr == "" then argStr = "<none>" end
+    local argStr = serializeArgs(args)
 
     local row = Instance.new("TextLabel")
     row.Size = UDim2.new(1, -8, 0, 22)
-    row.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    row.BackgroundColor3 = Color3.fromRGB(12, 5, 18)
     row.Font = Enum.Font.Code
     row.TextSize = 11
     row.TextColor3 = Color3.fromRGB(255, 80, 200)
     row.TextXAlignment = Enum.TextXAlignment.Left
     row.TextTruncate = Enum.TextTruncate.AtEnd
-    row.Text = string.format("  [%s] %s :: %s  =>  %s", timestamp, method, remoteName, argStr)
+    row.Text = string.format("  [%s] %s::%s  %s", timestamp, remoteName, method, argStr)
     row.Parent = SnifferScroll
     Instance.new("UICorner", row)
 
@@ -450,21 +644,20 @@ local function addSnifferEntry(remoteName, method, args)
     end
 end
 
--- Hook via __namecall metamethod
+-- HARD HOOK — always active from script load, no toggle gate.
+-- Captures ALL FireServer / InvokeServer / Fire / Invoke calls game-wide.
+-- Uses rawget for Name to avoid re-entering __namecall.
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
-    if snifferActive then
-        if method == "FireServer" and self:IsA("RemoteEvent") then
-            local args = {...}
-            task.defer(function() addSnifferEntry(self.Name, "FireServer", args) end)
-        elseif method == "InvokeServer" and self:IsA("RemoteFunction") then
-            local args = {...}
-            task.defer(function() addSnifferEntry(self.Name, "InvokeServer", args) end)
-        elseif method == "Fire" and self:IsA("BindableEvent") then
-            local args = {...}
-            task.defer(function() addSnifferEntry(self.Name, "Fire (Bindable)", args) end)
-        end
+    if method == "FireServer"
+    or method == "InvokeServer"
+    or method == "Fire"
+    or method == "Invoke"
+    then
+        local name = rawget(self, "Name") or "Unknown"
+        local args = {...}
+        task.defer(function() addSnifferEntry(name, method, args) end)
     end
     return oldNamecall(self, ...)
 end)
