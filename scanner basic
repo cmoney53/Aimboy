@@ -1,4 +1,4 @@
--- [[ OMEGA NEON OMNI-SCANNER v201.0 // FINAL STABLE BUILD ]] --
+-- [[ OMEGA NEON OMNI-SCANNER v20.0 // FINAL STABLE BUILD ]] --
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6,12 +6,12 @@ local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
 -- 1. CLEANUP PREVIOUS SESSIONS
-if PlayerGui:FindFirstChild("OmegaOmni_Final_V210") then 
-    PlayerGui.OmegaOmni_Final_V210:Destroy() 
+if PlayerGui:FindFirstChild("OmegaOmni_Final_V20") then 
+    PlayerGui.OmegaOmni_Final_V20:Destroy() 
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "OmegaOmni_Final_V210"
+ScreenGui.Name = "OmegaOmni_Final_V20"
 ScreenGui.Parent = PlayerGui
 ScreenGui.ResetOnSpawn = false
 
@@ -68,10 +68,9 @@ Stroke.Color = Color3.fromRGB(57, 255, 20)
 Stroke.Thickness = 2
 
 -- 4. SIDE PANEL (CONTROLS & OUTPUT SAYER)
--- Fixed: Adjusted position to be inside Main or handled by expanding Main
 local Side = Instance.new("Frame")
 Side.Size = UDim2.new(0, 200, 1, -50)
-Side.Position = UDim2.new(1, 5, 0, 45) -- Positioned slightly to the right
+Side.Position = UDim2.new(1, 5, 0, 45) 
 Side.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Side.Visible = false
 Side.Parent = Main
@@ -126,7 +125,7 @@ local Search = Instance.new("TextBox")
 Search.Size = UDim2.new(1, -30, 0, 35)
 Search.Position = UDim2.new(0, 15, 0, 45)
 Search.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Search.PlaceholderText = "Search Commands, Stats, GUIs..."
+Search.PlaceholderText = "Search Commands, Stats, Remotes..."
 Search.TextColor3 = Color3.fromRGB(255, 255, 255)
 Search.Parent = Main
 Instance.new("UICorner", Search)
@@ -154,9 +153,11 @@ local function addEntry(obj, typeTag)
     b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     b.Text = " [" .. typeTag .. "] " .. obj.Name
     
+    -- Visual Coding
     if typeTag:find("GUI") then b.TextColor3 = Color3.fromRGB(0, 200, 255)
-    elseif typeTag == "DATA" then b.TextColor3 = Color3.fromRGB(255, 180, 0)
-    elseif typeTag == "CMD" then b.TextColor3 = Color3.fromRGB(57, 255, 20)
+    elseif typeTag:find("DATA") then b.TextColor3 = Color3.fromRGB(255, 180, 0)
+    elseif typeTag:find("CMD") or typeTag:find("REMOTE") then b.TextColor3 = Color3.fromRGB(57, 255, 20)
+    elseif typeTag:find("UTILITY") then b.TextColor3 = Color3.fromRGB(255, 80, 80)
     else b.TextColor3 = Color3.fromRGB(200, 200, 200) end
     
     b.TextXAlignment = Enum.TextXAlignment.Left
@@ -166,7 +167,6 @@ local function addEntry(obj, typeTag)
     if not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
 
     b.MouseButton1Click:Connect(function()
-        -- Expand main window to show side panel
         Main.ClipsDescendants = false
         Side.Visible = true
         OutputSayer.Text = "Status: Selected " .. obj.Name
@@ -196,36 +196,66 @@ local function addEntry(obj, typeTag)
             elseif obj:IsA("RemoteFunction") then
                 OutputSayer.Text = "Status: Invoking Function..."
                 task.spawn(function() obj:InvokeServer(val) end)
+            elseif obj:IsA("BindableEvent") then
+                obj:Fire(val)
+                OutputSayer.Text = "Status: Bindable Fired"
             end
         end)
     end)
 end
 
--- 7. THE GOD-SCAN ENGINE
+-- 7. THE DEEP OMNI-SCAN ENGINE
 local function runOmniScan()
+    -- Clear previous list
     for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     
+    -- 1. Scan ScreenGuis
     for _, g in pairs(PlayerGui:GetChildren()) do
         if g:IsA("ScreenGui") and g ~= ScreenGui then
             addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI")
         end
     end
     
+    -- 2. Scan Player Data/Stats
     for _, v in pairs(Player:GetDescendants()) do
         if v:IsA("ValueBase") then addEntry(v, "DATA") end
     end
 
-    local function scan(parent)
+    -- 3. Recursive Deep Scan for Remotes, Utilities, and Commands
+    local keywords = {"admin", "command", "server", "drop", "spawn", "give", "money", "cash", "rank"}
+    local scanContainers = {ReplicatedStorage, workspace, game:GetService("Lighting"), game:GetService("StarterGui")}
+
+    local function deepScan(parent)
         for _, child in pairs(parent:GetChildren()) do
+            local lowName = child.Name:lower()
+            
+            -- Detect Remotes
             if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                addEntry(child, "CMD")
-            elseif not child:IsA("Player") then
-                pcall(function() scan(child) end)
+                addEntry(child, "REMOTE")
+            elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
+                addEntry(child, "BINDABLE")
+            end
+
+            -- Detect Keywords in Scripts/Modules/Values (Admin/Cmds/Spawns)
+            for _, key in pairs(keywords) do
+                if lowName:find(key) then
+                    local tag = "UTILITY"
+                    if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then tag = "SERVER CMD" end
+                    addEntry(child, tag)
+                    break
+                end
+            end
+
+            -- Recursive Step (Skip Players and large parts)
+            if not child:IsA("Player") and not child:IsA("Terrain") then
+                pcall(function() deepScan(child) end)
             end
         end
     end
-    scan(ReplicatedStorage)
-    scan(workspace)
+
+    for _, container in pairs(scanContainers) do
+        pcall(function() deepScan(container) end)
+    end
 end
 
 -- 8. SEARCH & UPDATE LOOP
@@ -239,7 +269,7 @@ end)
 task.spawn(function()
     while true do
         runOmniScan()
-        task.wait(2.5)
+        task.wait(5) -- Slower refresh for deep scans to prevent lag
     end
 end)
 
