@@ -153,7 +153,7 @@ local function addCategoryHeader(name, color)
     local h = Instance.new("TextButton")
     h.Size = UDim2.new(1, 0, 0, 35)
     h.BackgroundColor3 = color
-    h.Text = "  ▼ CATEGORY: " .. name:upper()
+    h.Text = collapsedCategories[name] and "  ▶ CATEGORY: " .. name:upper() or "  ▼ CATEGORY: " .. name:upper()
     h.TextColor3 = Color3.fromRGB(255, 255, 255)
     h.Font = Enum.Font.SourceSansBold
     h.TextSize = 16
@@ -161,18 +161,18 @@ local function addCategoryHeader(name, color)
     h.Name = "Category_" .. name
     h.Parent = Scroll
     Instance.new("UICorner", h)
-    
-    if collapsedCategories[name] then
-        h.Text = "  ▶ CATEGORY: " .. name:upper()
-    end
 
     h.MouseButton1Click:Connect(function()
         collapsedCategories[name] = not collapsedCategories[name]
-        -- Logic to hide children is handled in the refresh loop
+        -- Immediate Visual Update for user
+        h.Text = collapsedCategories[name] and "  ▶ CATEGORY: " .. name:upper() or "  ▼ CATEGORY: " .. name:upper()
+        -- Re-run scan to apply visibility changes
+        _G.TriggerOmniRefresh() 
     end)
 end
 
 local function addEntry(obj, typeTag, category)
+    -- Don't add entries if category is collapsed
     if collapsedCategories[category] then return end
     
     local b = Instance.new("TextButton")
@@ -191,6 +191,7 @@ local function addEntry(obj, typeTag, category)
     b.Parent = Scroll
     Instance.new("UICorner", b)
 
+    -- Handle Search Filter
     if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
 
     b.MouseButton1Click:Connect(function()
@@ -205,14 +206,14 @@ local function addEntry(obj, typeTag, category)
             local val = tonumber(CommandBox.Text) or CommandBox.Text
             
             if typeTag:find("GUI") then
-                obj.Enabled = true
-                for _, v in pairs(obj:GetDescendants()) do
-                    pcall(function() 
+                pcall(function()
+                    obj.Enabled = true
+                    for _, v in pairs(obj:GetDescendants()) do
                         if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then 
                             v.Visible = true 
                         end 
-                    end)
-                end
+                    end
+                end)
                 OutputSayer.Text = "Status: GUI Force-Opened"
             elseif typeTag == "DATA" then
                 pcall(function() obj.Value = val end)
@@ -233,7 +234,10 @@ end
 
 -- 7. THE DEEP OMNI-SCAN ENGINE (CATEGORIZED)
 local function runOmniScan()
-    for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
+    -- Clear current list while keeping layout
+    for _, v in pairs(Scroll:GetChildren()) do 
+        if not v:IsA("UIListLayout") then v:Destroy() end 
+    end
     
     -- --- CATEGORY: GUIS ---
     addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
@@ -287,6 +291,9 @@ local function runOmniScan()
         pcall(function() deepScan(container) end)
     end
 end
+
+-- Refresh global
+_G.TriggerOmniRefresh = runOmniScan
 
 -- 8. SEARCH & UPDATE LOOP
 Search:GetPropertyChangedSignal("Text"):Connect(function()
