@@ -145,13 +145,40 @@ ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
 end)
 
--- 6. CORE SCANNER LOGIC
+-- 6. CORE SCANNER LOGIC WITH CATEGORIES
 local clickConn = nil
-local function addEntry(obj, typeTag)
+local collapsedCategories = {}
+
+local function addCategoryHeader(name, color)
+    local h = Instance.new("TextButton")
+    h.Size = UDim2.new(1, 0, 0, 35)
+    h.BackgroundColor3 = color
+    h.Text = "  ▼ CATEGORY: " .. name:upper()
+    h.TextColor3 = Color3.fromRGB(255, 255, 255)
+    h.Font = Enum.Font.SourceSansBold
+    h.TextSize = 16
+    h.TextXAlignment = Enum.TextXAlignment.Left
+    h.Name = "Category_" .. name
+    h.Parent = Scroll
+    Instance.new("UICorner", h)
+    
+    if collapsedCategories[name] then
+        h.Text = "  ▶ CATEGORY: " .. name:upper()
+    end
+
+    h.MouseButton1Click:Connect(function()
+        collapsedCategories[name] = not collapsedCategories[name]
+        -- Logic to hide children is handled in the refresh loop
+    end)
+end
+
+local function addEntry(obj, typeTag, category)
+    if collapsedCategories[category] then return end
+    
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, 0, 0, 32)
     b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    b.Text = " [" .. typeTag .. "] " .. obj.Name
+    b.Text = "  ↳ [" .. typeTag .. "] " .. obj.Name
     
     -- Visual Coding
     if typeTag:find("GUI") then b.TextColor3 = Color3.fromRGB(0, 200, 255)
@@ -164,7 +191,7 @@ local function addEntry(obj, typeTag)
     b.Parent = Scroll
     Instance.new("UICorner", b)
 
-    if not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
+    if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
 
     b.MouseButton1Click:Connect(function()
         Main.ClipsDescendants = false
@@ -204,24 +231,28 @@ local function addEntry(obj, typeTag)
     end)
 end
 
--- 7. THE DEEP OMNI-SCAN ENGINE
+-- 7. THE DEEP OMNI-SCAN ENGINE (CATEGORIZED)
 local function runOmniScan()
-    -- Clear previous list
-    for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
     
-    -- 1. Scan ScreenGuis
+    -- --- CATEGORY: GUIS ---
+    addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
     for _, g in pairs(PlayerGui:GetChildren()) do
         if g:IsA("ScreenGui") and g ~= ScreenGui then
-            addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI")
+            addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis")
         end
     end
     
-    -- 2. Scan Player Data/Stats
+    -- --- CATEGORY: DATA & STATS ---
+    addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
     for _, v in pairs(Player:GetDescendants()) do
-        if v:IsA("ValueBase") then addEntry(v, "DATA") end
+        if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
     end
 
-    -- 3. Recursive Deep Scan for Remotes, Utilities, and Commands
+    -- --- CATEGORY: REMOTES & COMMANDS ---
+    addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
+    addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
+
     local keywords = {"admin", "command", "server", "drop", "spawn", "give", "money", "cash", "rank"}
     local scanContainers = {ReplicatedStorage, workspace, game:GetService("Lighting"), game:GetService("StarterGui")}
 
@@ -229,24 +260,23 @@ local function runOmniScan()
         for _, child in pairs(parent:GetChildren()) do
             local lowName = child.Name:lower()
             
-            -- Detect Remotes
+            -- Sort Remotes
             if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                addEntry(child, "REMOTE")
+                addEntry(child, "REMOTE", "Remotes")
             elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
-                addEntry(child, "BINDABLE")
+                addEntry(child, "BINDABLE", "Remotes")
             end
 
-            -- Detect Keywords in Scripts/Modules/Values (Admin/Cmds/Spawns)
+            -- Sort Utilities
             for _, key in pairs(keywords) do
                 if lowName:find(key) then
                     local tag = "UTILITY"
                     if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then tag = "SERVER CMD" end
-                    addEntry(child, tag)
+                    addEntry(child, tag, "Utilities")
                     break
                 end
             end
 
-            -- Recursive Step (Skip Players and large parts)
             if not child:IsA("Player") and not child:IsA("Terrain") then
                 pcall(function() deepScan(child) end)
             end
@@ -262,14 +292,16 @@ end
 Search:GetPropertyChangedSignal("Text"):Connect(function()
     local f = Search.Text:lower()
     for _, b in pairs(Scroll:GetChildren()) do
-        if b:IsA("TextButton") then b.Visible = b.Text:lower():find(f) ~= nil end
+        if b:IsA("TextButton") and not b.Name:find("Category") then 
+            b.Visible = b.Text:lower():find(f) ~= nil 
+        end
     end
 end)
 
 task.spawn(function()
     while true do
         runOmniScan()
-        task.wait(5) -- Slower refresh for deep scans to prevent lag
+        task.wait(6) -- Refresh frequency
     end
 end)
 
