@@ -1,40 +1,33 @@
--- [[ OMEGA NEON SCANNER v8.0 // FULL FIX ]] --
+-- [[ OMEGA NEON SCANNER v9.0 // THE FINAL FIX ]] --
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
--- 1. CLEANUP PREVIOUS VERSIONS
-if PlayerGui:FindFirstChild("NeonDeepScanner_FinalFix") then
-    PlayerGui.NeonDeepScanner_FinalFix:Destroy()
+-- 1. PRE-EXISTING CLEANUP
+if PlayerGui:FindFirstChild("OmegaFinal") then
+    PlayerGui.OmegaFinal:Destroy()
 end
 
--- 2. MAIN GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NeonDeepScanner_FinalFix"
+ScreenGui.Name = "OmegaFinal"
 ScreenGui.Parent = PlayerGui
 ScreenGui.ResetOnSpawn = false
 
--- 3. THE DRAGGABLE SYSTEM (FULLY TESTED)
+-- 2. ENHANCED DRAGGABLE LOGIC
 local function makeDraggable(frame)
     local dragging, dragInput, dragStart, startPos
     frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
+            dragging = true; dragStart = input.Position; startPos = frame.Position
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
     frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-        end
+        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
     end)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
@@ -44,28 +37,26 @@ local function makeDraggable(frame)
     end)
 end
 
--- 4. MAIN CONTAINER
+-- 3. MAIN UI STRUCTURE
 local Main = Instance.new("Frame")
-Main.Name = "MainFrame"
 Main.Size = UDim2.new(0, 420, 0, 360)
 Main.Position = UDim2.new(0.5, -210, 0.5, -180)
 Main.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 Main.BorderSizePixel = 0
 Main.Active = true
-Main.Draggable = false -- We use our custom script instead
 Main.Parent = ScreenGui
 makeDraggable(Main)
 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
-local MainStroke = Instance.new("UIStroke", Main)
-MainStroke.Color = Color3.fromRGB(57, 255, 20)
-MainStroke.Thickness = 2
+Instance.new("UICorner", Main)
+local Stroke = Instance.new("UIStroke", Main)
+Stroke.Color = Color3.fromRGB(57, 255, 20)
+Stroke.Thickness = 2
 
--- 5. TOP BAR (TITLE, MIN, CLOSE)
+-- Top Controls
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -100, 0, 40)
 Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "SYSTEM_OMEGA // FIXED"
+Title.Text = "SYSTEM_OMEGA // v9.0"
 Title.TextColor3 = Color3.fromRGB(57, 255, 20)
 Title.Font = Enum.Font.Code
 Title.BackgroundTransparency = 1
@@ -74,27 +65,25 @@ Title.Parent = Main
 
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -40, 0, 5)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
 CloseBtn.Text = "X"
 CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Font = Enum.Font.SourceSansBold
 CloseBtn.Parent = Main
 Instance.new("UICorner", CloseBtn)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
 local MiniBtn = Instance.new("TextButton")
 MiniBtn.Size = UDim2.new(0, 30, 0, 30)
-MiniBtn.Position = UDim2.new(1, -75, 0, 5)
+MiniBtn.Position = UDim2.new(1, -70, 0, 5)
 MiniBtn.Text = "-"
 MiniBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 MiniBtn.TextColor3 = Color3.fromRGB(57, 255, 20)
-MiniBtn.Font = Enum.Font.SourceSansBold
 MiniBtn.Parent = Main
 Instance.new("UICorner", MiniBtn)
 
--- 6. SIDE PANEL (THE EXECUTION INTERFACE)
+-- 4. SIDE PANEL (EXECUTE INTERFACE)
 local Side = Instance.new("Frame")
-Side.Name = "SidePanel"
 Side.Size = UDim2.new(0, 220, 1, 0)
 Side.Position = UDim2.new(1, 15, 0, 0)
 Side.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
@@ -103,20 +92,20 @@ Side.Parent = Main
 Instance.new("UICorner", Side)
 Instance.new("UIStroke", Side).Color = Color3.fromRGB(57, 255, 20)
 
-local CommandInput = Instance.new("TextBox")
-CommandInput.Size = UDim2.new(0.9, 0, 0, 45)
-CommandInput.Position = UDim2.new(0.05, 0, 0.15, 0)
-CommandInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-CommandInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-CommandInput.Font = Enum.Font.Code
-CommandInput.ClearTextOnFocus = false
-CommandInput.TextSize = 14
-CommandInput.Parent = Side
-Instance.new("UICorner", CommandInput)
+local CommandBox = Instance.new("TextBox")
+CommandBox.Size = UDim2.new(0.9, 0, 0, 45)
+CommandBox.Position = UDim2.new(0.05, 0, 0.1, 0)
+CommandBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+CommandBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+CommandBox.ClearTextOnFocus = false
+CommandBox.Font = Enum.Font.Code
+CommandBox.TextSize = 14
+CommandBox.Parent = Side
+Instance.new("UICorner", CommandBox)
 
 local ExecuteBtn = Instance.new("TextButton")
 ExecuteBtn.Size = UDim2.new(0.9, 0, 0, 40)
-ExecuteBtn.Position = UDim2.new(0.05, 0, 0.32, 0)
+ExecuteBtn.Position = UDim2.new(0.05, 0, 0.25, 0)
 ExecuteBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
 ExecuteBtn.Text = "EXECUTE"
 ExecuteBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -124,12 +113,12 @@ ExecuteBtn.Font = Enum.Font.SourceSansBold
 ExecuteBtn.Parent = Side
 Instance.new("UICorner", ExecuteBtn)
 
--- 7. SEARCH & LIST AREA
+-- 5. LIST AREA & SEARCH
 local Search = Instance.new("TextBox")
 Search.Size = UDim2.new(1, -20, 0, 35)
 Search.Position = UDim2.new(0, 10, 0, 45)
 Search.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Search.PlaceholderText = "Search scanned data..."
+Search.PlaceholderText = "Search objects/commands..."
 Search.TextColor3 = Color3.fromRGB(255, 255, 255)
 Search.Parent = Main
 Instance.new("UICorner", Search)
@@ -142,22 +131,20 @@ Scroll.ScrollBarThickness = 4
 Scroll.Parent = Main
 Instance.new("UIListLayout", Scroll).Padding = UDim.new(0, 5)
 
--- 8. MINIMIZE LOGIC
+-- 6. MINIMIZE LOGIC
 local minimized = false
 local originalSize = Main.Size
 MiniBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     for _, v in pairs(Main:GetChildren()) do
-        if v ~= Title and v ~= MiniBtn and v ~= CloseBtn and v ~= MainStroke and not v:IsA("UICorner") then
+        if v ~= Title and v ~= MiniBtn and v ~= CloseBtn and v ~= Stroke and not v:IsA("UICorner") then
             v.Visible = not minimized
         end
     end
     Main.Size = minimized and UDim2.new(0, 420, 0, 40) or originalSize
 end)
 
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
--- 9. CORE FUNCTIONALITY
+-- 7. CORE ENGINE
 local clickConn = nil
 local function addEntry(obj, typeTag)
     local b = Instance.new("TextButton")
@@ -169,25 +156,33 @@ local function addEntry(obj, typeTag)
     b.Parent = Scroll
     Instance.new("UICorner", b)
 
+    -- PERSISTENT SEARCH CHECK: Hide item if it doesn't match current search
+    local filter = Search.Text:lower()
+    if not b.Text:lower():find(filter) then
+        b.Visible = false
+    end
+
     b.MouseButton1Click:Connect(function()
         Side.Visible = true
-        CommandInput.Text = obj.Name
-        
+        CommandBox.Text = obj.Name
         if clickConn then clickConn:Disconnect() end
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
             if typeTag == "GUI" then obj.Enabled = not obj.Enabled end
-            ExecuteBtn.Text = "SUCCESS"
-            task.wait(0.5)
-            ExecuteBtn.Text = "EXECUTE"
+            ExecuteBtn.Text = "FIRED"
+            task.wait(0.5); ExecuteBtn.Text = "EXECUTE"
         end)
     end)
 end
 
 local function runScan()
     for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    
+    -- GUIs
     for _, g in pairs(PlayerGui:GetChildren()) do
         if g:IsA("ScreenGui") and g ~= ScreenGui then addEntry(g, "GUI") end
     end
+    
+    -- Remotes
     local function scan(parent)
         for _, child in pairs(parent:GetChildren()) do
             if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
@@ -201,6 +196,7 @@ local function runScan()
     scan(workspace)
 end
 
+-- Update filtering while typing
 Search:GetPropertyChangedSignal("Text"):Connect(function()
     local f = Search.Text:lower()
     for _, b in pairs(Scroll:GetChildren()) do
@@ -208,6 +204,7 @@ Search:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 
+-- Execution Loop
 task.spawn(function()
     while true do
         runScan()
