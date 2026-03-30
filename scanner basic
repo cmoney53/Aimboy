@@ -44,6 +44,7 @@ Main.Position = UDim2.new(0.5, -230, 0.5, -210)
 Main.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 Main.BorderSizePixel = 0
 Main.Active = true
+Main.ClipsDescendants = true
 Main.Parent = ScreenGui
 makeDraggable(Main)
 
@@ -243,8 +244,35 @@ CloseBtn.Parent = Main
 Instance.new("UICorner", CloseBtn)
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -70, 0, 5)
+MinBtn.Text = "-"
+MinBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.Parent = Main
+Instance.new("UICorner", MinBtn)
+
+local minimized = false
+local originalSize = Main.Size
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        Main.Size = UDim2.new(0, 460, 0, 40)
+        Scroll.Visible = false
+        Search.Visible = false
+        Side.Visible = false
+        MinBtn.Text = "+"
+    else
+        Main.Size = originalSize
+        Scroll.Visible = true
+        Search.Visible = true
+        MinBtn.Text = "-"
+    end
+end)
+
 local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Size = UDim2.new(1, -100, 0, 40)
+TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
 TitleLabel.Text = "SYSTEM_OMEGA // V20.0"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
