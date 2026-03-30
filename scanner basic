@@ -1,4 +1,4 @@
--- [[ OMEGA NEON OMNI-SCANNER v20.0 // FINAL STABLE BUILD ]] --
+-- [[ OMEGA NEON OMNI-SCANNER v201.0 // FINAL STABLE BUILD ]] --
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -6,12 +6,12 @@ local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
 -- 1. CLEANUP PREVIOUS SESSIONS
-if PlayerGui:FindFirstChild("OmegaOmni_Final_V20") then 
-    PlayerGui.OmegaOmni_Final_V20:Destroy() 
+if PlayerGui:FindFirstChild("OmegaOmni_Final_V210") then 
+    PlayerGui.OmegaOmni_Final_V210:Destroy() 
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "OmegaOmni_Final_V20"
+ScreenGui.Name = "OmegaOmni_Final_V210"
 ScreenGui.Parent = PlayerGui
 ScreenGui.ResetOnSpawn = false
 
