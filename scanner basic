@@ -1,241 +1,123 @@
---// UNIVERSAL SCANNER (REMOTES + GUIS)
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ScannerUI"
+screenGui.Parent = playerGui
 
--- GUI SETUP
-local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.Name = "UniversalScanner"
+-- Main Frame
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0, 400, 0, 300)
+main.Position = UDim2.new(0.5, -200, 0.5, -150)
+main.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+main.BorderSizePixel = 0
+main.Parent = screenGui
 
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 500, 0, 400)
-frame.Position = UDim2.new(0.3,0,0.3,0)
-frame.BackgroundColor3 = Color3.fromRGB(0,255,0)
-frame.Active = true
-frame.Draggable = true
+-- Round corners
+local corner = Instance.new("UICorner", main)
+corner.CornerRadius = UDim.new(0, 12)
 
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0,12)
-
--- TITLE
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1,0,0,30)
-title.Text = "Universal Scanner"
+-- Title bar
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Text = "GUI Scanner"
 title.BackgroundTransparency = 1
 title.TextColor3 = Color3.new(0,0,0)
+title.Parent = main
 
--- CLOSE
-local close = Instance.new("TextButton", frame)
-close.Size = UDim2.new(0,30,0,30)
-close.Position = UDim2.new(1,-30,0,0)
+-- Close button
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0, 30, 0, 30)
+close.Position = UDim2.new(1, -30, 0, 0)
 close.Text = "X"
+close.Parent = main
 
 close.MouseButton1Click:Connect(function()
-    gui:Destroy()
+	screenGui:Destroy()
 end)
 
--- MINIMIZE
-local minimize = Instance.new("TextButton", frame)
-minimize.Size = UDim2.new(0,30,0,30)
-minimize.Position = UDim2.new(1,-60,0,0)
+-- Minimize button
+local minimize = Instance.new("TextButton")
+minimize.Size = UDim2.new(0, 30, 0, 30)
+minimize.Position = UDim2.new(1, -60, 0, 0)
 minimize.Text = "-"
+minimize.Parent = main
 
 local minimized = false
 minimize.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    for _,v in pairs(frame:GetChildren()) do
-        if v ~= title and v ~= close and v ~= minimize then
-            v.Visible = not minimized
-        end
-    end
+	minimized = not minimized
+	for _, v in pairs(main:GetChildren()) do
+		if v ~= title and v ~= close and v ~= minimize then
+			v.Visible = not minimized
+		end
+	end
 end)
 
--- SEARCH
-local search = Instance.new("TextBox", frame)
-search.Size = UDim2.new(1,-10,0,25)
-search.Position = UDim2.new(0,5,0,35)
-search.PlaceholderText = "Search..."
+-- Dragging
+local dragging, dragStart, startPos
 
--- LIST
-local list = Instance.new("ScrollingFrame", frame)
-list.Size = UDim2.new(0.5,-5,1,-70)
-list.Position = UDim2.new(0,5,0,65)
-list.CanvasSize = UDim2.new(0,0,5,0)
-
-local layout = Instance.new("UIListLayout", list)
-
--- SIDE PANEL
-local side = Instance.new("Frame", frame)
-side.Size = UDim2.new(0.5,-5,1,-70)
-side.Position = UDim2.new(0.5,0,0,65)
-side.BackgroundColor3 = Color3.fromRGB(0,200,0)
-
-Instance.new("UICorner", side)
-
-local info = Instance.new("TextLabel", side)
-info.Size = UDim2.new(1,0,0.5,0)
-info.BackgroundTransparency = 1
-info.TextWrapped = true
-info.Text = "Select something..."
-
-local input = Instance.new("TextBox", side)
-input.Size = UDim2.new(1,-10,0,30)
-input.Position = UDim2.new(0,5,0.6,0)
-input.PlaceholderText = "Arguments..."
-
-local execute = Instance.new("TextButton", side)
-execute.Size = UDim2.new(1,-10,0,30)
-execute.Position = UDim2.new(0,5,0.75,0)
-execute.Text = "EXECUTE / OPEN"
-
--- TABS
-local mode = "remotes"
-
-local tabRemotes = Instance.new("TextButton", frame)
-tabRemotes.Size = UDim2.new(0.5,-5,0,25)
-tabRemotes.Position = UDim2.new(0,5,0,60)
-tabRemotes.Text = "Remotes"
-
-local tabGuis = Instance.new("TextButton", frame)
-tabGuis.Size = UDim2.new(0.5,-5,0,25)
-tabGuis.Position = UDim2.new(0.5,0,0,60)
-tabGuis.Text = "GUIs"
-
--- DATA
-local currentObjects = {}
-
--- REMOTE SCAN
-local function GetRemotes()
-    local t = {}
-    for _,v in ipairs(game:GetDescendants()) do
-        if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
-            table.insert(t,v)
-        end
-    end
-    return t
-end
-
--- GUI SCAN
-local function GetGuis()
-    local t = {}
-
-    local function scan(p)
-        for _,v in ipairs(p:GetDescendants()) do
-            if v:IsA("ScreenGui") or v:IsA("Frame") then
-                table.insert(t,v)
-            end
-        end
-    end
-
-    if player:FindFirstChild("PlayerGui") then
-        scan(player.PlayerGui)
-    end
-
-    pcall(function()
-        scan(game:GetService("CoreGui"))
-    end)
-
-    return t
-end
-
--- PREDICTION
-local function Predict(name)
-    name = name:lower()
-
-    if name:find("spawn") then
-        return "Spawns something. Try: player name"
-    elseif name:find("give") then
-        return "Gives item"
-    elseif name:find("tp") then
-        return "Teleports player"
-    elseif name:find("kill") then
-        return "Kills player"
-    else
-        return "Unknown behavior"
-    end
-end
-
--- OPEN GUI
-local function OpenGui(gui)
-    if gui:IsA("ScreenGui") then
-        gui.Enabled = true
-    end
-
-    for _,v in ipairs(gui:GetDescendants()) do
-        if v:IsA("GuiObject") then
-            v.Visible = true
-        end
-    end
-end
-
--- REFRESH LIST
-local function Refresh()
-    list:ClearAllChildren()
-    layout.Parent = list
-
-    local query = search.Text:lower()
-
-    for _,obj in ipairs(currentObjects) do
-        if obj.Name:lower():find(query) then
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1,0,0,25)
-            btn.Text = obj.Name
-            btn.Parent = list
-
-            btn.MouseButton1Click:Connect(function()
-
-                if mode == "remotes" then
-                    info.Text =
-                        "Remote: "..obj.Name..
-                        "\nType: "..obj.ClassName..
-                        "\n\nPrediction:\n"..Predict(obj.Name)
-
-                    execute.MouseButton1Click:Connect(function()
-                        local args = {}
-
-                        for word in input.Text:gmatch("%S+") do
-                            table.insert(args,word)
-                        end
-
-                        pcall(function()
-                            if obj:IsA("RemoteEvent") then
-                                obj:FireServer(unpack(args))
-                            else
-                                obj:InvokeServer(unpack(args))
-                            end
-                        end)
-                    end)
-
-                else
-                    info.Text =
-                        "GUI: "..obj.Name..
-                        "\nType: "..obj.ClassName
-
-                    execute.MouseButton1Click:Connect(function()
-                        OpenGui(obj)
-                    end)
-                end
-
-            end)
-        end
-    end
-end
-
--- TAB SWITCH
-tabRemotes.MouseButton1Click:Connect(function()
-    mode = "remotes"
-    currentObjects = GetRemotes()
-    Refresh()
+title.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+	end
 end)
 
-tabGuis.MouseButton1Click:Connect(function()
-    mode = "guis"
-    currentObjects = GetGuis()
-    Refresh()
+title.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
 end)
 
--- SEARCH
-search:GetPropertyChangedSignal("Text"):Connect(Refresh)
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		main.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
 
--- INIT
-currentObjects = GetRemotes()
-Refresh()
+-- List container
+local listFrame = Instance.new("ScrollingFrame")
+listFrame.Size = UDim2.new(0.5, 0, 1, -30)
+listFrame.Position = UDim2.new(0, 0, 0, 30)
+listFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
+listFrame.Parent = main
+
+-- Side panel
+local side = Instance.new("Frame")
+side.Size = UDim2.new(0.5, 0, 1, -30)
+side.Position = UDim2.new(0.5, 0, 0, 30)
+side.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+side.Parent = main
+
+local sideText = Instance.new("TextLabel")
+sideText.Size = UDim2.new(1, 0, 1, 0)
+sideText.Text = "Select something..."
+sideText.BackgroundTransparency = 1
+sideText.Parent = side
+
+-- Scan GUIs
+local function scanGUIs()
+	for _, gui in pairs(playerGui:GetChildren()) do
+		local button = Instance.new("TextButton")
+		button.Size = UDim2.new(1, 0, 0, 30)
+		button.Text = gui.Name
+		button.Parent = listFrame
+
+		button.MouseButton1Click:Connect(function()
+			sideText.Text = "Selected: " .. gui.Name .. "\n\nOptions:\n- Open GUI\n- Simulated Outcome:\nGUI Visible"
+
+			-- Example "execute"
+			gui.Enabled = true
+		end)
+	end
+end
+
+scanGUIs()
