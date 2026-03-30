@@ -1,6 +1,6 @@
--- [[ OMEGA NEON OMNI-SCANNER v22.8 // ULTIMATE HEAVY-SCAN & SNIFFER ]] --
+-- [[ OMEGA NEON OMNI-SCANNER v22.9 // ULTIMATE HEAVY-SCAN & SNIFFER ]] --
 -- COMBINED VERSION: v21.0 Sniffer Features + v22.7 Heavy Recursive Engine
--- Includes: Execute/Set, 3-Second Auto-Refresh, Argument Sniffer, and Full-Game Deep Scan.
+-- Includes: Functional Execute/Set, 3-Second Auto-Refresh, Argument Sniffer, and Full-Game Deep Scan.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -77,10 +77,11 @@ local SideStroke = Instance.new("UIStroke", Side)
 SideStroke.Color = Color3.fromRGB(57, 255, 20)
 
 local CommandBox = Instance.new("TextBox")
-CommandBox.Size = UDim2.new(0.9, 0, 0, 60)
+CommandBox.Size = UDim2.new(0.9, 0, 0, 80)
 CommandBox.Position = UDim2.new(0.05, 0, 0.05, 0)
 CommandBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 CommandBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+CommandBox.PlaceholderText = "Enter Args (e.g. string, 100, true)"
 CommandBox.ClearTextOnFocus = false
 CommandBox.Font = Enum.Font.Code
 CommandBox.TextSize = 12
@@ -92,9 +93,9 @@ Instance.new("UICorner", CommandBox)
 
 local ExecuteBtn = Instance.new("TextButton")
 ExecuteBtn.Size = UDim2.new(0.9, 0, 0, 40)
-ExecuteBtn.Position = UDim2.new(0.05, 0, 0.22, 0)
+ExecuteBtn.Position = UDim2.new(0.05, 0, 0.25, 0)
 ExecuteBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
-ExecuteBtn.Text = "EXECUTE / SET"
+ExecuteBtn.Text = "EXECUTE / FIRE"
 ExecuteBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 ExecuteBtn.Font = Enum.Font.SourceSansBold
 ExecuteBtn.Parent = Side
@@ -102,7 +103,7 @@ Instance.new("UICorner", ExecuteBtn)
 
 local OutputSayer = Instance.new("TextLabel")
 OutputSayer.Size = UDim2.new(0.9, 0, 0, 30)
-OutputSayer.Position = UDim2.new(0.05, 0, 0.35, 0)
+OutputSayer.Position = UDim2.new(0.05, 0, 0.36, 0)
 OutputSayer.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 OutputSayer.Text = "Status: Idle"
 OutputSayer.TextColor3 = Color3.fromRGB(57, 255, 20)
@@ -219,12 +220,12 @@ local function addEntry(name, typeTag, category, extraData, fullPath, actualObj)
         Side.Visible = true
         selectedObject = actualObj
         OutputSayer.Text = "Viewing: " .. name
-        CommandBox.Text = extraData or "No extra data"
+        CommandBox.Text = extraData or ""
         InfoLabel.Text = "SOURCE: " .. category .. "\nTYPE: " .. typeTag .. "\nPATH: " .. (fullPath or "N/A") .. "\nTIMESTAMP: " .. (os.date("%X"))
     end)
 end
 
--- 8. SCAN & REFRESH LOGIC (From V21)
+-- 8. SCAN & REFRESH LOGIC
 local isHeavyScanning = false
 local function runOmniScan()
     if isHeavyScanning then return end
@@ -248,7 +249,7 @@ end
 -- 9. HEAVY SCAN ENGINE (Recursive Search)
 local function performHeavySearch()
     isHeavyScanning = true
-    runOmniScan() -- Clear and do basics first
+    runOmniScan()
     
     local scanTargets = {ReplicatedStorage, Lighting, StarterGui, workspace, game:GetService("JointsService")}
     local keywords = {"Admin", "Cash", "Money", "Remote", "Give", "Mod", "Rank", "Ban", "Set", "Data", "Cmd", "Server", "Event", "Function"}
@@ -268,14 +269,14 @@ local function performHeavySearch()
             end
             
             if isSpecial then
-                addEntry(item.Name, item.ClassName:upper(), container.Name, "Found via Deep Scan", item:GetFullName(), item)
+                addEntry(item.Name, item.ClassName:upper(), container.Name, "", item:GetFullName(), item)
             end
         end
     end
     isHeavyScanning = false
 end
 
--- 10. AUTO-REFRESH LOOP (V21 Style)
+-- 10. AUTO-REFRESH LOOP
 task.spawn(function()
     while true do
         if not ScreenGui.Parent then break end
@@ -306,15 +307,36 @@ HeavyScanBtn.MouseButton1Click:Connect(function()
     HeavyScanBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
 end)
 
--- 12. EXECUTE LOGIC
+-- 12. PARSE & EXECUTE ENGINE
+local function parseArgs(input)
+    local args = {}
+    for part in input:gmatch("([^,]+)") do
+        local clean = part:match("^%s*(.-)%s*$")
+        if clean:lower() == "true" then table.insert(args, true)
+        elseif clean:lower() == "false" then table.insert(args, false)
+        elseif tonumber(clean) then table.insert(args, tonumber(clean))
+        else table.insert(args, clean) end
+    end
+    return args
+end
+
 ExecuteBtn.MouseButton1Click:Connect(function()
-    if selectedObject and selectedObject:IsA("RemoteEvent") then
-        OutputSayer.Text = "Remote Signal Sent!"
-    elseif selectedObject and selectedObject:IsA("ScreenGui") then
+    if not selectedObject then 
+        OutputSayer.Text = "Select an object first!"
+        return 
+    end
+
+    if selectedObject:IsA("RemoteEvent") then
+        local success, err = pcall(function()
+            local args = parseArgs(CommandBox.Text)
+            selectedObject:FireServer(unpack(args))
+        end)
+        OutputSayer.Text = success and "Remote Fired!" or "Error: " .. tostring(err)
+    elseif selectedObject:IsA("ScreenGui") then
         selectedObject.Enabled = not selectedObject.Enabled
-        OutputSayer.Text = "Gui Status: " .. tostring(selectedObject.Enabled)
+        OutputSayer.Text = "Gui: " .. (selectedObject.Enabled and "Visible" or "Hidden")
     else
-        OutputSayer.Text = "Object Not Executable"
+        OutputSayer.Text = "No direct execution for this type."
     end
 end)
 
@@ -328,11 +350,11 @@ CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V22.8 [ULTIMATE]"
+TitleLabel.Text = "SYSTEM_OMEGA // V22.9 [EXEC_READY]"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = Main
 
-print("SYSTEM_OMEGA V22.8 LOADED. SCANNING...")
+print("SYSTEM_OMEGA V22.9 LOADED. READY FOR EXECUTION.")
