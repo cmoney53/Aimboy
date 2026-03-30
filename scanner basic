@@ -1,13 +1,18 @@
--- [[ OMEGA NEON OMNI-SCANNER v20.0 // FINAL STABLE BUILD ]] --
+-- [[ OMEGA NEON OMNI-SCANNER v20.1 // REMIXED OPTIMIZED ]] --
+
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
+-- CONFIG
+local REFRESH_DELAY = 12
+local MAX_DEPTH = 20
+
 -- 1. CLEANUP PREVIOUS SESSIONS
-if PlayerGui:FindFirstChild("OmegaOmni_Final_V20") then 
-    PlayerGui.OmegaOmni_Final_V20:Destroy() 
+if PlayerGui:FindFirstChild("OmegaOmni_Final_V20") then
+    PlayerGui.OmegaOmni_Final_V20:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -18,18 +23,25 @@ ScreenGui.ResetOnSpawn = false
 -- 2. STABLE DRAGGABLE SYSTEM
 local function makeDraggable(frame)
     local dragging, dragInput, dragStart, startPos
-    
+
     local function update(input)
         local delta = input.Position - dragStart
-        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
     end
 
     frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
-            
+
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -39,7 +51,9 @@ local function makeDraggable(frame)
     end)
 
     frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+
             dragInput = input
         end
     end)
@@ -70,7 +84,7 @@ Stroke.Thickness = 2
 -- 4. SIDE PANEL (CONTROLS & OUTPUT SAYER)
 local Side = Instance.new("Frame")
 Side.Size = UDim2.new(0, 200, 1, -50)
-Side.Position = UDim2.new(1, 5, 0, 45) 
+Side.Position = UDim2.new(1, 5, 0, 45)
 Side.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Side.Visible = false
 Side.Parent = Main
@@ -150,6 +164,11 @@ local clickConn = nil
 local collapsedCategories = {}
 
 local function addCategoryHeader(name, color)
+    local existing = Scroll:FindFirstChild("Category_" .. name)
+    if existing then
+        return existing
+    end
+
     local h = Instance.new("TextButton")
     h.Size = UDim2.new(1, 0, 0, 35)
     h.BackgroundColor3 = color
@@ -161,37 +180,48 @@ local function addCategoryHeader(name, color)
     h.Name = "Category_" .. name
     h.Parent = Scroll
     Instance.new("UICorner", h)
-    
+
     if collapsedCategories[name] then
         h.Text = "  ▶ CATEGORY: " .. name:upper()
     end
 
     h.MouseButton1Click:Connect(function()
         collapsedCategories[name] = not collapsedCategories[name]
-        -- Logic to hide children is handled in the refresh loop
+        h.Text = collapsedCategories[name]
+            and ("  ▶ CATEGORY: " .. name:upper())
+            or  ("  ▼ CATEGORY: " .. name:upper())
     end)
+
+    return h
 end
 
 local function addEntry(obj, typeTag, category)
     if collapsedCategories[category] then return end
-    
+
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, 0, 0, 32)
     b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     b.Text = "  ↳ [" .. typeTag .. "] " .. obj.Name
-    
-    -- Visual Coding
-    if typeTag:find("GUI") then b.TextColor3 = Color3.fromRGB(0, 200, 255)
-    elseif typeTag:find("DATA") then b.TextColor3 = Color3.fromRGB(255, 180, 0)
-    elseif typeTag:find("CMD") or typeTag:find("REMOTE") then b.TextColor3 = Color3.fromRGB(57, 255, 20)
-    elseif typeTag:find("UTILITY") then b.TextColor3 = Color3.fromRGB(255, 80, 80)
-    else b.TextColor3 = Color3.fromRGB(200, 200, 200) end
-    
+
+    if typeTag:find("GUI") then
+        b.TextColor3 = Color3.fromRGB(0, 200, 255)
+    elseif typeTag:find("DATA") then
+        b.TextColor3 = Color3.fromRGB(255, 180, 0)
+    elseif typeTag:find("CMD") or typeTag:find("REMOTE") then
+        b.TextColor3 = Color3.fromRGB(57, 255, 20)
+    elseif typeTag:find("UTILITY") then
+        b.TextColor3 = Color3.fromRGB(255, 80, 80)
+    else
+        b.TextColor3 = Color3.fromRGB(200, 200, 200)
+    end
+
     b.TextXAlignment = Enum.TextXAlignment.Left
     b.Parent = Scroll
     Instance.new("UICorner", b)
 
-    if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
+    if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then
+        b.Visible = false
+    end
 
     b.MouseButton1Click:Connect(function()
         Main.ClipsDescendants = false
@@ -203,26 +233,30 @@ local function addEntry(obj, typeTag, category)
         if clickConn then clickConn:Disconnect() end
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
             local val = tonumber(CommandBox.Text) or CommandBox.Text
-            
-            if typeTag:find("GUI") then
+
+            if typeTag:find("GUI") and obj:IsA("ScreenGui") then
                 obj.Enabled = true
                 for _, v in pairs(obj:GetDescendants()) do
-                    pcall(function() 
-                        if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then 
-                            v.Visible = true 
-                        end 
+                    pcall(function()
+                        if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then
+                            v.Visible = true
+                        end
                     end)
                 end
                 OutputSayer.Text = "Status: GUI Force-Opened"
-            elseif typeTag == "DATA" then
+
+            elseif typeTag == "DATA" and obj:IsA("ValueBase") then
                 pcall(function() obj.Value = val end)
                 OutputSayer.Text = "Status: Local Data Applied"
+
             elseif obj:IsA("RemoteEvent") then
                 obj:FireServer(val)
                 OutputSayer.Text = "Status: Remote Event Fired"
+
             elseif obj:IsA("RemoteFunction") then
                 OutputSayer.Text = "Status: Invoking Function..."
                 task.spawn(function() obj:InvokeServer(val) end)
+
             elseif obj:IsA("BindableEvent") then
                 obj:Fire(val)
                 OutputSayer.Text = "Status: Bindable Fired"
@@ -232,59 +266,73 @@ local function addEntry(obj, typeTag, category)
 end
 
 -- 7. THE DEEP OMNI-SCAN ENGINE (CATEGORIZED)
+local keywords = {"admin", "command", "server", "drop", "spawn", "give", "money", "cash", "rank"}
+
+local function deepScan(parent, depth)
+    depth = depth or 0
+    if depth > MAX_DEPTH then return end
+
+    for _, child in ipairs(parent:GetChildren()) do
+        local lowName = child.Name:lower()
+
+        -- Remotes
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+            addEntry(child, "REMOTE", "Remotes")
+        elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
+            addEntry(child, "BINDABLE", "Remotes")
+        end
+
+        -- Utilities / Commands
+        for _, key in ipairs(keywords) do
+            if lowName:find(key) then
+                local tag = "UTILITY"
+                if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                    tag = "SERVER CMD"
+                end
+                addEntry(child, tag, "Utilities")
+                break
+            end
+        end
+
+        if not child:IsA("Player") and not child:IsA("Terrain") then
+            deepScan(child, depth + 1)
+        end
+    end
+end
+
 local function runOmniScan()
-    for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
-    
-    -- --- CATEGORY: GUIS ---
+    -- Clear only entries, keep category headers
+    for _, v in pairs(Scroll:GetChildren()) do
+        if v:IsA("TextButton") and not v.Name:find("Category_") then
+            v:Destroy()
+        end
+    end
+
+    -- CATEGORY: GUIS
     addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
     for _, g in pairs(PlayerGui:GetChildren()) do
         if g:IsA("ScreenGui") and g ~= ScreenGui then
             addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis")
         end
     end
-    
-    -- --- CATEGORY: DATA & STATS ---
+
+    -- CATEGORY: DATA & STATS
     addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
     for _, v in pairs(Player:GetDescendants()) do
-        if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
-    end
-
-    -- --- CATEGORY: REMOTES & COMMANDS ---
-    addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
-    addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
-
-    local keywords = {"admin", "command", "server", "drop", "spawn", "give", "money", "cash", "rank"}
-    local scanContainers = {ReplicatedStorage, workspace, game:GetService("Lighting"), game:GetService("StarterGui")}
-
-    local function deepScan(parent)
-        for _, child in pairs(parent:GetChildren()) do
-            local lowName = child.Name:lower()
-            
-            -- Sort Remotes
-            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                addEntry(child, "REMOTE", "Remotes")
-            elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
-                addEntry(child, "BINDABLE", "Remotes")
-            end
-
-            -- Sort Utilities
-            for _, key in pairs(keywords) do
-                if lowName:find(key) then
-                    local tag = "UTILITY"
-                    if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then tag = "SERVER CMD" end
-                    addEntry(child, tag, "Utilities")
-                    break
-                end
-            end
-
-            if not child:IsA("Player") and not child:IsA("Terrain") then
-                pcall(function() deepScan(child) end)
-            end
+        if v:IsA("ValueBase") then
+            addEntry(v, "DATA", "Data")
         end
     end
 
-    for _, container in pairs(scanContainers) do
-        pcall(function() deepScan(container) end)
+    -- CATEGORY: REMOTES & UTILITIES
+    addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
+    addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
+
+    -- Scan all services
+    for _, service in ipairs(game:GetChildren()) do
+        pcall(function()
+            deepScan(service, 0)
+        end)
     end
 end
 
@@ -292,16 +340,16 @@ end
 Search:GetPropertyChangedSignal("Text"):Connect(function()
     local f = Search.Text:lower()
     for _, b in pairs(Scroll:GetChildren()) do
-        if b:IsA("TextButton") and not b.Name:find("Category") then 
-            b.Visible = b.Text:lower():find(f) ~= nil 
+        if b:IsA("TextButton") and not b.Name:find("Category_") then
+            b.Visible = b.Text:lower():find(f) ~= nil
         end
     end
 end)
 
 task.spawn(function()
-    while true do
+    while ScreenGui.Parent do
         runOmniScan()
-        task.wait(6) -- Refresh frequency
+        task.wait(REFRESH_DELAY)
     end
 end)
 
@@ -314,7 +362,9 @@ CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 CloseBtn.Parent = Main
 Instance.new("UICorner", CloseBtn)
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
 
 local MinBtn = Instance.new("TextButton")
 MinBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -348,7 +398,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V20.0"
+TitleLabel.Text = "SYSTEM_OMEGA // V20.1 REMIX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
