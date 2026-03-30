@@ -1,4 +1,4 @@
--- [[ OMEGA NEON SYSTEM SCANNER v6.0 ]] --
+-- [[ OMEGA NEON SCANNER v7.2 // SIDE-PANEL EXECUTION ]] --
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -7,7 +7,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 -- 1. GUI MAIN CONTAINER
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "OmegaNeonScanner"
+ScreenGui.Name = "NeonDeepScanner_Final"
 ScreenGui.Parent = PlayerGui
 ScreenGui.ResetOnSpawn = false
 
@@ -30,10 +30,10 @@ local function makeDraggable(frame)
     end)
 end
 
--- 3. MAIN WINDOW STYLING
+-- 3. MAIN WINDOW
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 450, 0, 380)
-Main.Position = UDim2.new(0.5, -225, 0.5, -190)
+Main.Size = UDim2.new(0, 420, 0, 360)
+Main.Position = UDim2.new(0.5, -210, 0.5, -180)
 Main.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
@@ -41,55 +41,12 @@ makeDraggable(Main)
 
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 local Stroke = Instance.new("UIStroke", Main)
-Stroke.Color = Color3.fromRGB(57, 255, 20) -- Neon Green
+Stroke.Color = Color3.fromRGB(57, 255, 20)
 Stroke.Thickness = 2
 
--- 4. TITLE BAR & CONTROLS
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -100, 0, 40)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "SYSTEM_OMEGA // DEEP_SCAN"
-Title.TextColor3 = Color3.fromRGB(57, 255, 20)
-Title.Font = Enum.Font.Code
-Title.BackgroundTransparency = 1
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Main
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -40, 0, 5)
-CloseBtn.Text = "X"
-CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Parent = Main
-Instance.new("UICorner", CloseBtn)
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
-local MiniBtn = Instance.new("TextButton")
-MiniBtn.Size = UDim2.new(0, 30, 0, 30)
-MiniBtn.Position = UDim2.new(1, -75, 0, 5)
-MiniBtn.Text = "-"
-MiniBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-MiniBtn.TextColor3 = Color3.fromRGB(57, 255, 20)
-MiniBtn.Parent = Main
-Instance.new("UICorner", MiniBtn)
-
--- Minimize Logic
-local minimized = false
-local originalSize = Main.Size
-MiniBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    for _, v in pairs(Main:GetChildren()) do
-        if v ~= Title and v ~= MiniBtn and v ~= CloseBtn and v ~= Stroke and not v:IsA("UICorner") then
-            v.Visible = not minimized
-        end
-    end
-    Main.Size = minimized and UDim2.new(0, 450, 0, 45) or originalSize
-end)
-
--- 5. SIDE PANEL (OUTCOMES & COPY)
+-- 4. SIDE PANEL (THE EXECUTION INTERFACE)
 local Side = Instance.new("Frame")
-Side.Size = UDim2.new(0, 200, 1, 0)
+Side.Size = UDim2.new(0, 220, 1, 0)
 Side.Position = UDim2.new(1, 15, 0, 0)
 Side.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Side.Visible = false
@@ -98,73 +55,71 @@ Instance.new("UICorner", Side)
 Instance.new("UIStroke", Side).Color = Color3.fromRGB(57, 255, 20)
 
 local SideTitle = Instance.new("TextLabel")
-SideTitle.Size = UDim2.new(1, 0, 0, 50)
+SideTitle.Size = UDim2.new(1, 0, 0, 40)
 SideTitle.TextColor3 = Color3.fromRGB(57, 255, 20)
 SideTitle.BackgroundTransparency = 1
-SideTitle.TextWrapped = true
 SideTitle.Font = Enum.Font.Code
+SideTitle.Text = "COMMAND_INFO"
 SideTitle.Parent = Side
 
-local CopyBtn = Instance.new("TextButton")
-CopyBtn.Size = UDim2.new(0.8, 0, 0, 40)
-CopyBtn.Position = UDim2.new(0.1, 0, 0.2, 0)
-CopyBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
-CopyBtn.Text = "COPY NAME"
-CopyBtn.Font = Enum.Font.SourceSansBold
-CopyBtn.Parent = Side
-Instance.new("UICorner", CopyBtn)
+-- Editable Command Textbox
+local CommandInput = Instance.new("TextBox")
+CommandInput.Size = UDim2.new(0.9, 0, 0, 45)
+CommandInput.Position = UDim2.new(0.05, 0, 0.15, 0)
+CommandInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+CommandInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+CommandInput.Font = Enum.Font.Code
+CommandInput.TextSize = 14
+CommandInput.ClearTextOnFocus = false
+CommandInput.PlaceholderText = "Edit execution string..."
+CommandInput.Parent = Side
+Instance.new("UICorner", CommandInput)
 
-local SideOutcome = Instance.new("TextLabel")
-SideOutcome.Size = UDim2.new(0.9, 0, 0, 180)
-SideOutcome.Position = UDim2.new(0.05, 0, 0.45, 0)
-SideOutcome.TextColor3 = Color3.fromRGB(200, 200, 200)
-SideOutcome.BackgroundTransparency = 1
-SideOutcome.TextWrapped = true
-SideOutcome.TextYAlignment = Enum.TextYAlignment.Top
-SideOutcome.Parent = Side
+-- Execute Button (Placed under the text box)
+local ExecuteBtn = Instance.new("TextButton")
+ExecuteBtn.Size = UDim2.new(0.9, 0, 0, 40)
+ExecuteBtn.Position = UDim2.new(0.05, 0, 0.32, 0)
+ExecuteBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
+ExecuteBtn.Text = "EXECUTE"
+ExecuteBtn.Font = Enum.Font.SourceSansBold
+ExecuteBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+ExecuteBtn.Parent = Side
+Instance.new("UICorner", ExecuteBtn)
 
--- 6. DYNAMIC OUTCOME ENGINE
-local function generateOutcome(obj)
-    local n = obj.Name:lower()
-    if obj:IsA("ScreenGui") then 
-        return "Type: GUI Frame\nAction: Local Toggle Detected.\nOutcome: Opening this interface might reveal hidden dev menus or admin buttons." 
-    end
-    if n:find("admin") or n:find("mod") then 
-        return "Type: Admin Remote\nAction: Privileged Command.\nOutcome: [REJECTED] Server-side validation requires higher permissions." 
-    end
-    if n:find("spawn") then 
-        return "Type: Action Remote\nAction: Character/Object Creation.\nOutcome: Enter /spawn [Name]. Status: Waiting for player input." 
-    end
-    if n:find("kill") or n:find("ban") then 
-        return "Type: Security Remote\nAction: Destructive Command.\nOutcome: [DENIED] Unauthorized execution attempt logged." 
-    end
-    return "Type: General System Bridge\nAction: Execution.\nOutcome: Possible outcome: " .. obj.Name .. " triggers server-side logic."
-end
+local OutcomeLabel = Instance.new("TextLabel")
+OutcomeLabel.Size = UDim2.new(0.9, 0, 0, 150)
+OutcomeLabel.Position = UDim2.new(0.05, 0, 0.5, 0)
+OutcomeLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+OutcomeLabel.BackgroundTransparency = 1
+OutcomeLabel.TextWrapped = true
+OutcomeLabel.TextYAlignment = Enum.TextYAlignment.Top
+OutcomeLabel.Font = Enum.Font.SourceSans
+OutcomeLabel.Parent = Side
 
--- 7. SEARCH & LIST
+-- 5. SCROLL LIST & SEARCH
 local Search = Instance.new("TextBox")
-Search.Size = UDim2.new(1, -30, 0, 35)
-Search.Position = UDim2.new(0, 15, 0, 50)
+Search.Size = UDim2.new(1, -20, 0, 35)
+Search.Position = UDim2.new(0, 10, 0, 45)
 Search.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Search.PlaceholderText = "Search deep-scanned objects..."
+Search.PlaceholderText = "Search deep-scanned system..."
 Search.TextColor3 = Color3.fromRGB(255, 255, 255)
 Search.Parent = Main
 Instance.new("UICorner", Search)
 
 local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1, -30, 1, -110)
-Scroll.Position = UDim2.new(0, 15, 0, 95)
+Scroll.Size = UDim2.new(1, -20, 1, -100)
+Scroll.Position = UDim2.new(0, 10, 0, 90)
 Scroll.BackgroundTransparency = 1
-Scroll.ScrollBarThickness = 4
 Scroll.Parent = Main
-local ListLayout = Instance.new("UIListLayout", Scroll)
-ListLayout.Padding = UDim.new(0, 5)
+Instance.new("UIListLayout", Scroll).Padding = UDim.new(0, 5)
 
--- 8. DEEP RECURSIVE SCANNER
+-- 6. SCANNER LOGIC
+local clickConn = nil
+
 local function addEntry(obj, typeTag)
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, 0, 0, 32)
-    b.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    b.Size = UDim2.new(1, 0, 0, 30)
+    b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     b.Text = " [" .. typeTag .. "] " .. obj.Name
     b.TextColor3 = Color3.fromRGB(57, 255, 20)
     b.TextXAlignment = Enum.TextXAlignment.Left
@@ -174,43 +129,52 @@ local function addEntry(obj, typeTag)
     b.MouseButton1Click:Connect(function()
         Side.Visible = true
         SideTitle.Text = obj.Name
-        SideOutcome.Text = generateOutcome(obj)
+        CommandInput.Text = obj.Name -- Loads name into box for editing
         
-        -- Logic for Copying Name
-        for _, conn in pairs(getconnections(CopyBtn.MouseButton1Click)) do conn:Disable() end
-        CopyBtn.MouseButton1Click:Connect(function()
-            if setclipboard then setclipboard(obj.Name) end
-            CopyBtn.Text = "COPIED!"
+        -- Generate logical outcomes based on item
+        if typeTag == "GUI" then
+            OutcomeLabel.Text = "TARGET: " .. obj.Name .. "\nTYPE: Interface\nOUTCOME: Forcing local visibility. Note: May reveal developer-only buttons if executed."
+        else
+            OutcomeLabel.Text = "TARGET: " .. obj.Name .. "\nTYPE: Remote Bridge\nOUTCOME: Attempting server-side trigger. Status: Waiting for user to edit box and hit Execute."
+        end
+
+        -- Execution logic
+        if clickConn then clickConn:Disconnect() end
+        clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
+            if typeTag == "GUI" then
+                obj.Enabled = not obj.Enabled
+            end
+            ExecuteBtn.Text = "FIRED"
             task.wait(1)
-            CopyBtn.Text = "COPY NAME"
+            ExecuteBtn.Text = "EXECUTE"
         end)
     end)
 end
 
-local function runDeepScan()
+-- Recursive Search for every Remote/GUI
+local function runScan()
     for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     
-    -- Scan Players GUIs
+    -- Scan Interfaces
     for _, g in pairs(PlayerGui:GetChildren()) do
         if g:IsA("ScreenGui") and g ~= ScreenGui then addEntry(g, "GUI") end
     end
     
-    -- Scan ReplicatedStorage & Workspace for Remote Command Bridges
+    -- Scan Command Bridges (Remotes)
     local function scan(parent)
         for _, child in pairs(parent:GetChildren()) do
             if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
                 addEntry(child, "CMD")
             elseif not child:IsA("Player") then
-                pcall(function() scan(child) end) -- Use pcall to avoid restricted folders
+                pcall(function() scan(child) end)
             end
         end
     end
-    
     scan(ReplicatedStorage)
     scan(workspace)
 end
 
--- Search filtering logic
+-- Filter & Refresh
 Search:GetPropertyChangedSignal("Text"):Connect(function()
     local f = Search.Text:lower()
     for _, b in pairs(Scroll:GetChildren()) do
@@ -218,10 +182,9 @@ Search:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 
--- 9. AUTO-REFRESH LOOP (2 SECONDS)
 task.spawn(function()
     while true do
-        runDeepScan()
+        runScan()
         task.wait(2)
     end
 end)
