@@ -21,36 +21,27 @@ ScreenGui.ResetOnSpawn = false
 -- 2. STABLE DRAGGABLE SYSTEM
 local function makeDraggable(frame)
     local dragging, dragInput, dragStart, startPos
-    
     local function update(input)
         local delta = input.Position - dragStart
         frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
-
     frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
-            
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
-
     frame.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
-
     UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            update(input)
-        end
+        if input == dragInput and dragging then update(input) end
     end)
 end
 
@@ -152,11 +143,23 @@ end)
 local clickConn = nil
 local collapsedCategories = {}
 
+local function updateListVisibility()
+    for _, item in pairs(Scroll:GetChildren()) do
+        if item:IsA("TextButton") and not item.Name:find("Category") then
+            local category = item:GetAttribute("ParentCategory")
+            local isCollapsed = collapsedCategories[category]
+            local matchesSearch = Search.Text == "" or item.Text:lower():find(Search.Text:lower())
+            
+            item.Visible = (not isCollapsed) and matchesSearch
+        end
+    end
+end
+
 local function addCategoryHeader(name, color)
     local h = Instance.new("TextButton")
     h.Size = UDim2.new(1, 0, 0, 35)
     h.BackgroundColor3 = color
-    h.Text = "  ▼ CATEGORY: " .. name:upper()
+    h.Text = collapsedCategories[name] and "  ▶ CATEGORY: " .. name:upper() or "  ▼ CATEGORY: " .. name:upper()
     h.TextColor3 = Color3.fromRGB(255, 255, 255)
     h.Font = Enum.Font.SourceSansBold
     h.TextSize = 16
@@ -164,23 +167,20 @@ local function addCategoryHeader(name, color)
     h.Name = "Category_" .. name
     h.Parent = Scroll
     Instance.new("UICorner", h)
-    
-    if collapsedCategories[name] then
-        h.Text = "  ▶ CATEGORY: " .. name:upper()
-    end
 
     h.MouseButton1Click:Connect(function()
         collapsedCategories[name] = not collapsedCategories[name]
+        h.Text = collapsedCategories[name] and "  ▶ CATEGORY: " .. name:upper() or "  ▼ CATEGORY: " .. name:upper()
+        updateListVisibility()
     end)
 end
 
 local function addEntry(obj, typeTag, category)
-    if collapsedCategories[category] then return end
-    
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, 0, 0, 32)
     b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     b.Text = "  ↳ [" .. typeTag .. "] " .. obj.Name
+    b:SetAttribute("ParentCategory", category)
     
     -- Visual Coding
     if typeTag:find("GUI") then b.TextColor3 = Color3.fromRGB(0, 200, 255)
@@ -193,7 +193,8 @@ local function addEntry(obj, typeTag, category)
     b.Parent = Scroll
     Instance.new("UICorner", b)
 
-    if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
+    -- Initial visibility check
+    b.Visible = not collapsedCategories[category]
 
     b.MouseButton1Click:Connect(function()
         Main.ClipsDescendants = false
@@ -206,33 +207,38 @@ local function addEntry(obj, typeTag, category)
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
             local val = tonumber(CommandBox.Text) or CommandBox.Text
             
-            if typeTag:find("GUI") then
-                obj.Enabled = true
-                for _, v in pairs(obj:GetDescendants()) do
-                    pcall(function() if v:IsA("Frame") or v:IsA("ScrollingFrame") then v.Visible = true end end)
+            pcall(function()
+                if typeTag:find("GUI") then
+                    obj.Enabled = true
+                    for _, v in pairs(obj:GetDescendants()) do
+                        if v:IsA("Frame") or v:IsA("ScrollingFrame") then v.Visible = true end
+                    end
+                    OutputSayer.Text = "Status: GUI Opened"
+                elseif typeTag == "DATA" then
+                    obj.Value = val
+                    OutputSayer.Text = "Status: Applied Value"
+                elseif obj:IsA("RemoteEvent") then
+                    obj:FireServer(TARGET_USER, val)
+                    obj:FireServer(val)
+                    OutputSayer.Text = "Status: Event Fired"
+                elseif obj:IsA("RemoteFunction") then
+                    task.spawn(function() obj:InvokeServer(TARGET_USER, val) end)
+                    OutputSayer.Text = "Status: Function Invoked"
+                elseif obj:IsA("BindableEvent") then
+                    obj:Fire(val)
+                    OutputSayer.Text = "Status: Local Fire"
                 end
-                OutputSayer.Text = "Status: GUI Opened"
-            elseif typeTag == "DATA" then
-                pcall(function() obj.Value = val end)
-                OutputSayer.Text = "Status: Applied to " .. TARGET_USER
-            elseif obj:IsA("RemoteEvent") then
-                -- Fires with Username first, then the value (standard for give/command remotes)
-                obj:FireServer(TARGET_USER, val)
-                obj:FireServer(val) -- Fallback fire without name
-                OutputSayer.Text = "Status: Fired for " .. TARGET_USER
-            elseif obj:IsA("RemoteFunction") then
-                task.spawn(function() obj:InvokeServer(TARGET_USER, val) end)
-                OutputSayer.Text = "Status: Invoking..."
-            elseif obj:IsA("BindableEvent") then
-                obj:Fire(val)
-            end
+            end)
         end)
     end)
 end
 
 -- 7. THE DEEP OMNI-SCAN ENGINE (CATEGORIZED)
 local function runOmniScan()
-    for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
+    -- Clearing existing items safely
+    for _, v in pairs(Scroll:GetChildren()) do 
+        if not v:IsA("UIListLayout") then v:Destroy() end 
+    end
     
     addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
     for _, g in pairs(PlayerGui:GetChildren()) do
@@ -242,12 +248,10 @@ local function runOmniScan()
     end
     
     addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
-    -- Scanning specifically for imblackbhone's data
-    for _, p in pairs(Players:GetPlayers()) do
-        if p.Name == TARGET_USER then
-            for _, v in pairs(p:GetDescendants()) do
-                if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
-            end
+    local targetPlr = Players:FindFirstChild(TARGET_USER)
+    if targetPlr then
+        for _, v in pairs(targetPlr:GetDescendants()) do
+            if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
         end
     end
 
@@ -269,8 +273,11 @@ local function runOmniScan()
                     break
                 end
             end
-            if not child:IsA("Player") and not child:IsA("Terrain") then
-                pcall(function() deepScan(child) end)
+            -- Avoid scanning player objects or huge terrain structures to prevent lag
+            if not child:IsA("Player") and not child:IsA("Terrain") and not child:IsA("Folder") then
+                pcall(function() 
+                    if #child:GetChildren() > 0 then deepScan(child) end 
+                end)
             end
         end
     end
@@ -278,22 +285,18 @@ local function runOmniScan()
     for _, container in pairs(scanContainers) do
         pcall(function() deepScan(container) end)
     end
+    
+    updateListVisibility()
 end
 
 -- 8. SEARCH & UPDATE LOOP
-Search:GetPropertyChangedSignal("Text"):Connect(function()
-    local f = Search.Text:lower()
-    for _, b in pairs(Scroll:GetChildren()) do
-        if b:IsA("TextButton") and not b.Name:find("Category") then 
-            b.Visible = b.Text:lower():find(f) ~= nil 
-        end
-    end
-end)
+Search:GetPropertyChangedSignal("Text"):Connect(updateListVisibility)
 
+-- One-time initial scan, then periodic light refreshes
 task.spawn(function()
     while true do
         runOmniScan()
-        task.wait(6)
+        task.wait(10) -- Longer wait to prevent UI stutter
     end
 end)
 
