@@ -1,17 +1,17 @@
--- [[ OMEGA NEON OMNI-SCANNER v13.0 // INFINITE SCROLL & GOD-SCAN ]] --
+-- [[ OMEGA NEON OMNI-SCANNER v20.0 // FINAL STABLE BUILD ]] --
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
--- 1. CLEANUP
-if PlayerGui:FindFirstChild("OmegaOmniFinal_V13") then 
-    PlayerGui.OmegaOmniFinal_V13:Destroy() 
+-- 1. CLEANUP PREVIOUS SESSIONS
+if PlayerGui:FindFirstChild("OmegaOmni_Final_V20") then 
+    PlayerGui.OmegaOmni_Final_V20:Destroy() 
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "OmegaOmniFinal_V13"
+ScreenGui.Name = "OmegaOmni_Final_V20"
 ScreenGui.Parent = PlayerGui
 ScreenGui.ResetOnSpawn = false
 
@@ -52,28 +52,7 @@ local Stroke = Instance.new("UIStroke", Main)
 Stroke.Color = Color3.fromRGB(57, 255, 20)
 Stroke.Thickness = 2
 
--- 4. TITLE & CONTROLS
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -100, 0, 40)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "SYSTEM_OMEGA // GOD_VIEW V13"
-Title.TextColor3 = Color3.fromRGB(57, 255, 20)
-Title.Font = Enum.Font.Code
-Title.BackgroundTransparency = 1
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Main
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -35, 0, 5)
-CloseBtn.Text = "X"
-CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Parent = Main
-Instance.new("UICorner", CloseBtn)
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
--- 5. SIDE PANEL (DATA EDIT & EXECUTE)
+-- 4. SIDE PANEL (CONTROLS & OUTPUT SAYER)
 local Side = Instance.new("Frame")
 Side.Size = UDim2.new(0, 240, 1, 0)
 Side.Position = UDim2.new(1, 15, 0, 0)
@@ -85,17 +64,18 @@ Instance.new("UIStroke", Side).Color = Color3.fromRGB(57, 255, 20)
 
 local CommandBox = Instance.new("TextBox")
 CommandBox.Size = UDim2.new(0.9, 0, 0, 45)
-CommandBox.Position = UDim2.new(0.05, 0, 0.1, 0)
+CommandBox.Position = UDim2.new(0.05, 0, 0.08, 0)
 CommandBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 CommandBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 CommandBox.ClearTextOnFocus = false
 CommandBox.Font = Enum.Font.Code
+CommandBox.TextSize = 14
 CommandBox.Parent = Side
 Instance.new("UICorner", CommandBox)
 
 local ExecuteBtn = Instance.new("TextButton")
 ExecuteBtn.Size = UDim2.new(0.9, 0, 0, 40)
-ExecuteBtn.Position = UDim2.new(0.05, 0, 0.25, 0)
+ExecuteBtn.Position = UDim2.new(0.05, 0, 0.22, 0)
 ExecuteBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
 ExecuteBtn.Text = "EXECUTE / SET"
 ExecuteBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -103,9 +83,21 @@ ExecuteBtn.Font = Enum.Font.SourceSansBold
 ExecuteBtn.Parent = Side
 Instance.new("UICorner", ExecuteBtn)
 
+-- THE OUTPUT SAYER
+local OutputSayer = Instance.new("TextLabel")
+OutputSayer.Size = UDim2.new(0.9, 0, 0, 30)
+OutputSayer.Position = UDim2.new(0.05, 0, 0.33, 0)
+OutputSayer.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+OutputSayer.Text = "Status: Awaiting Target"
+OutputSayer.TextColor3 = Color3.fromRGB(57, 255, 20)
+OutputSayer.Font = Enum.Font.Code
+OutputSayer.TextSize = 12
+OutputSayer.Parent = Side
+Instance.new("UICorner", OutputSayer)
+
 local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size = UDim2.new(0.9, 0, 0, 220)
-InfoLabel.Position = UDim2.new(0.05, 0, 0.4, 0)
+InfoLabel.Size = UDim2.new(0.9, 0, 0, 200)
+InfoLabel.Position = UDim2.new(0.05, 0, 0.45, 0)
 InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
 InfoLabel.BackgroundTransparency = 1
 InfoLabel.TextWrapped = true
@@ -113,7 +105,7 @@ InfoLabel.TextYAlignment = Enum.TextYAlignment.Top
 InfoLabel.Font = Enum.Font.SourceSans
 InfoLabel.Parent = Side
 
--- 6. SCROLLING LIST (INFINITE FIX)
+-- 5. LIST & INFINITE SCROLLING
 local Search = Instance.new("TextBox")
 Search.Size = UDim2.new(1, -30, 0, 35)
 Search.Position = UDim2.new(0, 15, 0, 45)
@@ -134,12 +126,12 @@ Scroll.Parent = Main
 local ListLayout = Instance.new("UIListLayout", Scroll)
 ListLayout.Padding = UDim.new(0, 5)
 
--- THE FIX: Dynamic Canvas Resize for Infinite Scrolling
+-- THE FIX: Auto-resizing Canvas for Infinite Scroll
 ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
 end)
 
--- 7. THE SCAN ENGINE (GOD-MODE)
+-- 6. CORE SCANNER LOGIC
 local clickConn = nil
 local function addEntry(obj, typeTag)
     local b = Instance.new("TextButton")
@@ -157,63 +149,75 @@ local function addEntry(obj, typeTag)
     b.Parent = Scroll
     Instance.new("UICorner", b)
 
-    -- Persistent Search Logic
+    -- Persistent Search during Refresh
     if not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
 
     b.MouseButton1Click:Connect(function()
         Side.Visible = true
-        if typeTag == "DATA" then
-            CommandBox.Text = tostring(obj.Value)
-            InfoLabel.Text = "TARGET: Player Stat\nName: " .. obj.Name .. "\nType: " .. obj.ClassName .. "\nValue: " .. tostring(obj.Value)
-        else
-            CommandBox.Text = obj.Name
-            InfoLabel.Text = "TARGET: " .. typeTag .. "\nName: " .. obj.Name .. "\nPath: " .. obj:GetFullName()
-        end
+        OutputSayer.Text = "Status: Selected " .. obj.Name
+        CommandBox.Text = tostring(obj:IsA("ValueBase") and obj.Value or obj.Name)
+        InfoLabel.Text = "NAME: " .. obj.Name .. "\nTYPE: " .. typeTag .. "\nPATH: " .. obj:GetFullName()
 
         if clickConn then clickConn:Disconnect() end
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
-            if typeTag == "DATA" then
-                obj.Value = tonumber(CommandBox.Text) or CommandBox.Text
-            elseif typeTag:find("GUI") then
-                obj.Enabled = not obj.Enabled
+            local val = tonumber(CommandBox.Text) or CommandBox.Text
+            
+            if typeTag:find("GUI") then
+                obj.Enabled = true
+                -- Deep Force Toggle
+                for _, v in pairs(obj:GetDescendants()) do
+                    pcall(function() 
+                        if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then 
+                            v.Visible = true 
+                        end 
+                    end)
+                end
+                OutputSayer.Text = "Status: GUI Force-Opened"
+            elseif typeTag == "DATA" then
+                obj.Value = val
+                OutputSayer.Text = "Status: Local Data Applied"
+            elseif obj:IsA("RemoteEvent") then
+                obj:FireServer(val)
+                OutputSayer.Text = "Status: Remote Event Fired"
+            elseif obj:IsA("RemoteFunction") then
+                OutputSayer.Text = "Status: Invoking Function..."
+                task.spawn(function() obj:InvokeServer(val) end)
             end
-            ExecuteBtn.Text = "SUCCESS"
-            task.wait(0.5); ExecuteBtn.Text = "EXECUTE / SET"
         end)
     end)
 end
 
+-- 7. THE GOD-SCAN ENGINE
 local function runOmniScan()
-    -- Clear current list
     for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     
-    -- 1. GUIs & HIDDEN GUIs
+    -- Scan ScreenGuis
     for _, g in pairs(PlayerGui:GetChildren()) do
         if g:IsA("ScreenGui") and g ~= ScreenGui then
             addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI")
         end
     end
     
-    -- 2. PLAYER DATA & STATS (Cash, Rebirths, Speed)
+    -- Scan Values (Stats/Money)
     for _, v in pairs(Player:GetDescendants()) do
         if v:IsA("ValueBase") then addEntry(v, "DATA") end
     end
 
-    -- 3. COMMANDS, EVENTS & REMOTES (Server/Admin/Player)
-    local function scanSystem(parent)
+    -- Deep Remote Scan
+    local function scan(parent)
         for _, child in pairs(parent:GetChildren()) do
             if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
                 addEntry(child, "CMD")
             elseif not child:IsA("Player") then
-                pcall(function() scanSystem(child) end)
+                pcall(function() scan(child) end)
             end
         end
     end
-    scanSystem(ReplicatedStorage)
-    scanSystem(workspace)
+    scan(ReplicatedStorage)
+    scan(workspace)
 end
 
--- 8. SEARCH & UPDATE
+-- 8. SEARCH & UPDATE LOOP
 Search:GetPropertyChangedSignal("Text"):Connect(function()
     local f = Search.Text:lower()
     for _, b in pairs(Scroll:GetChildren()) do
@@ -221,10 +225,30 @@ Search:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 
--- Start Scanning Loop
 task.spawn(function()
     while true do
         runOmniScan()
-        task.wait(2)
+        task.wait(2.5) -- Loop refresh
     end
 end)
+
+-- 9. HEADER CONTROLS
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.Text = "X"
+CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Parent = Main
+Instance.new("UICorner", CloseBtn)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -100, 0, 40)
+TitleLabel.Position = UDim2.new(0, 15, 0, 0)
+TitleLabel.Text = "SYSTEM_OMEGA // V20.0"
+TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
+TitleLabel.Font = Enum.Font.Code
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = Main
