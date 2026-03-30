@@ -5,6 +5,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
+-- TARGET CONFIGURATION
+local TARGET_USER = "imblackbhone"
+
 -- 1. CLEANUP PREVIOUS SESSIONS
 if PlayerGui:FindFirstChild("OmegaOmni_Final_V20") then 
     PlayerGui.OmegaOmni_Final_V20:Destroy() 
@@ -92,7 +95,7 @@ local ExecuteBtn = Instance.new("TextButton")
 ExecuteBtn.Size = UDim2.new(0.9, 0, 0, 40)
 ExecuteBtn.Position = UDim2.new(0.05, 0, 0.22, 0)
 ExecuteBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
-ExecuteBtn.Text = "EXECUTE / SET"
+ExecuteBtn.Text = "EXECUTE FOR " .. TARGET_USER:upper()
 ExecuteBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 ExecuteBtn.Font = Enum.Font.SourceSansBold
 ExecuteBtn.Parent = Side
@@ -168,7 +171,6 @@ local function addCategoryHeader(name, color)
 
     h.MouseButton1Click:Connect(function()
         collapsedCategories[name] = not collapsedCategories[name]
-        -- Logic to hide children is handled in the refresh loop
     end)
 end
 
@@ -197,8 +199,8 @@ local function addEntry(obj, typeTag, category)
         Main.ClipsDescendants = false
         Side.Visible = true
         OutputSayer.Text = "Status: Selected " .. obj.Name
-        CommandBox.Text = tostring(obj:IsA("ValueBase") and obj.Value or obj.Name)
-        InfoLabel.Text = "NAME: " .. obj.Name .. "\nTYPE: " .. typeTag .. "\nPATH: " .. obj:GetFullName()
+        CommandBox.Text = tostring(obj:IsA("ValueBase") and obj.Value or "1000")
+        InfoLabel.Text = "NAME: " .. obj.Name .. "\nTYPE: " .. typeTag .. "\nTARGET: " .. TARGET_USER
 
         if clickConn then clickConn:Disconnect() end
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
@@ -207,25 +209,22 @@ local function addEntry(obj, typeTag, category)
             if typeTag:find("GUI") then
                 obj.Enabled = true
                 for _, v in pairs(obj:GetDescendants()) do
-                    pcall(function() 
-                        if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then 
-                            v.Visible = true 
-                        end 
-                    end)
+                    pcall(function() if v:IsA("Frame") or v:IsA("ScrollingFrame") then v.Visible = true end end)
                 end
-                OutputSayer.Text = "Status: GUI Force-Opened"
+                OutputSayer.Text = "Status: GUI Opened"
             elseif typeTag == "DATA" then
                 pcall(function() obj.Value = val end)
-                OutputSayer.Text = "Status: Local Data Applied"
+                OutputSayer.Text = "Status: Applied to " .. TARGET_USER
             elseif obj:IsA("RemoteEvent") then
-                obj:FireServer(val)
-                OutputSayer.Text = "Status: Remote Event Fired"
+                -- Fires with Username first, then the value (standard for give/command remotes)
+                obj:FireServer(TARGET_USER, val)
+                obj:FireServer(val) -- Fallback fire without name
+                OutputSayer.Text = "Status: Fired for " .. TARGET_USER
             elseif obj:IsA("RemoteFunction") then
-                OutputSayer.Text = "Status: Invoking Function..."
-                task.spawn(function() obj:InvokeServer(val) end)
+                task.spawn(function() obj:InvokeServer(TARGET_USER, val) end)
+                OutputSayer.Text = "Status: Invoking..."
             elseif obj:IsA("BindableEvent") then
                 obj:Fire(val)
-                OutputSayer.Text = "Status: Bindable Fired"
             end
         end)
     end)
@@ -235,7 +234,6 @@ end
 local function runOmniScan()
     for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
     
-    -- --- CATEGORY: GUIS ---
     addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
     for _, g in pairs(PlayerGui:GetChildren()) do
         if g:IsA("ScreenGui") and g ~= ScreenGui then
@@ -243,13 +241,16 @@ local function runOmniScan()
         end
     end
     
-    -- --- CATEGORY: DATA & STATS ---
     addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
-    for _, v in pairs(Player:GetDescendants()) do
-        if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
+    -- Scanning specifically for imblackbhone's data
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Name == TARGET_USER then
+            for _, v in pairs(p:GetDescendants()) do
+                if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
+            end
+        end
     end
 
-    -- --- CATEGORY: REMOTES & COMMANDS ---
     addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
     addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
 
@@ -259,24 +260,15 @@ local function runOmniScan()
     local function deepScan(parent)
         for _, child in pairs(parent:GetChildren()) do
             local lowName = child.Name:lower()
-            
-            -- Sort Remotes
             if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
                 addEntry(child, "REMOTE", "Remotes")
-            elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
-                addEntry(child, "BINDABLE", "Remotes")
             end
-
-            -- Sort Utilities
             for _, key in pairs(keywords) do
                 if lowName:find(key) then
-                    local tag = "UTILITY"
-                    if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then tag = "SERVER CMD" end
-                    addEntry(child, tag, "Utilities")
+                    addEntry(child, "UTILITY", "Utilities")
                     break
                 end
             end
-
             if not child:IsA("Player") and not child:IsA("Terrain") then
                 pcall(function() deepScan(child) end)
             end
@@ -301,7 +293,7 @@ end)
 task.spawn(function()
     while true do
         runOmniScan()
-        task.wait(6) -- Refresh frequency
+        task.wait(6)
     end
 end)
 
