@@ -1,174 +1,159 @@
--- Services
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
 local LP = Players.LocalPlayer
 
--- Ensure GUI loads
-if not game:IsLoaded() then game.Loaded:Wait() end
-
--- UI Construction
+-- Create GUI
 local sg = Instance.new("ScreenGui")
-sg.Name = "NeonScannerV3"
+sg.Name = "NeonOmniScanner"
 sg.ResetOnSpawn = false
 sg.Parent = LP:WaitForChild("PlayerGui")
 
 -- Main Window
-local main = Instance.new("Frame")
-main.Name = "MainFrame"
-main.Size = UDim2.new(0, 420, 0, 480)
-main.Position = UDim2.new(0.5, -210, 0.5, -240)
-main.BackgroundColor3 = Color3.fromRGB(5, 10, 5)
+local main = Instance.new("Frame", sg)
+main.Size = UDim2.new(0, 400, 0, 450)
+main.Position = UDim2.new(0.5, -200, 0.5, -225)
+main.BackgroundColor3 = Color3.fromRGB(5, 12, 5)
 main.BorderSizePixel = 0
 main.Active = true
 main.Draggable = true
-main.Parent = sg
 
-local mainCorner = Instance.new("UICorner", main)
-mainCorner.CornerRadius = UDim.new(0, 15)
-
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 15)
 local mainStroke = Instance.new("UIStroke", main)
-mainStroke.Color = Color3.fromRGB(0, 255, 100)
+mainStroke.Color = Color3.fromRGB(0, 255, 120)
 mainStroke.Thickness = 2
 
--- Header
+-- Title and Buttons
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 50)
-title.Text = "  [ SYSTEM SCANNER ]"
-title.TextColor3 = Color3.fromRGB(0, 255, 100)
-title.Font = Enum.Font.Code
-title.TextSize = 20
-title.TextXAlignment = Enum.TextXAlignment.Left
+title.Size = UDim2.new(0.6, 0, 0, 40)
+title.Text = "  SYSTEM SCANNER V4"
+title.TextColor3 = Color3.fromRGB(0, 255, 120)
 title.BackgroundTransparency = 1
+title.Font = Enum.Font.Code
+title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Main List
+local close = Instance.new("TextButton", main)
+close.Size = UDim2.new(0, 30, 0, 30)
+close.Position = UDim2.new(1, -35, 0, 5)
+close.Text = "X"
+close.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+close.TextColor3 = Color3.white
+close.MouseButton1Click:Connect(function() sg:Destroy() end)
+
+-- Scrolling List
 local scroll = Instance.new("ScrollingFrame", main)
-scroll.Size = UDim2.new(0.92, 0, 0.75, 0)
-scroll.Position = UDim2.new(0.04, 0, 0.12, 0)
+scroll.Size = UDim2.new(0.9, 0, 0.75, 0)
+scroll.Position = UDim2.new(0.05, 0, 0.12, 0)
 scroll.BackgroundTransparency = 1
 scroll.ScrollBarThickness = 3
-scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-
 local layout = Instance.new("UIListLayout", scroll)
 layout.Padding = UDim.new(0, 5)
 
--- Side Panel (The Context/Argument Menu)
+-- Side Panel (The "Minecraft-style" Menu)
 local side = Instance.new("Frame", main)
-side.Size = UDim2.new(0, 200, 0, 300)
-side.Position = UDim2.new(1, 15, 0, 20)
-side.BackgroundColor3 = Color3.fromRGB(10, 25, 10)
+side.Size = UDim2.new(0, 180, 0, 280)
+side.Position = UDim2.new(1, 15, 0, 0)
+side.BackgroundColor3 = Color3.fromRGB(10, 20, 10)
 side.Visible = false
-Instance.new("UICorner", side).CornerRadius = UDim.new(0, 12)
-Instance.new("UIStroke", side).Color = Color3.fromRGB(0, 255, 100)
-
-local sideTitle = Instance.new("TextLabel", side)
-sideTitle.Size = UDim2.new(1, 0, 0, 30)
-sideTitle.Text = "OUTCOME OPTIONS"
-sideTitle.TextColor3 = Color3.white
-sideTitle.Font = Enum.Font.Code
-sideTitle.BackgroundTransparency = 1
+Instance.new("UICorner", side)
+Instance.new("UIStroke", side).Color = Color3.fromRGB(0, 255, 120)
 
 local sideScroll = Instance.new("ScrollingFrame", side)
 sideScroll.Size = UDim2.new(0.9, 0, 0.5, 0)
-sideScroll.Position = UDim2.new(0.05, 0, 0.12, 0)
+sideScroll.Position = UDim2.new(0.05, 0, 0.15, 0)
 sideScroll.BackgroundTransparency = 0.9
-sideScroll.ScrollBarThickness = 2
 Instance.new("UIListLayout", sideScroll)
 
 local argInput = Instance.new("TextBox", side)
 argInput.Size = UDim2.new(0.9, 0, 0, 35)
-argInput.Position = UDim2.new(0.05, 0, 0.65, 0)
-argInput.PlaceholderText = "Enter Arg..."
+argInput.Position = UDim2.new(0.05, 0, 0.68, 0)
+argInput.PlaceholderText = "Enter Name/Arg..."
 argInput.Text = ""
 argInput.BackgroundColor3 = Color3.new(0,0,0)
 argInput.TextColor3 = Color3.white
-argInput.Font = Enum.Font.Code
 
-local execBtn = Instance.new("TextButton", side)
-execBtn.Size = UDim2.new(0.9, 0, 0, 45)
-execBtn.Position = UDim2.new(0.05, 0, 0.8, 0)
-execBtn.Text = "EXECUTE / OPEN"
-execBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 40)
-execBtn.TextColor3 = Color3.white
-execBtn.Font = Enum.Font.Code
+local exec = Instance.new("TextButton", side)
+exec.Size = UDim2.new(0.9, 0, 0, 45)
+exec.Position = UDim2.new(0.05, 0, 0.82, 0)
+exec.Text = "EXECUTE"
+exec.BackgroundColor3 = Color3.fromRGB(0, 100, 50)
+exec.TextColor3 = Color3.white
+exec.Font = Enum.Font.Code
 
---- FUNCTIONALITY ---
+--- SCANNING ENGINE ---
 
 local selectedTarget = nil
 
--- Minecraft-style Dynamic Suggester
-local function getSuggestions(category)
-    for _, child in pairs(sideScroll:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
-    end
-    
-    local found = {}
-    if category == "Items" then
-        for _, v in pairs(game:GetDescendants()) do
-            pcall(function()
-                if v:IsA("Tool") or v:IsA("HopperBin") then table.insert(found, v.Name) end
-            end)
-        end
-    elseif category == "Players" then
-        for _, p in pairs(Players:GetPlayers()) do table.insert(found, p.Name) end
-    end
-    
-    for _, name in pairs(found) do
-        local b = Instance.new("TextButton", sideScroll)
-        b.Size = UDim2.new(1, 0, 0, 25)
-        b.Text = name
-        b.BackgroundColor3 = Color3.fromRGB(20, 40, 20)
-        b.TextColor3 = Color3.white
-        b.Font = Enum.Font.Code
-        b.MouseButton1Click:Connect(function() argInput.Text = name end)
-    end
+local function updateSideList(category)
+	for _, c in pairs(sideScroll:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+	
+	local items = {}
+	-- Scans only client-accessible areas to prevent "Empty GUI" crashes
+	local locations = {game:GetService("ReplicatedStorage"), game:GetService("Lighting"), game.Workspace}
+	
+	for _, loc in pairs(locations) do
+		for _, obj in pairs(loc:GetDescendants()) do
+			pcall(function()
+				if category == "Items" and obj:IsA("Tool") then
+					table.insert(items, obj.Name)
+				elseif category == "Players" and obj:IsA("Player") then
+					table.insert(items, obj.Name)
+				end
+			end)
+		end
+	end
+	
+	for _, name in pairs(items) do
+		local b = Instance.new("TextButton", sideScroll)
+		b.Size = UDim2.new(1, 0, 0, 25)
+		b.Text = name
+		b.BackgroundColor3 = Color3.fromRGB(20, 40, 20)
+		b.TextColor3 = Color3.white
+		b.MouseButton1Click:Connect(function() argInput.Text = name end)
+	end
 end
 
--- Scanner Logic
-local function runScan()
-    scroll:ClearAllChildren()
-    Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
-    
-    local allObjs = game:GetDescendants()
-    for i, v in ipairs(allObjs) do
-        pcall(function()
-            if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") or (v:IsA("ScreenGui") and v.Parent ~= LP.PlayerGui) then
-                local item = Instance.new("TextButton", scroll)
-                item.Size = UDim2.new(1, 0, 0, 35)
-                item.Text = " [" .. v.ClassName .. "] " .. v.Name
-                item.BackgroundColor3 = Color3.fromRGB(15, 30, 15)
-                item.TextColor3 = Color3.fromRGB(0, 255, 100)
-                item.Font = Enum.Font.Code
-                item.TextXAlignment = Enum.TextXAlignment.Left
+local function addEntry(obj)
+	local b = Instance.new("TextButton", scroll)
+	b.Size = UDim2.new(1, 0, 0, 30)
+	b.Text = " [" .. obj.ClassName .. "] " .. obj.Name
+	b.BackgroundColor3 = Color3.fromRGB(20, 35, 20)
+	b.TextColor3 = Color3.fromRGB(0, 255, 120)
+	b.Font = Enum.Font.Code
+	b.TextXAlignment = Enum.TextXAlignment.Left
 
-                item.MouseButton1Click:Connect(function()
-                    selectedTarget = v
-                    side.Visible = true
-                    local n = v.Name:lower()
-                    if string.find(n, "give") or string.find(n, "spawn") or string.find(n, "item") then
-                        getSuggestions("Items")
-                    else
-                        getSuggestions("Players")
-                    end
-                end)
-            end
-        end)
-        if i % 150 == 0 then task.wait() end -- Prevent Frame Drops
-    end
+	b.MouseButton1Click:Connect(function()
+		selectedTarget = obj
+		side.Visible = true
+		local n = obj.Name:lower()
+		if string.find(n, "give") or string.find(n, "spawn") or string.find(n, "item") then
+			updateSideList("Items")
+		else
+			updateSideList("Players")
+		end
+	end)
 end
 
--- Execution logic
-execBtn.MouseButton1Click:Connect(function()
-    if not selectedTarget then return end
-    
-    if selectedTarget:IsA("RemoteEvent") then
-        selectedTarget:FireServer(argInput.Text)
-    elseif selectedTarget:IsA("RemoteFunction") then
-        selectedTarget:InvokeServer(argInput.Text)
-    elseif selectedTarget:IsA("ScreenGui") then
-        selectedTarget.Enabled = not selectedTarget.Enabled
-    end
+-- Systematic Service Scan
+local services = {"ReplicatedStorage", "Lighting", "Workspace", "StarterGui"}
+
+for _, sName in pairs(services) do
+	local service = game:GetService(sName)
+	for _, v in pairs(service:GetDescendants()) do
+		pcall(function()
+			if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") or (v:IsA("ScreenGui") and v.Parent ~= LP.PlayerGui) then
+				addEntry(v)
+			end
+		end)
+	end
+	task.wait(0.1) -- Small delay to prevent lag
+end
+
+exec.MouseButton1Click:Connect(function()
+	if not selectedTarget then return end
+	if selectedTarget:IsA("RemoteEvent") then
+		selectedTarget:FireServer(argInput.Text)
+	elseif selectedTarget:IsA("RemoteFunction") then
+		selectedTarget:InvokeServer(argInput.Text)
+	elseif selectedTarget:IsA("ScreenGui") then
+		selectedTarget.Enabled = not selectedTarget.Enabled
+	end
 end)
-
--- Initial Startup
-task.spawn(runScan)
