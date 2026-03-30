@@ -18,21 +18,35 @@ ScreenGui.ResetOnSpawn = false
 -- 2. STABLE DRAGGABLE SYSTEM
 local function makeDraggable(frame)
     local dragging, dragInput, dragStart, startPos
+    
+    local function update(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
     frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true; dragStart = input.Position; startPos = frame.Position
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
             end)
         end
     end)
+
     frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
     end)
+
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            update(input)
         end
     end)
 end
@@ -54,9 +68,10 @@ Stroke.Color = Color3.fromRGB(57, 255, 20)
 Stroke.Thickness = 2
 
 -- 4. SIDE PANEL (CONTROLS & OUTPUT SAYER)
+-- Fixed: Adjusted position to be inside Main or handled by expanding Main
 local Side = Instance.new("Frame")
-Side.Size = UDim2.new(0, 240, 1, 0)
-Side.Position = UDim2.new(1, 15, 0, 0)
+Side.Size = UDim2.new(0, 200, 1, -50)
+Side.Position = UDim2.new(1, 5, 0, 45) -- Positioned slightly to the right
 Side.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Side.Visible = false
 Side.Parent = Main
@@ -65,7 +80,7 @@ Instance.new("UIStroke", Side).Color = Color3.fromRGB(57, 255, 20)
 
 local CommandBox = Instance.new("TextBox")
 CommandBox.Size = UDim2.new(0.9, 0, 0, 45)
-CommandBox.Position = UDim2.new(0.05, 0, 0.08, 0)
+CommandBox.Position = UDim2.new(0.05, 0, 0.05, 0)
 CommandBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 CommandBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 CommandBox.ClearTextOnFocus = false
@@ -84,24 +99,24 @@ ExecuteBtn.Font = Enum.Font.SourceSansBold
 ExecuteBtn.Parent = Side
 Instance.new("UICorner", ExecuteBtn)
 
--- THE OUTPUT SAYER
 local OutputSayer = Instance.new("TextLabel")
 OutputSayer.Size = UDim2.new(0.9, 0, 0, 30)
-OutputSayer.Position = UDim2.new(0.05, 0, 0.33, 0)
+OutputSayer.Position = UDim2.new(0.05, 0, 0.35, 0)
 OutputSayer.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 OutputSayer.Text = "Status: Awaiting Target"
 OutputSayer.TextColor3 = Color3.fromRGB(57, 255, 20)
 OutputSayer.Font = Enum.Font.Code
-OutputSayer.TextSize = 12
+OutputSayer.TextSize = 10
 OutputSayer.Parent = Side
 Instance.new("UICorner", OutputSayer)
 
 local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size = UDim2.new(0.9, 0, 0, 200)
-InfoLabel.Position = UDim2.new(0.05, 0, 0.45, 0)
+InfoLabel.Size = UDim2.new(0.9, 0, 0, 150)
+InfoLabel.Position = UDim2.new(0.05, 0, 0.48, 0)
 InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
 InfoLabel.BackgroundTransparency = 1
 InfoLabel.TextWrapped = true
+InfoLabel.TextSize = 12
 InfoLabel.TextYAlignment = Enum.TextYAlignment.Top
 InfoLabel.Font = Enum.Font.SourceSans
 InfoLabel.Parent = Side
@@ -127,7 +142,6 @@ Scroll.Parent = Main
 local ListLayout = Instance.new("UIListLayout", Scroll)
 ListLayout.Padding = UDim.new(0, 5)
 
--- THE FIX: Auto-resizing Canvas for Infinite Scroll
 ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
 end)
@@ -140,7 +154,6 @@ local function addEntry(obj, typeTag)
     b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     b.Text = " [" .. typeTag .. "] " .. obj.Name
     
-    -- Visual Coding
     if typeTag:find("GUI") then b.TextColor3 = Color3.fromRGB(0, 200, 255)
     elseif typeTag == "DATA" then b.TextColor3 = Color3.fromRGB(255, 180, 0)
     elseif typeTag == "CMD" then b.TextColor3 = Color3.fromRGB(57, 255, 20)
@@ -150,10 +163,11 @@ local function addEntry(obj, typeTag)
     b.Parent = Scroll
     Instance.new("UICorner", b)
 
-    -- Persistent Search during Refresh
     if not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
 
     b.MouseButton1Click:Connect(function()
+        -- Expand main window to show side panel
+        Main.ClipsDescendants = false
         Side.Visible = true
         OutputSayer.Text = "Status: Selected " .. obj.Name
         CommandBox.Text = tostring(obj:IsA("ValueBase") and obj.Value or obj.Name)
@@ -165,7 +179,6 @@ local function addEntry(obj, typeTag)
             
             if typeTag:find("GUI") then
                 obj.Enabled = true
-                -- Deep Force Toggle
                 for _, v in pairs(obj:GetDescendants()) do
                     pcall(function() 
                         if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then 
@@ -175,7 +188,7 @@ local function addEntry(obj, typeTag)
                 end
                 OutputSayer.Text = "Status: GUI Force-Opened"
             elseif typeTag == "DATA" then
-                obj.Value = val
+                pcall(function() obj.Value = val end)
                 OutputSayer.Text = "Status: Local Data Applied"
             elseif obj:IsA("RemoteEvent") then
                 obj:FireServer(val)
@@ -192,19 +205,16 @@ end
 local function runOmniScan()
     for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
     
-    -- Scan ScreenGuis
     for _, g in pairs(PlayerGui:GetChildren()) do
         if g:IsA("ScreenGui") and g ~= ScreenGui then
             addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI")
         end
     end
     
-    -- Scan Values (Stats/Money)
     for _, v in pairs(Player:GetDescendants()) do
         if v:IsA("ValueBase") then addEntry(v, "DATA") end
     end
 
-    -- Deep Remote Scan
     local function scan(parent)
         for _, child in pairs(parent:GetChildren()) do
             if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
@@ -229,7 +239,7 @@ end)
 task.spawn(function()
     while true do
         runOmniScan()
-        task.wait(2.5) -- Loop refresh
+        task.wait(2.5)
     end
 end)
 
@@ -258,12 +268,14 @@ local originalSize = Main.Size
 MinBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
+        Main.ClipsDescendants = true
         Main.Size = UDim2.new(0, 460, 0, 40)
         Scroll.Visible = false
         Search.Visible = false
         Side.Visible = false
         MinBtn.Text = "+"
     else
+        Main.ClipsDescendants = false
         Main.Size = originalSize
         Scroll.Visible = true
         Search.Visible = true
