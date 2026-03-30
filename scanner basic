@@ -1,159 +1,123 @@
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 
--- Create GUI
-local sg = Instance.new("ScreenGui")
-sg.Name = "NeonOmniScanner"
-sg.ResetOnSpawn = false
-sg.Parent = LP:WaitForChild("PlayerGui")
-
--- Main Window
-local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 400, 0, 450)
-main.Position = UDim2.new(0.5, -200, 0.5, -225)
-main.BackgroundColor3 = Color3.fromRGB(5, 12, 5)
-main.BorderSizePixel = 0
+-- Main Frame
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.new(0, 400, 0, 300)
+main.Position = UDim2.new(0.3, 0, 0.3, 0)
+main.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 main.Active = true
 main.Draggable = true
 
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 15)
-local mainStroke = Instance.new("UIStroke", main)
-mainStroke.Color = Color3.fromRGB(0, 255, 120)
-mainStroke.Thickness = 2
+-- Rounded corners
+local corner = Instance.new("UICorner", main)
+corner.CornerRadius = UDim.new(0, 15)
 
--- Title and Buttons
+-- Title bar
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(0.6, 0, 0, 40)
-title.Text = "  SYSTEM SCANNER V4"
-title.TextColor3 = Color3.fromRGB(0, 255, 120)
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Text = "Admin Scanner UI (Your Game)"
 title.BackgroundTransparency = 1
-title.Font = Enum.Font.Code
-title.TextXAlignment = Enum.TextXAlignment.Left
 
+-- Close button
 local close = Instance.new("TextButton", main)
 close.Size = UDim2.new(0, 30, 0, 30)
-close.Position = UDim2.new(1, -35, 0, 5)
+close.Position = UDim2.new(1, -30, 0, 0)
 close.Text = "X"
-close.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-close.TextColor3 = Color3.white
-close.MouseButton1Click:Connect(function() sg:Destroy() end)
 
--- Scrolling List
-local scroll = Instance.new("ScrollingFrame", main)
-scroll.Size = UDim2.new(0.9, 0, 0.75, 0)
-scroll.Position = UDim2.new(0.05, 0, 0.12, 0)
-scroll.BackgroundTransparency = 1
-scroll.ScrollBarThickness = 3
-local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0, 5)
+close.MouseButton1Click:Connect(function()
+    gui:Destroy()
+end)
 
--- Side Panel (The "Minecraft-style" Menu)
+-- Minimize button
+local minimize = Instance.new("TextButton", main)
+minimize.Size = UDim2.new(0, 30, 0, 30)
+minimize.Position = UDim2.new(1, -60, 0, 0)
+minimize.Text = "-"
+
+local minimized = false
+minimize.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    for _, v in pairs(main:GetChildren()) do
+        if v ~= title and v ~= close and v ~= minimize then
+            v.Visible = not minimized
+        end
+    end
+end)
+
+-- Command List
+local listFrame = Instance.new("Frame", main)
+listFrame.Size = UDim2.new(0.4, 0, 1, -30)
+listFrame.Position = UDim2.new(0, 0, 0, 30)
+
+local layout = Instance.new("UIListLayout", listFrame)
+
+-- Side Panel
 local side = Instance.new("Frame", main)
-side.Size = UDim2.new(0, 180, 0, 280)
-side.Position = UDim2.new(1, 15, 0, 0)
-side.BackgroundColor3 = Color3.fromRGB(10, 20, 10)
-side.Visible = false
-Instance.new("UICorner", side)
-Instance.new("UIStroke", side).Color = Color3.fromRGB(0, 255, 120)
+side.Size = UDim2.new(0.6, 0, 1, -30)
+side.Position = UDim2.new(0.4, 0, 0, 30)
 
-local sideScroll = Instance.new("ScrollingFrame", side)
-sideScroll.Size = UDim2.new(0.9, 0, 0.5, 0)
-sideScroll.Position = UDim2.new(0.05, 0, 0.15, 0)
-sideScroll.BackgroundTransparency = 0.9
-Instance.new("UIListLayout", sideScroll)
+-- Command Info
+local info = Instance.new("TextLabel", side)
+info.Size = UDim2.new(1, 0, 0.4, 0)
+info.Text = "Select a command..."
 
-local argInput = Instance.new("TextBox", side)
-argInput.Size = UDim2.new(0.9, 0, 0, 35)
-argInput.Position = UDim2.new(0.05, 0, 0.68, 0)
-argInput.PlaceholderText = "Enter Name/Arg..."
-argInput.Text = ""
-argInput.BackgroundColor3 = Color3.new(0,0,0)
-argInput.TextColor3 = Color3.white
+-- Input box
+local input = Instance.new("TextBox", side)
+input.Size = UDim2.new(1, -10, 0, 30)
+input.Position = UDim2.new(0, 5, 0.5, 0)
+input.PlaceholderText = "Enter parameter (e.g. player name)"
 
-local exec = Instance.new("TextButton", side)
-exec.Size = UDim2.new(0.9, 0, 0, 45)
-exec.Position = UDim2.new(0.05, 0, 0.82, 0)
-exec.Text = "EXECUTE"
-exec.BackgroundColor3 = Color3.fromRGB(0, 100, 50)
-exec.TextColor3 = Color3.white
-exec.Font = Enum.Font.Code
+-- Execute button
+local execute = Instance.new("TextButton", side)
+execute.Size = UDim2.new(1, -10, 0, 40)
+execute.Position = UDim2.new(0, 5, 0.7, 0)
+execute.Text = "Execute"
 
---- SCANNING ENGINE ---
+-- Fake commands (you define these)
+local commands = {
+    {
+        name = "Spawn Character",
+        description = "Spawns a character by name",
+        action = function(param)
+            if param == "" then
+                return "No character spawned. Enter a name."
+            else
+                return "Spawned character: " .. param
+            end
+        end
+    },
+    {
+        name = "Give Tool",
+        description = "Gives a tool",
+        action = function(param)
+            if param == "" then
+                return "No tool given. Enter tool name."
+            else
+                return "Tool given: " .. param
+            end
+        end
+    }
+}
 
-local selectedTarget = nil
+local selectedCommand = nil
 
-local function updateSideList(category)
-	for _, c in pairs(sideScroll:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
-	
-	local items = {}
-	-- Scans only client-accessible areas to prevent "Empty GUI" crashes
-	local locations = {game:GetService("ReplicatedStorage"), game:GetService("Lighting"), game.Workspace}
-	
-	for _, loc in pairs(locations) do
-		for _, obj in pairs(loc:GetDescendants()) do
-			pcall(function()
-				if category == "Items" and obj:IsA("Tool") then
-					table.insert(items, obj.Name)
-				elseif category == "Players" and obj:IsA("Player") then
-					table.insert(items, obj.Name)
-				end
-			end)
-		end
-	end
-	
-	for _, name in pairs(items) do
-		local b = Instance.new("TextButton", sideScroll)
-		b.Size = UDim2.new(1, 0, 0, 25)
-		b.Text = name
-		b.BackgroundColor3 = Color3.fromRGB(20, 40, 20)
-		b.TextColor3 = Color3.white
-		b.MouseButton1Click:Connect(function() argInput.Text = name end)
-	end
+-- Populate command list
+for _, cmd in pairs(commands) do
+    local btn = Instance.new("TextButton", listFrame)
+    btn.Size = UDim2.new(1, 0, 0, 40)
+    btn.Text = cmd.name
+
+    btn.MouseButton1Click:Connect(function()
+        selectedCommand = cmd
+        info.Text = cmd.description
+    end)
 end
 
-local function addEntry(obj)
-	local b = Instance.new("TextButton", scroll)
-	b.Size = UDim2.new(1, 0, 0, 30)
-	b.Text = " [" .. obj.ClassName .. "] " .. obj.Name
-	b.BackgroundColor3 = Color3.fromRGB(20, 35, 20)
-	b.TextColor3 = Color3.fromRGB(0, 255, 120)
-	b.Font = Enum.Font.Code
-	b.TextXAlignment = Enum.TextXAlignment.Left
-
-	b.MouseButton1Click:Connect(function()
-		selectedTarget = obj
-		side.Visible = true
-		local n = obj.Name:lower()
-		if string.find(n, "give") or string.find(n, "spawn") or string.find(n, "item") then
-			updateSideList("Items")
-		else
-			updateSideList("Players")
-		end
-	end)
-end
-
--- Systematic Service Scan
-local services = {"ReplicatedStorage", "Lighting", "Workspace", "StarterGui"}
-
-for _, sName in pairs(services) do
-	local service = game:GetService(sName)
-	for _, v in pairs(service:GetDescendants()) do
-		pcall(function()
-			if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") or (v:IsA("ScreenGui") and v.Parent ~= LP.PlayerGui) then
-				addEntry(v)
-			end
-		end)
-	end
-	task.wait(0.1) -- Small delay to prevent lag
-end
-
-exec.MouseButton1Click:Connect(function()
-	if not selectedTarget then return end
-	if selectedTarget:IsA("RemoteEvent") then
-		selectedTarget:FireServer(argInput.Text)
-	elseif selectedTarget:IsA("RemoteFunction") then
-		selectedTarget:InvokeServer(argInput.Text)
-	elseif selectedTarget:IsA("ScreenGui") then
-		selectedTarget.Enabled = not selectedTarget.Enabled
-	end
+-- Execute logic
+execute.MouseButton1Click:Connect(function()
+    if selectedCommand then
+        local result = selectedCommand.action(input.Text)
+        info.Text = result
+    end
 end)
