@@ -293,11 +293,26 @@ local function addEntry(obj, typeTag, category)
         Main.ClipsDescendants = false
         Side.Visible = true
         OutputSayer.Text = "Status: Selected " .. obj.Name
-        CommandBox.Text = tostring(obj:IsA("ValueBase") and obj.Value or obj.Name)
         InfoLabel.Text = "NAME: " .. obj.Name .. "\nTYPE: " .. typeTag .. "\nPATH: " .. obj:GetFullName()
+
+        -- For DATA values pre-fill the current value; for everything else clear the box
+        if obj:IsA("ValueBase") then
+            CommandBox.Text = tostring(obj.Value)
+            CommandBox.PlaceholderText = "New value..."
+        else
+            CommandBox.Text = ""
+            CommandBox.PlaceholderText = "arg1, arg2, arg3  (leave blank = no args)"
+        end
 
         if clickConn then clickConn:Disconnect() end
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
+            -- Guard: object may have been destroyed since the last scan
+            if not obj or not obj.Parent then
+                OutputSayer.Text = "Status: Object gone (rescan)"
+                logOutput("ERR: " .. tostring(obj and obj.Name or "?") .. " no longer exists", Color3.fromRGB(255, 80, 80))
+                return
+            end
+
             local args = parseArgs(CommandBox.Text)
             local argStr = CommandBox.Text ~= "" and CommandBox.Text or "<none>"
 
