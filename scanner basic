@@ -1,0 +1,144 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local LP = Players.LocalPlayer
+
+-- UI Root
+local sg = Instance.new("ScreenGui", LP.PlayerGui)
+sg.Name = "NeonScanner_Final"
+sg.ResetOnSpawn = false
+
+-- Main Frame
+local main = Instance.new("Frame", sg)
+main.Size = UDim2.new(0, 400, 0, 450)
+main.Position = UDim2.new(0.5, -200, 0.5, -225)
+main.BackgroundColor3 = Color3.fromRGB(5, 10, 5)
+main.Active = true
+main.Draggable = true
+
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 15)
+local mainStroke = Instance.new("UIStroke", main)
+mainStroke.Color = Color3.fromRGB(0, 255, 120)
+mainStroke.Thickness = 2
+
+-- Title bar
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Text = "  SYSTEM SCANNER V3"
+title.TextColor3 = Color3.fromRGB(0, 255, 120)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.Code
+
+-- Main Scroll List
+local scroll = Instance.new("ScrollingFrame", main)
+scroll.Size = UDim2.new(0.9, 0, 0.8, 0)
+scroll.Position = UDim2.new(0.05, 0, 0.12, 0)
+scroll.BackgroundTransparency = 1
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.ScrollBarThickness = 2
+
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 5)
+
+-- Side Panel (The "Minecraft-style" Menu)
+local side = Instance.new("Frame", main)
+side.Size = UDim2.new(0, 180, 0, 250)
+side.Position = UDim2.new(1, 15, 0, 0)
+side.BackgroundColor3 = Color3.fromRGB(10, 20, 10)
+side.Visible = false
+Instance.new("UICorner", side).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", side).Color = Color3.fromRGB(0, 255, 120)
+
+local hint = Instance.new("TextLabel", side)
+hint.Size = UDim2.new(1, 0, 0, 30)
+hint.Text = "SUGGESTIONS"
+hint.TextColor3 = Color3.white
+hint.BackgroundTransparency = 1
+
+local sideScroll = Instance.new("ScrollingFrame", side)
+sideScroll.Size = UDim2.new(0.9, 0, 0.5, 0)
+sideScroll.Position = UDim2.new(0.05, 0, 0.15, 0)
+sideScroll.BackgroundTransparency = 0.9
+sideScroll.ScrollBarThickness = 2
+Instance.new("UIListLayout", sideScroll)
+
+local argInput = Instance.new("TextBox", side)
+argInput.Size = UDim2.new(0.9, 0, 0, 30)
+argInput.Position = UDim2.new(0.05, 0, 0.7, 0)
+argInput.PlaceholderText = "Arguments..."
+argInput.BackgroundColor3 = Color3.new(0,0,0)
+argInput.TextColor3 = Color3.white
+
+local exec = Instance.new("TextButton", side)
+exec.Size = UDim2.new(0.9, 0, 0, 40)
+exec.Position = UDim2.new(0.05, 0, 0.85, 0)
+exec.Text = "EXECUTE"
+exec.BackgroundColor3 = Color3.fromRGB(0, 100, 50)
+exec.TextColor3 = Color3.white
+
+--- SCANNING LOGIC ---
+
+local selectedObj = nil
+
+local function getSuggestions(type)
+	for _, c in pairs(sideScroll:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+	
+	local list = {}
+	if type == "Item" then
+		for _, v in pairs(game:GetDescendants()) do 
+			if v:IsA("Tool") then table.insert(list, v.Name) end 
+		end
+	elseif type == "Player" then
+		for _, p in pairs(Players:GetPlayers()) do table.insert(list, p.Name) end
+	end
+
+	for _, name in pairs(list) do
+		local b = Instance.new("TextButton", sideScroll)
+		b.Size = UDim2.new(1, 0, 0, 20)
+		b.Text = name
+		b.BackgroundColor3 = Color3.fromRGB(20, 40, 20)
+		b.TextColor3 = Color3.white
+		b.MouseButton1Click:Connect(function() argInput.Text = name end)
+	end
+end
+
+local function addToList(obj)
+	local b = Instance.new("TextButton", scroll)
+	b.Size = UDim2.new(1, 0, 0, 30)
+	b.Text = " [" .. obj.ClassName .. "] " .. obj.Name
+	b.BackgroundColor3 = Color3.fromRGB(20, 30, 20)
+	b.TextColor3 = Color3.fromRGB(0, 255, 120)
+	b.Font = Enum.Font.Code
+	b.TextXAlignment = Enum.TextXAlignment.Left
+
+	b.MouseButton1Click:Connect(function()
+		selectedObj = obj
+		side.Visible = true
+		local low = obj.Name:lower()
+		if string.find(low, "give") or string.find(low, "item") or string.find(low, "spawn") then
+			getSuggestions("Item")
+		elseif string.find(low, "kill") or string.find(low, "tp") then
+			getSuggestions("Player")
+		end
+	end)
+end
+
+-- Refresh Scanner
+for _, v in pairs(game:GetDescendants()) do
+	pcall(function()
+		if v:IsA("RemoteEvent") or (v:IsA("ScreenGui") and v.Parent ~= LP.PlayerGui) then
+			addToList(v)
+		end
+	end)
+end
+
+-- Final Execution
+exec.MouseButton1Click:Connect(function()
+	if selectedObj and selectedObj:IsA("RemoteEvent") then
+		selectedObj:FireServer(argInput.Text)
+		print("Sent: " .. argInput.Text .. " to " .. selectedObj.Name)
+	elseif selectedObj:IsA("ScreenGui") then
+		selectedObj.Enabled = not selectedObj.Enabled
+	end
+end)
