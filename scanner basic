@@ -18,7 +18,7 @@ ScreenGui.ResetOnSpawn = false
 -- 2. STABLE DRAGGABLE SYSTEM
 local function makeDraggable(frame)
     local dragging, dragInput, dragStart, startPos
-
+    
     local function update(input)
         local delta = input.Position - dragStart
         frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
@@ -29,7 +29,7 @@ local function makeDraggable(frame)
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
-
+            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -79,7 +79,7 @@ Instance.new("UIStroke", Side).Color = Color3.fromRGB(57, 255, 20)
 
 local CommandBox = Instance.new("TextBox")
 CommandBox.Size = UDim2.new(0.9, 0, 0, 45)
-CommandBox.Position = UDim2.new(0.05, 0, 0, 10)
+CommandBox.Position = UDim2.new(0.05, 0, 0.05, 0)
 CommandBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 CommandBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 CommandBox.ClearTextOnFocus = false
@@ -89,8 +89,8 @@ CommandBox.Parent = Side
 Instance.new("UICorner", CommandBox)
 
 local ExecuteBtn = Instance.new("TextButton")
-ExecuteBtn.Size = UDim2.new(0.9, 0, 0, 36)
-ExecuteBtn.Position = UDim2.new(0.05, 0, 0, 62)
+ExecuteBtn.Size = UDim2.new(0.9, 0, 0, 40)
+ExecuteBtn.Position = UDim2.new(0.05, 0, 0.22, 0)
 ExecuteBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
 ExecuteBtn.Text = "EXECUTE / SET"
 ExecuteBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -99,8 +99,8 @@ ExecuteBtn.Parent = Side
 Instance.new("UICorner", ExecuteBtn)
 
 local OutputSayer = Instance.new("TextLabel")
-OutputSayer.Size = UDim2.new(0.9, 0, 0, 26)
-OutputSayer.Position = UDim2.new(0.05, 0, 0, 105)
+OutputSayer.Size = UDim2.new(0.9, 0, 0, 30)
+OutputSayer.Position = UDim2.new(0.05, 0, 0.35, 0)
 OutputSayer.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 OutputSayer.Text = "Status: Awaiting Target"
 OutputSayer.TextColor3 = Color3.fromRGB(57, 255, 20)
@@ -110,20 +110,20 @@ OutputSayer.Parent = Side
 Instance.new("UICorner", OutputSayer)
 
 local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size = UDim2.new(0.9, 0, 0, 72)
-InfoLabel.Position = UDim2.new(0.05, 0, 0, 138)
+InfoLabel.Size = UDim2.new(0.9, 0, 0, 80)
+InfoLabel.Position = UDim2.new(0.05, 0, 0.48, 0)
 InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
 InfoLabel.BackgroundTransparency = 1
 InfoLabel.TextWrapped = true
-InfoLabel.TextSize = 11
+InfoLabel.TextSize = 12
 InfoLabel.TextYAlignment = Enum.TextYAlignment.Top
 InfoLabel.Font = Enum.Font.SourceSans
 InfoLabel.Parent = Side
 
 -- CMD OUTPUT LOGGER (below path info)
 local CmdOutputHeader = Instance.new("TextLabel")
-CmdOutputHeader.Size = UDim2.new(0.9, 0, 0, 18)
-CmdOutputHeader.Position = UDim2.new(0.05, 0, 0, 216)
+CmdOutputHeader.Size = UDim2.new(0.9, 0, 0, 16)
+CmdOutputHeader.Position = UDim2.new(0.05, 0, 0.72, 0)
 CmdOutputHeader.Text = "CMD OUTPUT"
 CmdOutputHeader.TextColor3 = Color3.fromRGB(57, 255, 20)
 CmdOutputHeader.BackgroundTransparency = 1
@@ -133,8 +133,8 @@ CmdOutputHeader.TextXAlignment = Enum.TextXAlignment.Left
 CmdOutputHeader.Parent = Side
 
 local ClearLogBtn = Instance.new("TextButton")
-ClearLogBtn.Size = UDim2.new(0, 44, 0, 16)
-ClearLogBtn.Position = UDim2.new(1, -52, 0, 217)
+ClearLogBtn.Size = UDim2.new(0, 44, 0, 14)
+ClearLogBtn.Position = UDim2.new(1, -52, 0.72, 1)
 ClearLogBtn.Text = "CLEAR"
 ClearLogBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 ClearLogBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -144,8 +144,8 @@ ClearLogBtn.Parent = Side
 Instance.new("UICorner", ClearLogBtn)
 
 local CmdLogScroll = Instance.new("ScrollingFrame")
-CmdLogScroll.Size = UDim2.new(0.9, 0, 0, 140)
-CmdLogScroll.Position = UDim2.new(0.05, 0, 0, 237)
+CmdLogScroll.Size = UDim2.new(0.9, 0, 0.26, -4)
+CmdLogScroll.Position = UDim2.new(0.05, 0, 0.74, 0)
 CmdLogScroll.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
 CmdLogScroll.BorderSizePixel = 0
 CmdLogScroll.ScrollBarThickness = 4
@@ -220,31 +220,6 @@ end)
 local clickConn = nil
 local collapsedCategories = {}
 
--- Parses comma-separated arg string into a typed table
--- Supports: numbers, true/false, nil, quoted strings, plain strings
-local function parseArgs(text)
-    local args = {}
-    local trimmed = text:match("^%s*(.-)%s*$")
-    if trimmed == "" then return args end
-    for part in (trimmed .. ","):gmatch("([^,]*),") do
-        local s = part:match("^%s*(.-)%s*$")
-        local num = tonumber(s)
-        if num then
-            table.insert(args, num)
-        elseif s:lower() == "true" then
-            table.insert(args, true)
-        elseif s:lower() == "false" then
-            table.insert(args, false)
-        elseif s:lower() == "nil" then
-            -- skip nil args (table.unpack will handle gaps)
-        else
-            local quoted = s:match('^"(.*)"$') or s:match("^'(.*)'$")
-            table.insert(args, quoted or s)
-        end
-    end
-    return args
-end
-
 local function addCategoryHeader(name, color)
     local h = Instance.new("TextButton")
     h.Size = UDim2.new(1, 0, 0, 35)
@@ -257,32 +232,30 @@ local function addCategoryHeader(name, color)
     h.Name = "Category_" .. name
     h.Parent = Scroll
     Instance.new("UICorner", h)
-
+    
     if collapsedCategories[name] then
         h.Text = "  ▶ CATEGORY: " .. name:upper()
     end
 
     h.MouseButton1Click:Connect(function()
         collapsedCategories[name] = not collapsedCategories[name]
-        -- Logic to hide children is handled in the refresh loop
     end)
 end
 
 local function addEntry(obj, typeTag, category)
     if collapsedCategories[category] then return end
-
+    
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, 0, 0, 32)
     b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     b.Text = "  ↳ [" .. typeTag .. "] " .. obj.Name
-
-    -- Visual Coding
+    
     if typeTag:find("GUI") then b.TextColor3 = Color3.fromRGB(0, 200, 255)
     elseif typeTag:find("DATA") then b.TextColor3 = Color3.fromRGB(255, 180, 0)
     elseif typeTag:find("CMD") or typeTag:find("REMOTE") then b.TextColor3 = Color3.fromRGB(57, 255, 20)
     elseif typeTag:find("UTILITY") then b.TextColor3 = Color3.fromRGB(255, 80, 80)
     else b.TextColor3 = Color3.fromRGB(200, 200, 200) end
-
+    
     b.TextXAlignment = Enum.TextXAlignment.Left
     b.Parent = Scroll
     Instance.new("UICorner", b)
@@ -293,44 +266,33 @@ local function addEntry(obj, typeTag, category)
         Main.ClipsDescendants = false
         Side.Visible = true
         OutputSayer.Text = "Status: Selected " .. obj.Name
+        CommandBox.Text = tostring(obj:IsA("ValueBase") and obj.Value or obj.Name)
         InfoLabel.Text = "NAME: " .. obj.Name .. "\nTYPE: " .. typeTag .. "\nPATH: " .. obj:GetFullName()
-
-        -- For DATA values pre-fill the current value; for everything else clear the box
-        if obj:IsA("ValueBase") then
-            CommandBox.Text = tostring(obj.Value)
-            CommandBox.PlaceholderText = "New value..."
-        else
-            CommandBox.Text = ""
-            CommandBox.PlaceholderText = "arg1, arg2, arg3  (leave blank = no args)"
-        end
 
         if clickConn then clickConn:Disconnect() end
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
-            -- Exact same val logic as the original working script
+            -- Original execute logic — untouched
             local val = tonumber(CommandBox.Text) or CommandBox.Text
-
+            
             if typeTag:find("GUI") then
                 obj.Enabled = true
                 for _, v in pairs(obj:GetDescendants()) do
-                    pcall(function()
-                        if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then
-                            v.Visible = true
-                        end
+                    pcall(function() 
+                        if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then 
+                            v.Visible = true 
+                        end 
                     end)
                 end
                 OutputSayer.Text = "Status: GUI Force-Opened"
                 logOutput("GUI opened: " .. obj.Name)
-
             elseif typeTag == "DATA" then
                 pcall(function() obj.Value = val end)
                 OutputSayer.Text = "Status: Local Data Applied"
                 logOutput("SET " .. obj.Name .. " = " .. tostring(val))
-
             elseif obj:IsA("RemoteEvent") then
                 obj:FireServer(val)
                 OutputSayer.Text = "Status: Remote Event Fired"
                 logOutput("FIRE " .. obj.Name .. "(" .. tostring(val) .. ")")
-
             elseif obj:IsA("RemoteFunction") then
                 OutputSayer.Text = "Status: Invoking Function..."
                 logOutput("INVOKE " .. obj.Name .. "(" .. tostring(val) .. ") ...")
@@ -339,18 +301,10 @@ local function addEntry(obj, typeTag, category)
                     OutputSayer.Text = "Status: Done"
                     logOutput("RETURN " .. obj.Name .. " => " .. tostring(result))
                 end)
-
             elseif obj:IsA("BindableEvent") then
                 obj:Fire(val)
                 OutputSayer.Text = "Status: Bindable Fired"
                 logOutput("BIND:FIRE " .. obj.Name .. "(" .. tostring(val) .. ")")
-
-            elseif obj:IsA("BindableFunction") then
-                task.spawn(function()
-                    local result = obj:Invoke(val)
-                    OutputSayer.Text = "Status: Done"
-                    logOutput("BIND:RETURN " .. obj.Name .. " => " .. tostring(result))
-                end)
             end
         end)
     end)
@@ -359,22 +313,19 @@ end
 -- 7. THE DEEP OMNI-SCAN ENGINE (CATEGORIZED)
 local function runOmniScan()
     for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
-
-    -- --- CATEGORY: GUIS ---
+    
     addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
     for _, g in pairs(PlayerGui:GetChildren()) do
         if g:IsA("ScreenGui") and g ~= ScreenGui then
             addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis")
         end
     end
-
-    -- --- CATEGORY: DATA & STATS ---
+    
     addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
     for _, v in pairs(Player:GetDescendants()) do
         if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
     end
 
-    -- --- CATEGORY: REMOTES & COMMANDS ---
     addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
     addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
 
@@ -384,15 +335,13 @@ local function runOmniScan()
     local function deepScan(parent)
         for _, child in pairs(parent:GetChildren()) do
             local lowName = child.Name:lower()
-
-            -- Sort Remotes
+            
             if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
                 addEntry(child, "REMOTE", "Remotes")
             elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
                 addEntry(child, "BINDABLE", "Remotes")
             end
 
-            -- Sort Utilities
             for _, key in pairs(keywords) do
                 if lowName:find(key) then
                     local tag = "UTILITY"
@@ -426,7 +375,7 @@ end)
 task.spawn(function()
     while true do
         runOmniScan()
-        task.wait(6) -- Refresh frequency
+        task.wait(6)
     end
 end)
 
@@ -481,14 +430,46 @@ TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = Main
 
 -- 10. ARGUMENT SNIFFER
-local snifferActive = true   -- hard sniff: always capturing from script load
-local snifferLog = {}
-local MAX_LOG = 100
+-- Deep serializer for all Roblox types — no IsA() calls inside the hook
+local function serializeArg(v, depth)
+    depth = depth or 0
+    local t = typeof(v)
+    if t == "nil" then return "nil"
+    elseif t == "boolean" or t == "number" then return tostring(v)
+    elseif t == "string" then return '"' .. v:sub(1, 50) .. (v:len() > 50 and '..."' or '"')
+    elseif t == "table" then
+        if depth >= 2 then return "{...}" end
+        local parts = {}
+        local count = 0
+        for k, val in pairs(v) do
+            count = count + 1
+            if count > 6 then table.insert(parts, "...") break end
+            local ks = type(k) == "string" and k or ("[" .. tostring(k) .. "]")
+            table.insert(parts, ks .. "=" .. serializeArg(val, depth + 1))
+        end
+        return "{" .. table.concat(parts, ", ") .. "}"
+    elseif t == "Vector3" then return string.format("V3(%.2f,%.2f,%.2f)", v.X, v.Y, v.Z)
+    elseif t == "Vector2" then return string.format("V2(%.2f,%.2f)", v.X, v.Y)
+    elseif t == "CFrame" then local p = v.Position return string.format("CF(%.1f,%.1f,%.1f)", p.X, p.Y, p.Z)
+    elseif t == "Color3" then return string.format("C3(%.0f,%.0f,%.0f)", v.R*255, v.G*255, v.B*255)
+    elseif t == "EnumItem" then return "Enum." .. tostring(v)
+    elseif t == "Instance" then
+        local ok, path = pcall(function() return v:GetFullName() end)
+        return ok and ("[" .. path .. "]") or "[Instance]"
+    else return tostring(v):sub(1, 40) end
+end
 
--- Sniffer Window (starts visible — hard sniff is always on)
+local function serializeArgs(args)
+    if #args == 0 then return "<none>" end
+    local parts = {}
+    for _, v in ipairs(args) do table.insert(parts, serializeArg(v)) end
+    return table.concat(parts, ", ")
+end
+
+-- Sniffer window
 local SnifferGui = Instance.new("Frame")
-SnifferGui.Size = UDim2.new(0, 480, 0, 340)
-SnifferGui.Position = UDim2.new(0.5, -240, 0.5, 230)
+SnifferGui.Size = UDim2.new(0, 500, 0, 300)
+SnifferGui.Position = UDim2.new(0.5, -250, 0.5, 230)
 SnifferGui.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 SnifferGui.BorderSizePixel = 0
 SnifferGui.Active = true
@@ -502,9 +483,9 @@ SnifferStroke.Color = Color3.fromRGB(255, 80, 200)
 SnifferStroke.Thickness = 2
 
 local SnifferTitle = Instance.new("TextLabel")
-SnifferTitle.Size = UDim2.new(1, -80, 0, 36)
+SnifferTitle.Size = UDim2.new(1, -110, 0, 34)
 SnifferTitle.Position = UDim2.new(0, 10, 0, 0)
-SnifferTitle.Text = "ARG SNIFFER // LIVE"
+SnifferTitle.Text = "ARG SNIFFER // HARD MODE"
 SnifferTitle.TextColor3 = Color3.fromRGB(255, 80, 200)
 SnifferTitle.Font = Enum.Font.Code
 SnifferTitle.BackgroundTransparency = 1
@@ -512,170 +493,110 @@ SnifferTitle.TextXAlignment = Enum.TextXAlignment.Left
 SnifferTitle.Parent = SnifferGui
 
 local SnifferCloseBtn = Instance.new("TextButton")
-SnifferCloseBtn.Size = UDim2.new(0, 30, 0, 30)
-SnifferCloseBtn.Position = UDim2.new(1, -35, 0, 3)
+SnifferCloseBtn.Size = UDim2.new(0, 28, 0, 28)
+SnifferCloseBtn.Position = UDim2.new(1, -33, 0, 3)
 SnifferCloseBtn.Text = "X"
 SnifferCloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 SnifferCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 SnifferCloseBtn.Parent = SnifferGui
 Instance.new("UICorner", SnifferCloseBtn)
 
-local ClearBtn = Instance.new("TextButton")
-ClearBtn.Size = UDim2.new(0, 60, 0, 24)
-ClearBtn.Position = UDim2.new(1, -100, 0, 6)
-ClearBtn.Text = "CLEAR"
-ClearBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ClearBtn.Font = Enum.Font.SourceSansBold
-ClearBtn.TextSize = 13
-ClearBtn.Parent = SnifferGui
-Instance.new("UICorner", ClearBtn)
+local SnifferClearBtn = Instance.new("TextButton")
+SnifferClearBtn.Size = UDim2.new(0, 60, 0, 22)
+SnifferClearBtn.Position = UDim2.new(1, -98, 0, 6)
+SnifferClearBtn.Text = "CLEAR"
+SnifferClearBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SnifferClearBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+SnifferClearBtn.Font = Enum.Font.SourceSansBold
+SnifferClearBtn.TextSize = 12
+SnifferClearBtn.Parent = SnifferGui
+Instance.new("UICorner", SnifferClearBtn)
 
 local SnifferScroll = Instance.new("ScrollingFrame")
-SnifferScroll.Size = UDim2.new(1, -10, 1, -44)
-SnifferScroll.Position = UDim2.new(0, 5, 0, 40)
+SnifferScroll.Size = UDim2.new(1, -10, 1, -38)
+SnifferScroll.Position = UDim2.new(0, 5, 0, 36)
 SnifferScroll.BackgroundTransparency = 1
 SnifferScroll.ScrollBarThickness = 5
 SnifferScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 SnifferScroll.Parent = SnifferGui
 
 local SnifferList = Instance.new("UIListLayout", SnifferScroll)
-SnifferList.Padding = UDim.new(0, 3)
+SnifferList.Padding = UDim.new(0, 2)
 SnifferList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    SnifferScroll.CanvasSize = UDim2.new(0, 0, 0, SnifferList.AbsoluteContentSize.Y + 10)
+    SnifferScroll.CanvasSize = UDim2.new(0, 0, 0, SnifferList.AbsoluteContentSize.Y + 8)
     SnifferScroll.CanvasPosition = Vector2.new(0, SnifferList.AbsoluteContentSize.Y)
 end)
 
--- Deep argument serializer — handles all Roblox types without calling IsA()
-local function serializeArg(v, depth)
-    depth = depth or 0
-    local t = typeof(v)
-    if t == "nil" then
-        return "nil"
-    elseif t == "boolean" or t == "number" then
-        return tostring(v)
-    elseif t == "string" then
-        return '"' .. v:sub(1, 60) .. (v:len() > 60 and '..."' or '"')
-    elseif t == "table" then
-        if depth >= 2 then return "{...}" end
-        local parts = {}
-        local count = 0
-        for k, val in pairs(v) do
-            count = count + 1
-            if count > 8 then table.insert(parts, "...") break end
-            local ks = type(k) == "string" and k or ("[" .. tostring(k) .. "]")
-            table.insert(parts, ks .. "=" .. serializeArg(val, depth + 1))
-        end
-        return "{" .. table.concat(parts, ", ") .. "}"
-    elseif t == "Vector3" then
-        return string.format("V3(%.2f,%.2f,%.2f)", v.X, v.Y, v.Z)
-    elseif t == "Vector2" then
-        return string.format("V2(%.2f,%.2f)", v.X, v.Y)
-    elseif t == "CFrame" then
-        local p = v.Position
-        return string.format("CF(%.1f,%.1f,%.1f)", p.X, p.Y, p.Z)
-    elseif t == "Color3" then
-        return string.format("C3(%.0f,%.0f,%.0f)", v.R*255, v.G*255, v.B*255)
-    elseif t == "UDim2" then
-        return string.format("UD2(%.2f,%d,%.2f,%d)", v.X.Scale, v.X.Offset, v.Y.Scale, v.Y.Offset)
-    elseif t == "UDim" then
-        return string.format("UD(%.2f,%d)", v.Scale, v.Offset)
-    elseif t == "EnumItem" then
-        return "Enum." .. tostring(v)
-    elseif t == "Instance" then
-        local ok, path = pcall(function() return v:GetFullName() end)
-        return ok and ("[" .. path .. "]") or "[Instance]"
-    else
-        local s = tostring(v)
-        return s:sub(1, 50)
-    end
-end
-
-local function serializeArgs(args)
-    if #args == 0 then return "<none>" end
-    local parts = {}
-    for _, v in ipairs(args) do
-        table.insert(parts, serializeArg(v))
-    end
-    return table.concat(parts, ", ")
-end
+local snifferLog = {}
+local MAX_SNIFF = 100
 
 local function addSnifferEntry(remoteName, method, args)
-    local timestamp = string.format("%.1f", tick() % 1000)
+    local ts = string.format("%.1f", tick() % 1000)
     local argStr = serializeArgs(args)
-
     local row = Instance.new("TextLabel")
-    row.Size = UDim2.new(1, -8, 0, 22)
+    row.Size = UDim2.new(1, -6, 0, 20)
     row.BackgroundColor3 = Color3.fromRGB(12, 5, 18)
     row.Font = Enum.Font.Code
     row.TextSize = 11
     row.TextColor3 = Color3.fromRGB(255, 80, 200)
     row.TextXAlignment = Enum.TextXAlignment.Left
     row.TextTruncate = Enum.TextTruncate.AtEnd
-    row.Text = string.format("  [%s] %s::%s  %s", timestamp, remoteName, method, argStr)
+    row.Text = string.format("  [%s] %s::%s  %s", ts, remoteName, method, argStr)
     row.Parent = SnifferScroll
     Instance.new("UICorner", row)
-
     table.insert(snifferLog, row)
-    if #snifferLog > MAX_LOG then
-        local oldest = table.remove(snifferLog, 1)
-        if oldest and oldest.Parent then oldest:Destroy() end
+    if #snifferLog > MAX_SNIFF then
+        local old = table.remove(snifferLog, 1)
+        if old and old.Parent then old:Destroy() end
     end
 end
 
--- HARD HOOK — always active from script load, no toggle gate.
--- Captures ALL FireServer / InvokeServer / Fire / Invoke calls game-wide.
--- Uses rawget for Name to avoid re-entering __namecall.
+-- HARD HOOK — always on from script load, captures all FireServer/InvokeServer/Fire/Invoke
+-- Uses rawget(self, "Name") to avoid re-entering __namecall
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
-    if method == "FireServer"
-    or method == "InvokeServer"
-    or method == "Fire"
-    or method == "Invoke"
-    then
-        local name = rawget(self, "Name") or "Unknown"
+    if method == "FireServer" or method == "InvokeServer" or method == "Fire" or method == "Invoke" then
+        local name = rawget(self, "Name") or "?"
         local args = {...}
         task.defer(function() addSnifferEntry(name, method, args) end)
     end
     return oldNamecall(self, ...)
 end)
 
--- Toggle button anchored inside the main window (bottom-left)
+-- Sniffer toggle button (in main window, bottom-left)
 local SniffToggleBtn = Instance.new("TextButton")
-SniffToggleBtn.Size = UDim2.new(0, 120, 0, 28)
-SniffToggleBtn.Position = UDim2.new(0, 15, 1, -38)
-SniffToggleBtn.Text = "SNIFFER: OFF"
-SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 20, 60)
-SniffToggleBtn.TextColor3 = Color3.fromRGB(180, 80, 200)
+SniffToggleBtn.Size = UDim2.new(0, 130, 0, 26)
+SniffToggleBtn.Position = UDim2.new(0, 10, 1, -32)
+SniffToggleBtn.Text = "SNIFFER: ON"
+SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 10, 100)
+SniffToggleBtn.TextColor3 = Color3.fromRGB(255, 80, 200)
 SniffToggleBtn.Font = Enum.Font.SourceSansBold
 SniffToggleBtn.TextSize = 12
 SniffToggleBtn.Parent = Main
 Instance.new("UICorner", SniffToggleBtn)
 
 SniffToggleBtn.MouseButton1Click:Connect(function()
-    snifferActive = not snifferActive
-    SnifferGui.Visible = snifferActive
-    if snifferActive then
+    SnifferGui.Visible = not SnifferGui.Visible
+    if SnifferGui.Visible then
         SniffToggleBtn.Text = "SNIFFER: ON"
         SniffToggleBtn.TextColor3 = Color3.fromRGB(255, 80, 200)
         SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 10, 100)
     else
         SniffToggleBtn.Text = "SNIFFER: OFF"
-        SniffToggleBtn.TextColor3 = Color3.fromRGB(180, 80, 200)
-        SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 20, 60)
+        SniffToggleBtn.TextColor3 = Color3.fromRGB(140, 60, 160)
+        SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 10, 50)
     end
 end)
 
 SnifferCloseBtn.MouseButton1Click:Connect(function()
-    snifferActive = false
     SnifferGui.Visible = false
     SniffToggleBtn.Text = "SNIFFER: OFF"
-    SniffToggleBtn.TextColor3 = Color3.fromRGB(180, 80, 200)
-    SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 20, 60)
+    SniffToggleBtn.TextColor3 = Color3.fromRGB(140, 60, 160)
+    SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 10, 50)
 end)
 
-ClearBtn.MouseButton1Click:Connect(function()
+SnifferClearBtn.MouseButton1Click:Connect(function()
     for _, row in ipairs(snifferLog) do
         if row and row.Parent then row:Destroy() end
     end
