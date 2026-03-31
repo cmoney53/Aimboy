@@ -306,15 +306,8 @@ local function addEntry(obj, typeTag, category)
 
         if clickConn then clickConn:Disconnect() end
         clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
-            -- Guard: object may have been destroyed since the last scan
-            if not obj or not obj.Parent then
-                OutputSayer.Text = "Status: Object gone (rescan)"
-                logOutput("ERR: " .. tostring(obj and obj.Name or "?") .. " no longer exists", Color3.fromRGB(255, 80, 80))
-                return
-            end
-
-            local args = parseArgs(CommandBox.Text)
-            local argStr = CommandBox.Text ~= "" and CommandBox.Text or "<none>"
+            -- Exact same val logic as the original working script
+            local val = tonumber(CommandBox.Text) or CommandBox.Text
 
             if typeTag:find("GUI") then
                 obj.Enabled = true
@@ -329,43 +322,34 @@ local function addEntry(obj, typeTag, category)
                 logOutput("GUI opened: " .. obj.Name)
 
             elseif typeTag == "DATA" then
-                local setVal = #args > 0 and args[1] or CommandBox.Text
-                local ok, err = pcall(function() obj.Value = setVal end)
-                if ok then
-                    OutputSayer.Text = "Status: Local Data Applied"
-                    logOutput("SET " .. obj.Name .. " = " .. tostring(setVal))
-                else
-                    OutputSayer.Text = "Status: Set Failed"
-                    logOutput("ERR SET " .. obj.Name .. ": " .. tostring(err), Color3.fromRGB(255, 80, 80))
-                end
+                pcall(function() obj.Value = val end)
+                OutputSayer.Text = "Status: Local Data Applied"
+                logOutput("SET " .. obj.Name .. " = " .. tostring(val))
 
             elseif obj:IsA("RemoteEvent") then
-                obj:FireServer(table.unpack(args))
+                obj:FireServer(val)
                 OutputSayer.Text = "Status: Remote Event Fired"
-                logOutput("FIRE " .. obj.Name .. "(" .. argStr .. ")")
+                logOutput("FIRE " .. obj.Name .. "(" .. tostring(val) .. ")")
 
             elseif obj:IsA("RemoteFunction") then
                 OutputSayer.Text = "Status: Invoking Function..."
-                logOutput("INVOKE " .. obj.Name .. "(" .. argStr .. ") ...")
+                logOutput("INVOKE " .. obj.Name .. "(" .. tostring(val) .. ") ...")
                 task.spawn(function()
-                    local result = obj:InvokeServer(table.unpack(args))
-                    local res = tostring(result)
-                    OutputSayer.Text = "Done => " .. res:sub(1, 18)
-                    logOutput("RETURN " .. obj.Name .. " => " .. res)
+                    local result = obj:InvokeServer(val)
+                    OutputSayer.Text = "Status: Done"
+                    logOutput("RETURN " .. obj.Name .. " => " .. tostring(result))
                 end)
 
             elseif obj:IsA("BindableEvent") then
-                obj:Fire(table.unpack(args))
+                obj:Fire(val)
                 OutputSayer.Text = "Status: Bindable Fired"
-                logOutput("BIND:FIRE " .. obj.Name .. "(" .. argStr .. ")")
+                logOutput("BIND:FIRE " .. obj.Name .. "(" .. tostring(val) .. ")")
 
             elseif obj:IsA("BindableFunction") then
-                logOutput("BIND:INVOKE " .. obj.Name .. "(" .. argStr .. ") ...")
                 task.spawn(function()
-                    local result = obj:Invoke(table.unpack(args))
-                    local res = tostring(result)
-                    OutputSayer.Text = "Done => " .. res:sub(1, 18)
-                    logOutput("BIND:RETURN " .. obj.Name .. " => " .. res)
+                    local result = obj:Invoke(val)
+                    OutputSayer.Text = "Status: Done"
+                    logOutput("BIND:RETURN " .. obj.Name .. " => " .. tostring(result))
                 end)
             end
         end)
