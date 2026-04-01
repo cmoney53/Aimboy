@@ -648,17 +648,12 @@ local allServices = {
 "CoreGui","LocalizationService","VoiceChatService","CollectionService"
 }
 
--- rebuildUI: re-renders the list from allResults using current catPages
--- No data re-collection — just UI work, done in batches to avoid frame drops
+-- rebuildUI: paginated display only — no search logic here
 rebuildUI = function()
     if REBUILD_GUARD then return end
     REBUILD_GUARD = true
 
-    local query    = Search.Text:lower()
-    local isSearch = query ~= ""
-
     task.spawn(function()
-        -- Clear existing items in small batches
         local children = Scroll:GetChildren()
         local cleared = 0
         for _, v in ipairs(children) do
@@ -671,28 +666,11 @@ rebuildUI = function()
         remoteRegistry = {}
 
         for _, cat in ipairs(CAT_ORDER) do
-            local source = allResults[cat] or {}
-
-            -- When searching, filter across ALL pages of ALL categories
-            local list
-            if isSearch then
-                list = {}
-                for _, entry in ipairs(source) do
-                    local ok, name = pcall(function() return entry.obj.Name end)
-                    local searchStr = ("[" .. entry.typeTag .. "] " .. (ok and name or "")):lower()
-                    if searchStr:find(query, 1, true) then
-                        table.insert(list, entry)
-                    end
-                end
-            else
-                list = source
-            end
-
+            local list = allResults[cat] or {}
             if #list > 0 then
                 addCategoryHeader(cat, #list)
                 if not collapsedCategories[cat] then
-                    -- In search mode always start from page 1 of the filtered results
-                    local page       = isSearch and 1 or (catPages[cat] or 1)
+                    local page       = catPages[cat] or 1
                     local totalPages = math.max(1, math.ceil(#list / PAGE_SIZE))
                     local p          = math.clamp(page, 1, totalPages)
                     local startIdx   = (p - 1) * PAGE_SIZE + 1
@@ -708,6 +686,64 @@ rebuildUI = function()
         end
 
         REBUILD_GUARD = false
+    end)
+end
+
+-- runSearch: completely independent of rebuildUI/REBUILD_GUARD
+-- Searches ALL collected data across every category and every page instantly
+-- Uses a sequence counter so rapid keystrokes cancel previous pending searches
+local searchSeq = 0
+local function runSearch(query)
+    searchSeq = searchSeq + 1
+    local mySeq = searchSeq
+    local f     = query:lower()
+
+    -- Small debounce (0.2s) so we don't rebuild on every single keystroke
+    task.delay(0.2, function()
+        if mySeq ~= searchSeq then return end  -- a newer keystroke arrived, abort
+
+        -- Clear scroll independently (doesn't touch REBUILD_GUARD)
+        local children = Scroll:GetChildren()
+        local removed  = 0
+        for _, v in ipairs(children) do
+            if not v:IsA("UIListLayout") then
+                v:Destroy()
+                removed = removed + 1
+                if removed % 30 == 0 then task.wait() end
+            end
+        end
+        remoteRegistry = {}
+
+        local total = 0
+        for _, cat in ipairs(CAT_ORDER) do
+            local source  = allResults[cat] or {}
+            local matches = {}
+
+            for _, entry in ipairs(source) do
+                -- Search by name, full path, AND type tag so nothing is missed
+                local okN, name = pcall(function() return entry.obj.Name end)
+                local okP, path = pcall(function() return entry.obj:GetFullName() end)
+                local haystack  = (
+                    "[" .. entry.typeTag .. "] " ..
+                    (okN and name or "") .. " " ..
+                    (okP and path or "")
+                ):lower()
+                if haystack:find(f, 1, true) then
+                    table.insert(matches, entry)
+                end
+            end
+
+            if #matches > 0 then
+                addCategoryHeader(cat, #matches)
+                if not collapsedCategories[cat] then
+                    for _, entry in ipairs(matches) do
+                        addEntry(entry.obj, entry.typeTag, cat)
+                        total = total + 1
+                        if total % 15 == 0 then task.wait() end
+                    end
+                end
+            end
+        end
     end)
 end
 
@@ -817,9 +853,14 @@ local function runOmniScan()
 end
 
 -- 8. SEARCH & UPDATE LOOP
--- Search across ALL collected data in every category (not just current page)
+-- Search: uses its own independent function so REBUILD_GUARD never blocks it
 Search:GetPropertyChangedSignal("Text"):Connect(function()
-    rebuildUI()
+    local q = Search.Text
+    if q == "" then
+        rebuildUI()   -- empty search → restore normal paginated view
+    else
+        runSearch(q)  -- non-empty → search all data across all pages
+    end
 end)
 
 task.spawn(function()
@@ -872,7 +913,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAX"
+TitleLabel.Text = "SYSTEM_OMEGA // V21.0 M<MAX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
