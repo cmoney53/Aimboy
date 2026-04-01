@@ -8,7 +8,7 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 -- 1. CLEANUP PREVIOUS SESSIONS
 if PlayerGui:FindFirstChild("OmegaOmni_Final_V20") then
-    PlayerGui.OmegaOmni_Final_V20:Destroy()
+PlayerGui.OmegaOmni_Final_V20:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -19,119 +19,119 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 -- 2. STABLE DRAGGABLE SYSTEM
 local function makeDraggable(frame)
-    local dragging, dragInput, dragStart, startPos
+local dragging, dragInput, dragStart, startPos
 
-    local function update(input)
-        local delta = input.Position - dragStart
-        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+local function update(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
     end
-
-    frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then update(input) end
-    end)
+end)
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then update(input) end
+end)
 end
 
 -- HELPER: small floating window factory
 local function makeWindow(title, w, h, x, y, borderColor)
-    local win = Instance.new("Frame")
-    win.Size = UDim2.new(0, w, 0, h)
-    win.Position = UDim2.new(0, x, 0, y)
-    win.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
-    win.BorderSizePixel = 0
-    win.Active = true
-    win.ClipsDescendants = true
-    win.Visible = false
-    win.Parent = ScreenGui
-    Instance.new("UICorner", win)
-    local st = Instance.new("UIStroke", win)
-    st.Color = borderColor
-    st.Thickness = 2
-    makeDraggable(win)
+local win = Instance.new("Frame")
+win.Size = UDim2.new(0, w, 0, h)
+win.Position = UDim2.new(0, x, 0, y)
+win.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+win.BorderSizePixel = 0
+win.Active = true
+win.ClipsDescendants = true
+win.Visible = false
+win.Parent = ScreenGui
+Instance.new("UICorner", win)
+local st = Instance.new("UIStroke", win)
+st.Color = borderColor
+st.Thickness = 2
+makeDraggable(win)
 
-    local ttl = Instance.new("TextLabel")
-    ttl.Size = UDim2.new(1, -40, 0, 30)
-    ttl.Position = UDim2.new(0, 8, 0, 0)
-    ttl.Text = title
-    ttl.TextColor3 = borderColor
-    ttl.Font = Enum.Font.Code
-    ttl.BackgroundTransparency = 1
-    ttl.TextXAlignment = Enum.TextXAlignment.Left
-    ttl.Parent = win
+local ttl = Instance.new("TextLabel")
+ttl.Size = UDim2.new(1, -40, 0, 30)
+ttl.Position = UDim2.new(0, 8, 0, 0)
+ttl.Text = title
+ttl.TextColor3 = borderColor
+ttl.Font = Enum.Font.Code
+ttl.BackgroundTransparency = 1
+ttl.TextXAlignment = Enum.TextXAlignment.Left
+ttl.Parent = win
 
-    local xb = Instance.new("TextButton")
-    xb.Size = UDim2.new(0, 26, 0, 26)
-    xb.Position = UDim2.new(1, -30, 0, 2)
-    xb.Text = "X"
-    xb.BackgroundColor3 = Color3.fromRGB(130, 0, 0)
-    xb.TextColor3 = Color3.fromRGB(255, 255, 255)
-    xb.Parent = win
-    Instance.new("UICorner", xb)
-    xb.MouseButton1Click:Connect(function() win.Visible = false end)
+local xb = Instance.new("TextButton")
+xb.Size = UDim2.new(0, 26, 0, 26)
+xb.Position = UDim2.new(1, -30, 0, 2)
+xb.Text = "X"
+xb.BackgroundColor3 = Color3.fromRGB(130, 0, 0)
+xb.TextColor3 = Color3.fromRGB(255, 255, 255)
+xb.Parent = win
+Instance.new("UICorner", xb)
+xb.MouseButton1Click:Connect(function() win.Visible = false end)
 
-    return win
+return win
 end
 
 -- HELPER: small button factory
 local function makeBtn(parent, text, x, y, w, h, bg, fg)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0, w, 0, h)
-    b.Position = UDim2.new(0, x, 0, y)
-    b.Text = text
-    b.BackgroundColor3 = bg
-    b.TextColor3 = fg
-    b.Font = Enum.Font.SourceSansBold
-    b.TextSize = 11
-    b.Parent = parent
-    Instance.new("UICorner", b)
-    return b
+local b = Instance.new("TextButton")
+b.Size = UDim2.new(0, w, 0, h)
+b.Position = UDim2.new(0, x, 0, y)
+b.Text = text
+b.BackgroundColor3 = bg
+b.TextColor3 = fg
+b.Font = Enum.Font.SourceSansBold
+b.TextSize = 11
+b.Parent = parent
+Instance.new("UICorner", b)
+return b
 end
 
 -- HELPER: small label factory
 local function makeLabel(parent, text, x, y, w, h, fg, fs)
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(0, w, 0, h)
-    l.Position = UDim2.new(0, x, 0, y)
-    l.Text = text
-    l.TextColor3 = fg
-    l.Font = Enum.Font.Code
-    l.TextSize = fs or 11
-    l.BackgroundTransparency = 1
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.TextWrapped = true
-    l.Parent = parent
-    return l
+local l = Instance.new("TextLabel")
+l.Size = UDim2.new(0, w, 0, h)
+l.Position = UDim2.new(0, x, 0, y)
+l.Text = text
+l.TextColor3 = fg
+l.Font = Enum.Font.Code
+l.TextSize = fs or 11
+l.BackgroundTransparency = 1
+l.TextXAlignment = Enum.TextXAlignment.Left
+l.TextWrapped = true
+l.Parent = parent
+return l
 end
 
 -- HELPER: text box factory
 local function makeBox(parent, placeholder, x, y, w, h)
-    local b = Instance.new("TextBox")
-    b.Size = UDim2.new(0, w, 0, h)
-    b.Position = UDim2.new(0, x, 0, y)
-    b.PlaceholderText = placeholder
-    b.Text = ""
-    b.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    b.TextColor3 = Color3.fromRGB(255, 255, 255)
-    b.Font = Enum.Font.Code
-    b.TextSize = 12
-    b.ClearTextOnFocus = false
-    b.Parent = parent
-    Instance.new("UICorner", b)
-    return b
+local b = Instance.new("TextBox")
+b.Size = UDim2.new(0, w, 0, h)
+b.Position = UDim2.new(0, x, 0, y)
+b.PlaceholderText = placeholder
+b.Text = ""
+b.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+b.TextColor3 = Color3.fromRGB(255, 255, 255)
+b.Font = Enum.Font.Code
+b.TextSize = 12
+b.ClearTextOnFocus = false
+b.Parent = parent
+Instance.new("UICorner", b)
+return b
 end
 
 -- 3. MAIN UI WINDOW
@@ -181,25 +181,25 @@ Instance.new("UICorner", CommandBox)
 
 -- ARG MODE BUTTONS: VAL | PLAYER | NIL | NONE
 local argModeColors = {
-    VAL    = Color3.fromRGB(57, 255, 20),
-    PLAYER = Color3.fromRGB(0, 180, 255),
-    NIL    = Color3.fromRGB(255, 180, 0),
-    NONE   = Color3.fromRGB(200, 80, 80),
+VAL    = Color3.fromRGB(57, 255, 20),
+PLAYER = Color3.fromRGB(0, 180, 255),
+NIL    = Color3.fromRGB(255, 180, 0),
+NONE   = Color3.fromRGB(200, 80, 80),
 }
 local argModeBtns = {}
 local modeNames = {"VAL", "PLAYER", "NIL", "NONE"}
 for i, mode in ipairs(modeNames) do
-    local bx = 10 + (i-1) * 50
-    local mb = makeBtn(Side, mode, bx, 49, 46, 18, Color3.fromRGB(30, 30, 30), argModeColors[mode])
-    mb.TextSize = 10
-    argModeBtns[mode] = mb
-    mb.MouseButton1Click:Connect(function()
-        argMode = mode
-        for _, btn in pairs(argModeBtns) do
-            btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        end
-        mb.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    end)
+local bx = 10 + (i-1) * 50
+local mb = makeBtn(Side, mode, bx, 49, 46, 18, Color3.fromRGB(30, 30, 30), argModeColors[mode])
+mb.TextSize = 10
+argModeBtns[mode] = mb
+mb.MouseButton1Click:Connect(function()
+    argMode = mode
+    for _, btn in pairs(argModeBtns) do
+        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    end
+    mb.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+end)
 end
 argModeBtns["VAL"].BackgroundColor3 = Color3.fromRGB(50, 50, 50) -- default selected
 
@@ -269,37 +269,37 @@ Instance.new("UIStroke", CmdLogScroll).Color = Color3.fromRGB(40, 80, 40)
 local CmdLogLayout = Instance.new("UIListLayout", CmdLogScroll)
 CmdLogLayout.Padding = UDim.new(0, 2)
 CmdLogLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    CmdLogScroll.CanvasSize = UDim2.new(0, 0, 0, CmdLogLayout.AbsoluteContentSize.Y + 6)
-    CmdLogScroll.CanvasPosition = Vector2.new(0, CmdLogLayout.AbsoluteContentSize.Y)
+CmdLogScroll.CanvasSize = UDim2.new(0, 0, 0, CmdLogLayout.AbsoluteContentSize.Y + 6)
+CmdLogScroll.CanvasPosition = Vector2.new(0, CmdLogLayout.AbsoluteContentSize.Y)
 end)
 
 local cmdLogEntries = {}
 local MAX_CMD_LOG = 80
 
 local function logOutput(msg, color)
-    color = color or Color3.fromRGB(57, 255, 20)
-    local ts = string.format("[%.1f]", tick() % 1000)
-    local entry = Instance.new("TextLabel")
-    entry.Size = UDim2.new(1, -4, 0, 32)
-    entry.BackgroundTransparency = 1
-    entry.Font = Enum.Font.Code
-    entry.TextSize = 10
-    entry.TextColor3 = color
-    entry.TextXAlignment = Enum.TextXAlignment.Left
-    entry.TextYAlignment = Enum.TextYAlignment.Top
-    entry.TextWrapped = true
-    entry.Text = " " .. ts .. " " .. tostring(msg)
-    entry.Parent = CmdLogScroll
-    table.insert(cmdLogEntries, entry)
-    if #cmdLogEntries > MAX_CMD_LOG then
-        local old = table.remove(cmdLogEntries, 1)
-        if old and old.Parent then old:Destroy() end
-    end
+color = color or Color3.fromRGB(57, 255, 20)
+local ts = string.format("[%.1f]", tick() % 1000)
+local entry = Instance.new("TextLabel")
+entry.Size = UDim2.new(1, -4, 0, 0)
+entry.AutomaticSize = Enum.AutomaticSize.Y
+entry.BackgroundTransparency = 1
+entry.Font = Enum.Font.Code
+entry.TextSize = 10
+entry.TextColor3 = color
+entry.TextXAlignment = Enum.TextXAlignment.Left
+entry.TextWrapped = true
+entry.Text = " " .. ts .. " " .. tostring(msg)
+entry.Parent = CmdLogScroll
+table.insert(cmdLogEntries, entry)
+if #cmdLogEntries > MAX_CMD_LOG then
+    local old = table.remove(cmdLogEntries, 1)
+    if old and old.Parent then old:Destroy() end
+end
 end
 
 ClearLogBtn.MouseButton1Click:Connect(function()
-    for _, e in ipairs(cmdLogEntries) do if e and e.Parent then e:Destroy() end end
-    cmdLogEntries = {}
+for _, e in ipairs(cmdLogEntries) do if e and e.Parent then e:Destroy() end end
+cmdLogEntries = {}
 end)
 
 -- 5. LIST & SEARCH
@@ -323,7 +323,7 @@ Scroll.Parent = Main
 local ListLayout = Instance.new("UIListLayout", Scroll)
 ListLayout.Padding = UDim.new(0, 5)
 ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
 end)
 
 -- 6. CORE EXECUTE ENGINE
@@ -333,363 +333,363 @@ local remoteRegistry = {}  -- all found fireable remotes for Fire All
 
 -- Core fire function — uses argMode to decide what to pass
 local function doExecute(obj, typeTag)
-    if not obj or not obj.Parent then
-        OutputSayer.Text = "ERR: Object gone"
-        logOutput("ERR: " .. tostring(obj and obj.Name or "?") .. " gone", Color3.fromRGB(255, 80, 80))
-        return
+if not obj or not obj.Parent then
+    OutputSayer.Text = "ERR: Object gone"
+    logOutput("ERR: " .. tostring(obj and obj.Name or "?") .. " gone", Color3.fromRGB(255, 80, 80))
+    return
+end
+
+-- Arg mode logic — VAL is identical to original working script
+local val = tonumber(CommandBox.Text) or CommandBox.Text
+
+if typeTag:find("GUI") then
+    obj.Enabled = true
+    for _, v in pairs(obj:GetDescendants()) do
+        pcall(function()
+            if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then v.Visible = true end
+        end)
+    end
+    OutputSayer.Text = "Status: GUI Force-Opened"
+    logOutput("GUI opened: " .. obj.Name)
+
+elseif typeTag == "DATA" then
+    pcall(function() obj.Value = val end)
+    OutputSayer.Text = "Status: Data Applied"
+    logOutput("SET " .. obj.Name .. " = " .. tostring(val))
+
+elseif obj:IsA("RemoteEvent") then
+    local ok, err = pcall(function()
+        if argMode == "VAL" then obj:FireServer(val)
+        elseif argMode == "PLAYER" then obj:FireServer(Player)
+        elseif argMode == "NIL" then obj:FireServer(nil)
+        elseif argMode == "NONE" then obj:FireServer()
+        end
+    end)
+    if ok then
+        OutputSayer.Text = "Fired [" .. argMode .. "] OK"
+        logOutput("FIRE " .. obj:GetFullName() .. "\n  MODE=" .. argMode .. "  ARG=" .. tostring(val))
+    else
+        OutputSayer.Text = "ERR (see log)"
+        logOutput("ERR FIRE " .. obj:GetFullName() .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
     end
 
-    -- Arg mode logic — VAL is identical to original working script
-    local val = tonumber(CommandBox.Text) or CommandBox.Text
-
-    if typeTag:find("GUI") then
-        obj.Enabled = true
-        for _, v in pairs(obj:GetDescendants()) do
-            pcall(function()
-                if v:IsA("Frame") or v:IsA("ScrollingFrame") or v:IsA("CanvasGroup") then v.Visible = true end
-            end)
-        end
-        OutputSayer.Text = "Status: GUI Force-Opened"
-        logOutput("GUI opened: " .. obj.Name)
-
-    elseif typeTag == "DATA" then
-        pcall(function() obj.Value = val end)
-        OutputSayer.Text = "Status: Data Applied"
-        logOutput("SET " .. obj.Name .. " = " .. tostring(val))
-
-    elseif obj:IsA("RemoteEvent") then
-        local ok, err = pcall(function()
-            if argMode == "VAL" then obj:FireServer(val)
-            elseif argMode == "PLAYER" then obj:FireServer(Player)
-            elseif argMode == "NIL" then obj:FireServer(nil)
-            elseif argMode == "NONE" then obj:FireServer()
+elseif obj:IsA("RemoteFunction") then
+    OutputSayer.Text = "Invoking [" .. argMode .. "]..."
+    logOutput("INVOKE " .. obj:GetFullName() .. "\n  MODE=" .. argMode .. "  ARG=" .. tostring(val))
+    task.spawn(function()
+        local ok, result = pcall(function()
+            if argMode == "VAL" then return obj:InvokeServer(val)
+            elseif argMode == "PLAYER" then return obj:InvokeServer(Player)
+            elseif argMode == "NIL" then return obj:InvokeServer(nil)
+            elseif argMode == "NONE" then return obj:InvokeServer()
             end
         end)
         if ok then
-            OutputSayer.Text = "Fired [" .. argMode .. "] OK"
-            logOutput("FIRE " .. obj:GetFullName() .. "\n  MODE=" .. argMode .. "  ARG=" .. tostring(val))
+            OutputSayer.Text = "Done"
+            logOutput("RETURN " .. obj.Name .. "\n  => " .. tostring(result))
         else
             OutputSayer.Text = "ERR (see log)"
-            logOutput("ERR FIRE " .. obj:GetFullName() .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
+            logOutput("ERR INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
         end
+    end)
 
-    elseif obj:IsA("RemoteFunction") then
-        OutputSayer.Text = "Invoking [" .. argMode .. "]..."
-        logOutput("INVOKE " .. obj:GetFullName() .. "\n  MODE=" .. argMode .. "  ARG=" .. tostring(val))
-        task.spawn(function()
-            local ok, result = pcall(function()
-                if argMode == "VAL" then return obj:InvokeServer(val)
-                elseif argMode == "PLAYER" then return obj:InvokeServer(Player)
-                elseif argMode == "NIL" then return obj:InvokeServer(nil)
-                elseif argMode == "NONE" then return obj:InvokeServer()
-                end
-            end)
-            if ok then
-                OutputSayer.Text = "Done"
-                logOutput("RETURN " .. obj.Name .. "\n  => " .. tostring(result))
-            else
-                OutputSayer.Text = "ERR (see log)"
-                logOutput("ERR INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
-            end
-        end)
+elseif obj:IsA("BindableEvent") then
+    local ok, err = pcall(function()
+        if argMode == "VAL" then obj:Fire(val)
+        elseif argMode == "PLAYER" then obj:Fire(Player)
+        elseif argMode == "NIL" then obj:Fire(nil)
+        elseif argMode == "NONE" then obj:Fire()
+        end
+    end)
+    if ok then
+        OutputSayer.Text = "Bindable Fired [" .. argMode .. "]"
+        logOutput("BIND:FIRE " .. obj:GetFullName() .. "\n  MODE=" .. argMode)
+    else
+        logOutput("ERR BIND:FIRE " .. obj.Name .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
+    end
 
-    elseif obj:IsA("BindableEvent") then
-        local ok, err = pcall(function()
-            if argMode == "VAL" then obj:Fire(val)
-            elseif argMode == "PLAYER" then obj:Fire(Player)
-            elseif argMode == "NIL" then obj:Fire(nil)
-            elseif argMode == "NONE" then obj:Fire()
+elseif obj:IsA("BindableFunction") then
+    task.spawn(function()
+        local ok, result = pcall(function()
+            if argMode == "VAL" then return obj:Invoke(val)
+            elseif argMode == "PLAYER" then return obj:Invoke(Player)
+            elseif argMode == "NIL" then return obj:Invoke(nil)
+            elseif argMode == "NONE" then return obj:Invoke()
             end
         end)
         if ok then
-            OutputSayer.Text = "Bindable Fired [" .. argMode .. "]"
-            logOutput("BIND:FIRE " .. obj:GetFullName() .. "\n  MODE=" .. argMode)
+            logOutput("BIND:RETURN " .. obj.Name .. "\n  => " .. tostring(result))
         else
-            logOutput("ERR BIND:FIRE " .. obj.Name .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
+            logOutput("ERR BIND:INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
         end
-
-    elseif obj:IsA("BindableFunction") then
-        task.spawn(function()
-            local ok, result = pcall(function()
-                if argMode == "VAL" then return obj:Invoke(val)
-                elseif argMode == "PLAYER" then return obj:Invoke(Player)
-                elseif argMode == "NIL" then return obj:Invoke(nil)
-                elseif argMode == "NONE" then return obj:Invoke()
-                end
-            end)
-            if ok then
-                logOutput("BIND:RETURN " .. obj.Name .. "\n  => " .. tostring(result))
-            else
-                logOutput("ERR BIND:INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
-            end
-        end)
-    end
+    end)
+end
 end
 
 -- SPAM SYSTEM
 local function stopSpam()
-    spamActive = false
-    if spamThread then task.cancel(spamThread) spamThread = nil end
-    SpamBtn.Text = "SPAM: OFF"
-    SpamBtn.BackgroundColor3 = Color3.fromRGB(35, 10, 10)
+spamActive = false
+if spamThread then task.cancel(spamThread) spamThread = nil end
+SpamBtn.Text = "SPAM: OFF"
+SpamBtn.BackgroundColor3 = Color3.fromRGB(35, 10, 10)
 end
 
 local function startSpam()
-    if not selectedObj then return end
-    spamActive = true
-    spamCount = 0
-    SpamBtn.Text = "SPAM: ON"
-    SpamBtn.BackgroundColor3 = Color3.fromRGB(120, 10, 10)
-    spamThread = task.spawn(function()
-        while spamActive do
-            doExecute(selectedObj, selectedTypeTag)
-            spamCount = spamCount + 1
-            SpamCountLabel.Text = "Fired: " .. spamCount
-            task.wait(0.1)
-        end
-    end)
+if not selectedObj then return end
+spamActive = true
+spamCount = 0
+SpamBtn.Text = "SPAM: ON"
+SpamBtn.BackgroundColor3 = Color3.fromRGB(120, 10, 10)
+spamThread = task.spawn(function()
+    while spamActive do
+        doExecute(selectedObj, selectedTypeTag)
+        spamCount = spamCount + 1
+        SpamCountLabel.Text = "Fired: " .. spamCount
+        task.wait(0.1)
+    end
+end)
 end
 
 SpamBtn.MouseButton1Click:Connect(function()
-    if spamActive then stopSpam() else startSpam() end
+if spamActive then stopSpam() else startSpam() end
 end)
 
 -- COPY PATH
 CopyPathBtn.MouseButton1Click:Connect(function()
-    if selectedObj and selectedObj.Parent then
-        local ok, path = pcall(function() return selectedObj:GetFullName() end)
-        if ok then
-            pcall(function() setclipboard(path) end)
-            logOutput("COPIED: " .. path, Color3.fromRGB(100, 150, 255))
-            OutputSayer.Text = "Copied!"
-        end
+if selectedObj and selectedObj.Parent then
+    local ok, path = pcall(function() return selectedObj:GetFullName() end)
+    if ok then
+        pcall(function() setclipboard(path) end)
+        logOutput("COPIED: " .. path, Color3.fromRGB(100, 150, 255))
+        OutputSayer.Text = "Copied!"
     end
+end
 end)
 
 -- FIRE WITH PLAYER (always fires with LocalPlayer regardless of argMode)
 FirePlayerBtn.MouseButton1Click:Connect(function()
-    if selectedObj and selectedObj.Parent then
-        if selectedObj:IsA("RemoteEvent") then
-            selectedObj:FireServer(Player)
-            logOutput("FIRE+PLAYER: " .. selectedObj.Name, Color3.fromRGB(0, 180, 255))
-            OutputSayer.Text = "Fired with Player"
-        elseif selectedObj:IsA("RemoteFunction") then
-            task.spawn(function()
-                local r = selectedObj:InvokeServer(Player)
-                logOutput("INVOKE+PLAYER: " .. selectedObj.Name .. " => " .. tostring(r), Color3.fromRGB(0, 180, 255))
-            end)
-        end
+if selectedObj and selectedObj.Parent then
+    if selectedObj:IsA("RemoteEvent") then
+        selectedObj:FireServer(Player)
+        logOutput("FIRE+PLAYER: " .. selectedObj.Name, Color3.fromRGB(0, 180, 255))
+        OutputSayer.Text = "Fired with Player"
+    elseif selectedObj:IsA("RemoteFunction") then
+        task.spawn(function()
+            local r = selectedObj:InvokeServer(Player)
+            logOutput("INVOKE+PLAYER: " .. selectedObj.Name .. " => " .. tostring(r), Color3.fromRGB(0, 180, 255))
+        end)
     end
+end
 end)
 
 -- CATEGORY HEADERS
 local function addCategoryHeader(name, color)
-    local h = Instance.new("TextButton")
-    h.Size = UDim2.new(1, 0, 0, 35)
-    h.BackgroundColor3 = color
-    h.Text = "  ▼ CATEGORY: " .. name:upper()
-    h.TextColor3 = Color3.fromRGB(255, 255, 255)
-    h.Font = Enum.Font.SourceSansBold
-    h.TextSize = 16
-    h.TextXAlignment = Enum.TextXAlignment.Left
-    h.Name = "Category_" .. name
-    h.Parent = Scroll
-    Instance.new("UICorner", h)
-    if collapsedCategories[name] then h.Text = "  ▶ CATEGORY: " .. name:upper() end
-    h.MouseButton1Click:Connect(function()
-        collapsedCategories[name] = not collapsedCategories[name]
-    end)
+local h = Instance.new("TextButton")
+h.Size = UDim2.new(1, 0, 0, 35)
+h.BackgroundColor3 = color
+h.Text = "  ▼ CATEGORY: " .. name:upper()
+h.TextColor3 = Color3.fromRGB(255, 255, 255)
+h.Font = Enum.Font.SourceSansBold
+h.TextSize = 16
+h.TextXAlignment = Enum.TextXAlignment.Left
+h.Name = "Category_" .. name
+h.Parent = Scroll
+Instance.new("UICorner", h)
+if collapsedCategories[name] then h.Text = "  ▶ CATEGORY: " .. name:upper() end
+h.MouseButton1Click:Connect(function()
+    collapsedCategories[name] = not collapsedCategories[name]
+end)
 end
 
 -- ENTRY BUTTON
 local function addEntry(obj, typeTag, category)
-    if collapsedCategories[category] then return end
+if collapsedCategories[category] then return end
 
-    -- Register fireable remotes
-    if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or obj:IsA("BindableEvent") or obj:IsA("BindableFunction") then
-        table.insert(remoteRegistry, {obj = obj, typeTag = typeTag})
-    end
+-- Register fireable remotes
+if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or obj:IsA("BindableEvent") or obj:IsA("BindableFunction") then
+    table.insert(remoteRegistry, {obj = obj, typeTag = typeTag})
+end
 
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, 0, 0, 32)
-    b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    b.Text = "  ↳ [" .. typeTag .. "] " .. obj.Name
-    if typeTag:find("GUI") then b.TextColor3 = Color3.fromRGB(0, 200, 255)
-    elseif typeTag:find("DATA") then b.TextColor3 = Color3.fromRGB(255, 180, 0)
-    elseif typeTag:find("ADMIN") then b.TextColor3 = Color3.fromRGB(255, 60, 60)
-    elseif typeTag:find("CMD") or typeTag:find("REMOTE") then b.TextColor3 = Color3.fromRGB(57, 255, 20)
-    elseif typeTag:find("SCRIPT") then b.TextColor3 = Color3.fromRGB(180, 100, 255)
-    elseif typeTag:find("UTILITY") then b.TextColor3 = Color3.fromRGB(255, 80, 80)
-    else b.TextColor3 = Color3.fromRGB(200, 200, 200) end
-    b.TextXAlignment = Enum.TextXAlignment.Left
-    b.Parent = Scroll
-    Instance.new("UICorner", b)
+local b = Instance.new("TextButton")
+b.Size = UDim2.new(1, 0, 0, 32)
+b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+b.Text = "  ↳ [" .. typeTag .. "] " .. obj.Name
+if typeTag:find("GUI") then b.TextColor3 = Color3.fromRGB(0, 200, 255)
+elseif typeTag:find("DATA") then b.TextColor3 = Color3.fromRGB(255, 180, 0)
+elseif typeTag:find("ADMIN") then b.TextColor3 = Color3.fromRGB(255, 60, 60)
+elseif typeTag:find("CMD") or typeTag:find("REMOTE") then b.TextColor3 = Color3.fromRGB(57, 255, 20)
+elseif typeTag:find("SCRIPT") then b.TextColor3 = Color3.fromRGB(180, 100, 255)
+elseif typeTag:find("UTILITY") then b.TextColor3 = Color3.fromRGB(255, 80, 80)
+else b.TextColor3 = Color3.fromRGB(200, 200, 200) end
+b.TextXAlignment = Enum.TextXAlignment.Left
+b.Parent = Scroll
+Instance.new("UICorner", b)
 
-    if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
+if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
 
-    b.MouseButton1Click:Connect(function()
-        stopSpam()
-        selectedObj = obj
-        selectedTypeTag = typeTag
-        Main.ClipsDescendants = false
-        Side.Visible = true
-        OutputSayer.Text = "Status: Selected " .. obj.Name
-        -- Original CommandBox fill logic — untouched
-        CommandBox.Text = tostring(obj:IsA("ValueBase") and obj.Value or obj.Name)
-        InfoLabel.Text = "NAME: " .. obj.Name .. "\nTYPE: " .. typeTag .. "\nPATH: " .. obj:GetFullName()
+b.MouseButton1Click:Connect(function()
+    stopSpam()
+    selectedObj = obj
+    selectedTypeTag = typeTag
+    Main.ClipsDescendants = false
+    Side.Visible = true
+    OutputSayer.Text = "Status: Selected " .. obj.Name
+    -- Original CommandBox fill logic — untouched
+    CommandBox.Text = tostring(obj:IsA("ValueBase") and obj.Value or obj.Name)
+    InfoLabel.Text = "NAME: " .. obj.Name .. "\nTYPE: " .. typeTag .. "\nPATH: " .. obj:GetFullName()
 
-        if clickConn then clickConn:Disconnect() end
-        clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
-            doExecute(selectedObj, selectedTypeTag)
-        end)
+    if clickConn then clickConn:Disconnect() end
+    clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
+        doExecute(selectedObj, selectedTypeTag)
     end)
+end)
 end
 
 -- 7. EXTENDED OMNI-SCAN ENGINE
 local adminKeywords = {
-    "admin","command","server","drop","spawn","give","money","cash","rank",
-    "ban","kick","god","fly","speed","noclip","teleport","invisible","freeze",
-    "kill","damage","heal","respawn","item","weapon","tool","pet","data","save",
-    "load","reset","unlock","upgrade","purchase","buy","sell","trade","transfer",
-    "claim","redeem","code","promo","quest","mission","level","exp","xp","vip","owner"
+"admin","command","server","drop","spawn","give","money","cash","rank",
+"ban","kick","god","fly","speed","noclip","teleport","invisible","freeze",
+"kill","damage","heal","respawn","item","weapon","tool","pet","data","save",
+"load","reset","unlock","upgrade","purchase","buy","sell","trade","transfer",
+"claim","redeem","code","promo","quest","mission","level","exp","xp","vip","owner"
 }
 
 local allServices = {
-    "ReplicatedStorage","Workspace","Lighting","StarterGui","StarterPack",
-    "StarterPlayer","Teams","SoundService","TextChatService","TweenService",
-    "ReplicatedFirst","Players","Chat","InsertService","MarketplaceService"
+"ReplicatedStorage","Workspace","Lighting","StarterGui","StarterPack",
+"StarterPlayer","Teams","SoundService","TextChatService","TweenService",
+"ReplicatedFirst","Players","Chat","InsertService","MarketplaceService"
 }
 
 local function runOmniScan()
-    for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
-    remoteRegistry = {}
+for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
+remoteRegistry = {}
 
-    -- GUIs (enabled + hidden)
-    addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
-    for _, g in pairs(PlayerGui:GetChildren()) do
-        if g:IsA("ScreenGui") and g ~= ScreenGui then
-            addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis")
-        end
+-- GUIs (enabled + hidden)
+addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
+for _, g in pairs(PlayerGui:GetChildren()) do
+    if g:IsA("ScreenGui") and g ~= ScreenGui then
+        addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis")
     end
+end
 
-    -- Player Data/Values
-    addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
-    for _, v in pairs(Player:GetDescendants()) do
-        if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
-    end
+-- Player Data/Values
+addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
+for _, v in pairs(Player:GetDescendants()) do
+    if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
+end
 
-    -- Admin-specific remotes (top priority)
-    addCategoryHeader("Admin Remotes", Color3.fromRGB(180, 0, 0))
-    -- Standard remotes/bindables
-    addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
-    -- Keyword-matched utilities
-    addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
-    -- LocalScripts (intelligence — shows admin script names)
-    addCategoryHeader("Scripts", Color3.fromRGB(80, 0, 150))
+-- Admin-specific remotes (top priority)
+addCategoryHeader("Admin Remotes", Color3.fromRGB(180, 0, 0))
+-- Standard remotes/bindables
+addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
+-- Keyword-matched utilities
+addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
+-- LocalScripts (intelligence — shows admin script names)
+addCategoryHeader("Scripts", Color3.fromRGB(80, 0, 150))
 
-    local seenRemotes = {}
+local seenRemotes = {}
 
-    local function deepScan(parent)
-        for _, child in pairs(parent:GetChildren()) do
-            local lowName = child.Name:lower()
-            local id = tostring(child)
+local function deepScan(parent)
+    for _, child in pairs(parent:GetChildren()) do
+        local lowName = child.Name:lower()
+        local id = tostring(child)
 
-            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                if not seenRemotes[id] then
-                    seenRemotes[id] = true
-                    local isAdmin = false
-                    for _, key in pairs(adminKeywords) do
-                        if lowName:find(key) then isAdmin = true break end
-                    end
-                    if isAdmin then
-                        addEntry(child, "ADMIN REMOTE", "Admin Remotes")
-                    end
-                    addEntry(child, "REMOTE", "Remotes")
-                end
-            elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
-                if not seenRemotes[id] then
-                    seenRemotes[id] = true
-                    addEntry(child, "BINDABLE", "Remotes")
-                end
-            end
-
-            -- Keyword utilities (non-remote objects matching keywords)
-            if not child:IsA("RemoteEvent") and not child:IsA("RemoteFunction") then
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+            if not seenRemotes[id] then
+                seenRemotes[id] = true
+                local isAdmin = false
                 for _, key in pairs(adminKeywords) do
-                    if lowName:find(key) then
-                        if child:IsA("ValueBase") then
-                            addEntry(child, "ADMIN DATA", "Admin Remotes")
-                        elseif child:IsA("LocalScript") or child:IsA("Script") or child:IsA("ModuleScript") then
-                            addEntry(child, "SCRIPT[" .. child.ClassName .. "]", "Scripts")
-                        else
-                            addEntry(child, "UTILITY", "Utilities")
-                        end
-                        break
+                    if lowName:find(key) then isAdmin = true break end
+                end
+                if isAdmin then
+                    addEntry(child, "ADMIN REMOTE", "Admin Remotes")
+                end
+                addEntry(child, "REMOTE", "Remotes")
+            end
+        elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
+            if not seenRemotes[id] then
+                seenRemotes[id] = true
+                addEntry(child, "BINDABLE", "Remotes")
+            end
+        end
+
+        -- Keyword utilities (non-remote objects matching keywords)
+        if not child:IsA("RemoteEvent") and not child:IsA("RemoteFunction") then
+            for _, key in pairs(adminKeywords) do
+                if lowName:find(key) then
+                    if child:IsA("ValueBase") then
+                        addEntry(child, "ADMIN DATA", "Admin Remotes")
+                    elseif child:IsA("LocalScript") or child:IsA("Script") or child:IsA("ModuleScript") then
+                        addEntry(child, "SCRIPT[" .. child.ClassName .. "]", "Scripts")
+                    else
+                        addEntry(child, "UTILITY", "Utilities")
                     end
+                    break
                 end
-            end
-
-            -- All local/module scripts (for intel)
-            if child:IsA("LocalScript") or child:IsA("ModuleScript") then
-                if not collapsedCategories["Scripts"] then
-                    local b = Instance.new("TextButton")
-                    b.Size = UDim2.new(1, 0, 0, 32)
-                    b.BackgroundColor3 = Color3.fromRGB(20, 10, 30)
-                    b.Text = "  ↳ [" .. child.ClassName .. "] " .. child.Name
-                    b.TextColor3 = Color3.fromRGB(180, 100, 255)
-                    b.TextXAlignment = Enum.TextXAlignment.Left
-                    b.Parent = Scroll
-                    Instance.new("UICorner", b)
-                    b.MouseButton1Click:Connect(function()
-                        OutputSayer.Text = child.Name
-                        InfoLabel.Text = "NAME: " .. child.Name .. "\nTYPE: " .. child.ClassName .. "\nPATH: " .. child:GetFullName()
-                        Main.ClipsDescendants = false
-                        Side.Visible = true
-                    end)
-                end
-            end
-
-            if not child:IsA("Player") and not child:IsA("Terrain") then
-                pcall(function() deepScan(child) end)
             end
         end
-    end
 
-    -- Scan all known services
-    for _, svcName in pairs(allServices) do
-        pcall(function()
-            local svc = game:GetService(svcName)
-            if svc then deepScan(svc) end
-        end)
-    end
+        -- All local/module scripts (for intel)
+        if child:IsA("LocalScript") or child:IsA("ModuleScript") then
+            if not collapsedCategories["Scripts"] then
+                local b = Instance.new("TextButton")
+                b.Size = UDim2.new(1, 0, 0, 32)
+                b.BackgroundColor3 = Color3.fromRGB(20, 10, 30)
+                b.Text = "  ↳ [" .. child.ClassName .. "] " .. child.Name
+                b.TextColor3 = Color3.fromRGB(180, 100, 255)
+                b.TextXAlignment = Enum.TextXAlignment.Left
+                b.Parent = Scroll
+                Instance.new("UICorner", b)
+                b.MouseButton1Click:Connect(function()
+                    OutputSayer.Text = child.Name
+                    InfoLabel.Text = "NAME: " .. child.Name .. "\nTYPE: " .. child.ClassName .. "\nPATH: " .. child:GetFullName()
+                    Main.ClipsDescendants = false
+                    Side.Visible = true
+                end)
+            end
+        end
 
-    -- Also scan workspace players' characters for exploitable values
+        if not child:IsA("Player") and not child:IsA("Terrain") then
+            pcall(function() deepScan(child) end)
+        end
+    end
+end
+
+-- Scan all known services
+for _, svcName in pairs(allServices) do
     pcall(function()
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr.Character then
-                for _, v in pairs(plr.Character:GetDescendants()) do
-                    if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
-                end
+        local svc = game:GetService(svcName)
+        if svc then deepScan(svc) end
+    end)
+end
+
+-- Also scan workspace players' characters for exploitable values
+pcall(function()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr.Character then
+            for _, v in pairs(plr.Character:GetDescendants()) do
+                if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
             end
         end
-    end)
+    end
+end)
 end
 
 -- 8. SEARCH & UPDATE LOOP
 Search:GetPropertyChangedSignal("Text"):Connect(function()
-    local f = Search.Text:lower()
-    for _, b in pairs(Scroll:GetChildren()) do
-        if b:IsA("TextButton") and not b.Name:find("Category") then
-            b.Visible = b.Text:lower():find(f) ~= nil
-        end
+local f = Search.Text:lower()
+for _, b in pairs(Scroll:GetChildren()) do
+    if b:IsA("TextButton") and not b.Name:find("Category") then
+        b.Visible = b.Text:lower():find(f) ~= nil
     end
+end
 end)
 
 task.spawn(function()
-    while true do
-        runOmniScan()
-        task.wait(6)
-    end
+while true do
+    runOmniScan()
+    task.wait(6)
+end
 end)
 
 -- 9. HEADER CONTROLS
@@ -715,21 +715,21 @@ Instance.new("UICorner", MinBtn)
 local minimized = false
 local originalSize = Main.Size
 MinBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    if minimized then
-        Main.ClipsDescendants = true
-        Main.Size = UDim2.new(0, 460, 0, 40)
-        Scroll.Visible = false
-        Search.Visible = false
-        Side.Visible = false
-        MinBtn.Text = "+"
-    else
-        Main.ClipsDescendants = false
-        Main.Size = originalSize
-        Scroll.Visible = true
-        Search.Visible = true
-        MinBtn.Text = "-"
-    end
+minimized = not minimized
+if minimized then
+    Main.ClipsDescendants = true
+    Main.Size = UDim2.new(0, 460, 0, 40)
+    Scroll.Visible = false
+    Search.Visible = false
+    Side.Visible = false
+    MinBtn.Text = "+"
+else
+    Main.ClipsDescendants = false
+    Main.Size = originalSize
+    Scroll.Visible = true
+    Search.Visible = true
+    MinBtn.Text = "-"
+end
 end)
 
 local TitleLabel = Instance.new("TextLabel")
@@ -753,19 +753,19 @@ ScanBtn.MouseButton1Click:Connect(function() runOmniScan() end)
 
 -- FIRE ALL REMOTES
 FireAllBtn.MouseButton1Click:Connect(function()
-    local count = 0
-    for _, entry in ipairs(remoteRegistry) do
-        pcall(function()
-            if entry.obj and entry.obj.Parent then
-                local val = tonumber(CommandBox.Text) or CommandBox.Text
-                if entry.obj:IsA("RemoteEvent") then entry.obj:FireServer(val) count = count + 1 end
-                if entry.obj:IsA("BindableEvent") then entry.obj:Fire(val) count = count + 1 end
-            end
-        end)
-        task.wait()
-    end
-    logOutput("FIRE ALL: " .. count .. " remotes fired", Color3.fromRGB(57, 255, 20))
-    OutputSayer.Text = "Fired " .. count .. " remotes"
+local count = 0
+for _, entry in ipairs(remoteRegistry) do
+    pcall(function()
+        if entry.obj and entry.obj.Parent then
+            local val = tonumber(CommandBox.Text) or CommandBox.Text
+            if entry.obj:IsA("RemoteEvent") then entry.obj:FireServer(val) count = count + 1 end
+            if entry.obj:IsA("BindableEvent") then entry.obj:Fire(val) count = count + 1 end
+        end
+    end)
+    task.wait()
+end
+logOutput("FIRE ALL: " .. count .. " remotes fired", Color3.fromRGB(57, 255, 20))
+OutputSayer.Text = "Fired " .. count .. " remotes"
 end)
 
 -- ============================================================
@@ -784,81 +784,114 @@ local antiKickBtn, rankBtn, rfSpoofBtn  -- assigned below, referenced in enableA
 -- ENABLE ALL BYPASSES AT ONCE
 local enableAllBtn = makeBtn(BypassWin, "ENABLE ALL BYPASSES", 10, 57, 296, 26, Color3.fromRGB(100, 0, 0), Color3.fromRGB(255, 200, 200))
 enableAllBtn.MouseButton1Click:Connect(function()
-    antiKickActive = true
-    rankSpoofActive = true
-    rfSpoofActive = true
-    antiKickBtn.Text = "ANTI-KICK: ON"
-    antiKickBtn.BackgroundColor3 = Color3.fromRGB(120, 10, 10)
-    rankBtn.Text = "RANK SPOOF: ON"
-    rankBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 0)
-    rfSpoofBtn.Text = "RF ADMIN SPOOF: ON"
-    rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
-    pcall(function() hookfunction(Player.GetRankInGroup, function() return 255 end) end)
-    pcall(function() hookfunction(Player.GetRoleInGroup, function() return "Owner" end) end)
-    pcall(function() hookfunction(Player.IsInGroup, function() return true end) end)
-    bypassStatus.Text = "ALL BYPASSES: ACTIVE"
-    bypassStatus.TextColor3 = Color3.fromRGB(57, 255, 20)
-    logOutput("BYPASS ALL: ENABLED", Color3.fromRGB(255, 80, 80))
+antiKickActive = true
+rankSpoofActive = true
+rfSpoofActive = true
+antiKickBtn.Text = "ANTI-KICK: ON"
+antiKickBtn.BackgroundColor3 = Color3.fromRGB(120, 10, 10)
+rankBtn.Text = "RANK SPOOF: ON"
+rankBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 0)
+rfSpoofBtn.Text = "RF ADMIN SPOOF: ON"
+rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
+pcall(function() hookfunction(Player.GetRankInGroup, function() return 255 end) end)
+pcall(function() hookfunction(Player.GetRoleInGroup, function() return "Owner" end) end)
+pcall(function() hookfunction(Player.IsInGroup, function() return true end) end)
+bypassStatus.Text = "ALL BYPASSES: ACTIVE"
+bypassStatus.TextColor3 = Color3.fromRGB(57, 255, 20)
+logOutput("BYPASS ALL: ENABLED", Color3.fromRGB(255, 80, 80))
 end)
 
 -- Anti-Kick
 antiKickBtn = makeBtn(BypassWin, "ANTI-KICK: OFF", 10, 89, 145, 28, Color3.fromRGB(40, 10, 10), Color3.fromRGB(255, 80, 80))
 local kickStatus   = makeLabel(BypassWin, "", 165, 94, 145, 18, Color3.fromRGB(160, 160, 160), 10)
 
--- Anti-kick toggle — master hook at the bottom of the file checks antiKickActive flag
+local origNamecallBypass
+local kickHookActive = false
+
 antiKickBtn.MouseButton1Click:Connect(function()
-    antiKickActive = not antiKickActive
-    if antiKickActive then
-        antiKickBtn.Text = "ANTI-KICK: ON"
-        antiKickBtn.BackgroundColor3 = Color3.fromRGB(120, 10, 10)
-        kickStatus.Text = "BLOCKING :Kick()"
-        logOutput("BYPASS: Anti-Kick ON", Color3.fromRGB(255, 80, 80))
-    else
-        antiKickBtn.Text = "ANTI-KICK: OFF"
-        antiKickBtn.BackgroundColor3 = Color3.fromRGB(40, 10, 10)
-        kickStatus.Text = ""
-        logOutput("BYPASS: Anti-Kick OFF", Color3.fromRGB(180, 80, 80))
+antiKickActive = not antiKickActive
+if antiKickActive then
+    antiKickBtn.Text = "ANTI-KICK: ON"
+    antiKickBtn.BackgroundColor3 = Color3.fromRGB(120, 10, 10)
+    kickStatus.Text = "BLOCKING :Kick()"
+    logOutput("BYPASS: Anti-Kick ON", Color3.fromRGB(255, 80, 80))
+    -- Hook namecall to block Kick
+    if not kickHookActive then
+        kickHookActive = true
+        pcall(function()
+            local oldNC2
+            oldNC2 = hookmetamethod(game, "__namecall", function(self, ...)
+                local m = getnamecallmethod()
+                if m == "Kick" then
+                    logOutput("KICK BLOCKED on " .. (rawget(self,"Name") or "?"), Color3.fromRGB(255, 80, 80))
+                    return
+                end
+                return oldNC2(self, ...)
+            end)
+        end)
     end
+else
+    antiKickBtn.Text = "ANTI-KICK: OFF"
+    antiKickBtn.BackgroundColor3 = Color3.fromRGB(40, 10, 10)
+    kickStatus.Text = ""
+    logOutput("BYPASS: Anti-Kick OFF", Color3.fromRGB(180, 80, 80))
+end
 end)
 
 -- Rank Spoof (hook GetRankInGroup to return 255)
 rankBtn = makeBtn(BypassWin, "RANK SPOOF: OFF", 10, 124, 145, 28, Color3.fromRGB(30, 20, 0), Color3.fromRGB(255, 180, 0))
 local rankStatus = makeLabel(BypassWin, "", 165, 129, 145, 18, Color3.fromRGB(160, 160, 160), 10)
 rankBtn.MouseButton1Click:Connect(function()
-    rankSpoofActive = not rankSpoofActive
-    if rankSpoofActive then
-        rankBtn.Text = "RANK SPOOF: ON"
-        rankBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 0)
-        rankStatus.Text = "GetRankInGroup→255"
-        logOutput("BYPASS: Rank Spoof ON (GetRankInGroup→255)", Color3.fromRGB(255, 180, 0))
-        pcall(function()
-            hookfunction(Player.GetRankInGroup, function() return 255 end)
-        end)
-    else
-        rankBtn.Text = "RANK SPOOF: OFF"
-        rankBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 0)
-        rankStatus.Text = ""
-        logOutput("BYPASS: Rank Spoof OFF", Color3.fromRGB(160, 120, 0))
-    end
+rankSpoofActive = not rankSpoofActive
+if rankSpoofActive then
+    rankBtn.Text = "RANK SPOOF: ON"
+    rankBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 0)
+    rankStatus.Text = "GetRankInGroup→255"
+    logOutput("BYPASS: Rank Spoof ON (GetRankInGroup→255)", Color3.fromRGB(255, 180, 0))
+    pcall(function()
+        hookfunction(Player.GetRankInGroup, function() return 255 end)
+    end)
+else
+    rankBtn.Text = "RANK SPOOF: OFF"
+    rankBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 0)
+    rankStatus.Text = ""
+    logOutput("BYPASS: Rank Spoof OFF", Color3.fromRGB(160, 120, 0))
+end
 end)
 
 -- RemoteFunction spoof — auto-intercept admin check RFs and return true
 rfSpoofBtn = makeBtn(BypassWin, "RF ADMIN SPOOF: OFF", 10, 159, 200, 28, Color3.fromRGB(20, 0, 30), Color3.fromRGB(200, 80, 255))
 local rfStatus    = makeLabel(BypassWin, "", 10, 191, 300, 18, Color3.fromRGB(160, 160, 160), 10)
--- RF spoof toggle — master hook at the bottom checks rfSpoofActive flag
 rfSpoofBtn.MouseButton1Click:Connect(function()
-    rfSpoofActive = not rfSpoofActive
-    if rfSpoofActive then
-        rfSpoofBtn.Text = "RF ADMIN SPOOF: ON"
-        rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
-        rfStatus.Text = "InvokeServer admin-keyword names → true,255"
-        logOutput("BYPASS: RF Spoof ON", Color3.fromRGB(200, 80, 255))
-    else
-        rfSpoofBtn.Text = "RF ADMIN SPOOF: OFF"
-        rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(20, 0, 30)
-        rfStatus.Text = ""
-        logOutput("BYPASS: RF Spoof OFF", Color3.fromRGB(120, 50, 150))
-    end
+rfSpoofActive = not rfSpoofActive
+if rfSpoofActive then
+    rfSpoofBtn.Text = "RF ADMIN SPOOF: ON"
+    rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
+    rfStatus.Text = "All RF InvokeServer returns spoofed"
+    logOutput("BYPASS: RF Spoof ON — hooking all InvokeServer", Color3.fromRGB(200, 80, 255))
+    -- Hook InvokeServer: if RF name matches admin keywords, return true/255
+    pcall(function()
+        local oldNC3
+        oldNC3 = hookmetamethod(game, "__namecall", function(self, ...)
+            local m = getnamecallmethod()
+            if m == "InvokeServer" and rfSpoofActive then
+                local rname = (rawget(self, "Name") or ""):lower()
+                for _, key in pairs({"admin","rank","check","isadmin","hasadmin","verify","perm","auth"}) do
+                    if rname:find(key) then
+                        logOutput("RF SPOOF: intercepted " .. rname .. " → true", Color3.fromRGB(200, 80, 255))
+                        return true, 255
+                    end
+                end
+            end
+            return oldNC3(self, ...)
+        end)
+    end)
+else
+    rfSpoofBtn.Text = "RF ADMIN SPOOF: OFF"
+    rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(20, 0, 30)
+    rfStatus.Text = ""
+    logOutput("BYPASS: RF Spoof OFF", Color3.fromRGB(120, 50, 150))
+end
 end)
 
 -- Name/UserId spoof panel
@@ -867,25 +900,30 @@ local nameBox = makeBox(BypassWin, "Target admin name...", 10, 213, 190, 24)
 local nameSpoofBtn = makeBtn(BypassWin, "SPOOF NAME", 206, 213, 100, 24, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
 nameSpoofBtn.TextSize = 10
 nameSpoofBtn.MouseButton1Click:Connect(function()
-    local newName = nameBox.Text
-    if newName == "" then return end
-    -- Safe: try setting DisplayName directly (no hookmetamethod to avoid crashes)
-    local ok = pcall(function() Player.DisplayName = newName end)
-    if ok then
-        logOutput("BYPASS: DisplayName set to " .. newName, Color3.fromRGB(100, 150, 255))
-    else
-        logOutput("BYPASS: Name set failed (read-only)", Color3.fromRGB(255, 180, 0))
-    end
+local newName = nameBox.Text
+if newName == "" then return end
+pcall(function()
+    hookmetamethod(game, "__index", function(self, key)
+        if self == Player and key == "Name" then return newName end
+        if self == Player and key == "DisplayName" then return newName end
+    end)
+end)
+logOutput("BYPASS: Name spoofed to " .. newName, Color3.fromRGB(100, 150, 255))
 end)
 
 local uidLabel = makeLabel(BypassWin, "Spoof UserId:", 10, 243, 150, 16, Color3.fromRGB(200, 200, 200), 10)
 local uidBox = makeBox(BypassWin, "Target UserId...", 10, 261, 190, 24)
-local uidSpoofBtn = makeBtn(BypassWin, "LOG MY UID", 206, 261, 100, 24, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
+local uidSpoofBtn = makeBtn(BypassWin, "SPOOF UID", 206, 261, 100, 24, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
 uidSpoofBtn.TextSize = 10
 uidSpoofBtn.MouseButton1Click:Connect(function()
-    -- Log current player info for reference (UserId is read-only, can't be changed safely)
-    logOutput("MY UID: " .. tostring(Player.UserId) .. "  NAME: " .. Player.Name, Color3.fromRGB(100, 150, 255))
-    pcall(function() setclipboard(tostring(Player.UserId)) end)
+local uid = tonumber(uidBox.Text)
+if not uid then return end
+pcall(function()
+    hookmetamethod(game, "__index", function(self, key)
+        if self == Player and key == "UserId" then return uid end
+    end)
+end)
+logOutput("BYPASS: UserId spoofed to " .. uid, Color3.fromRGB(100, 150, 255))
 end)
 
 BypassBtn.MouseButton1Click:Connect(function() BypassWin.Visible = not BypassWin.Visible end)
@@ -911,9 +949,9 @@ local speedBox = makeBox(MoveWin, "16", 10, 53, 110, 24)
 speedBox.Text = "16"
 local speedBtn = makeBtn(MoveWin, "SET SPEED", 126, 53, 100, 24, Color3.fromRGB(0, 50, 80), Color3.fromRGB(0, 180, 255))
 speedBtn.MouseButton1Click:Connect(function()
-    local s = tonumber(speedBox.Text) or 16
-    local hum = getHum()
-    if hum then hum.WalkSpeed = s logOutput("SPEED: " .. s) end
+local s = tonumber(speedBox.Text) or 16
+local hum = getHum()
+if hum then hum.WalkSpeed = s logOutput("SPEED: " .. s) end
 end)
 
 -- JumpPower
@@ -922,80 +960,80 @@ local jumpBox = makeBox(MoveWin, "50", 10, 100, 110, 24)
 jumpBox.Text = "50"
 local jumpBtn = makeBtn(MoveWin, "SET JUMP", 126, 100, 100, 24, Color3.fromRGB(0, 50, 80), Color3.fromRGB(0, 180, 255))
 jumpBtn.MouseButton1Click:Connect(function()
-    local j = tonumber(jumpBox.Text) or 50
-    local hum = getHum()
-    if hum then hum.JumpPower = j logOutput("JUMP: " .. j) end
+local j = tonumber(jumpBox.Text) or 50
+local hum = getHum()
+if hum then hum.JumpPower = j logOutput("JUMP: " .. j) end
 end)
 
 -- Noclip
 local noclipBtn = makeBtn(MoveWin, "NOCLIP: OFF", 10, 132, 130, 28, Color3.fromRGB(20, 20, 40), Color3.fromRGB(0, 180, 255))
 noclipBtn.MouseButton1Click:Connect(function()
-    noclipActive = not noclipActive
-    if noclipActive then
-        noclipBtn.Text = "NOCLIP: ON"
-        noclipBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
-        noclipConn = RunService.Stepped:Connect(function()
-            local c = getChar()
-            if c then
-                for _, p in pairs(c:GetDescendants()) do
-                    if p:IsA("BasePart") then p.CanCollide = false end
-                end
+noclipActive = not noclipActive
+if noclipActive then
+    noclipBtn.Text = "NOCLIP: ON"
+    noclipBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+    noclipConn = RunService.Stepped:Connect(function()
+        local c = getChar()
+        if c then
+            for _, p in pairs(c:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = false end
             end
-        end)
-        logOutput("NOCLIP ON")
-    else
-        noclipBtn.Text = "NOCLIP: OFF"
-        noclipBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-        if noclipConn then noclipConn:Disconnect() noclipConn = nil end
-        logOutput("NOCLIP OFF")
-    end
+        end
+    end)
+    logOutput("NOCLIP ON")
+else
+    noclipBtn.Text = "NOCLIP: OFF"
+    noclipBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    if noclipConn then noclipConn:Disconnect() noclipConn = nil end
+    logOutput("NOCLIP OFF")
+end
 end)
 
 -- Fly
 local flyBtn = makeBtn(MoveWin, "FLY: OFF", 150, 132, 120, 28, Color3.fromRGB(20, 20, 40), Color3.fromRGB(0, 180, 255))
 flyBtn.MouseButton1Click:Connect(function()
-    flyActive = not flyActive
-    if flyActive then
-        flyBtn.Text = "FLY: ON"
-        flyBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
-        logOutput("FLY ON")
-        task.spawn(function()
-            local root = getRoot()
-            if not root then flyActive = false return end
-            local bv = Instance.new("BodyVelocity")
-            bv.MaxForce = Vector3.new(1e6,1e6,1e6)
-            bv.Velocity = Vector3.zero
-            bv.Parent = root
-            flyBody = bv
-            local camera = workspace.CurrentCamera
-            flyConn = RunService.Heartbeat:Connect(function()
-                if not flyActive or not root or not root.Parent then
-                    flyActive = false
-                    if flyBody then flyBody:Destroy() flyBody = nil end
-                    if flyConn then flyConn:Disconnect() flyConn = nil end
-                    flyBtn.Text = "FLY: OFF"
-                    flyBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-                    return
-                end
-                local speed = tonumber(speedBox.Text) or 60
-                local dir = Vector3.zero
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - camera.CFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + camera.CFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0,1,0) end
-                bv.Velocity = dir.Magnitude > 0 and dir.Unit * speed or Vector3.zero
-            end)
+flyActive = not flyActive
+if flyActive then
+    flyBtn.Text = "FLY: ON"
+    flyBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+    logOutput("FLY ON")
+    task.spawn(function()
+        local root = getRoot()
+        if not root then flyActive = false return end
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1e6,1e6,1e6)
+        bv.Velocity = Vector3.zero
+        bv.Parent = root
+        flyBody = bv
+        local camera = workspace.CurrentCamera
+        flyConn = RunService.Heartbeat:Connect(function()
+            if not flyActive or not root or not root.Parent then
+                flyActive = false
+                if flyBody then flyBody:Destroy() flyBody = nil end
+                if flyConn then flyConn:Disconnect() flyConn = nil end
+                flyBtn.Text = "FLY: OFF"
+                flyBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+                return
+            end
+            local speed = tonumber(speedBox.Text) or 60
+            local dir = Vector3.zero
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0,1,0) end
+            bv.Velocity = dir.Magnitude > 0 and dir.Unit * speed or Vector3.zero
         end)
-    else
-        flyActive = false
-        flyBtn.Text = "FLY: OFF"
-        flyBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-        if flyBody then flyBody:Destroy() flyBody = nil end
-        if flyConn then flyConn:Disconnect() flyConn = nil end
-        logOutput("FLY OFF")
-    end
+    end)
+else
+    flyActive = false
+    flyBtn.Text = "FLY: OFF"
+    flyBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    if flyBody then flyBody:Destroy() flyBody = nil end
+    if flyConn then flyConn:Disconnect() flyConn = nil end
+    logOutput("FLY OFF")
+end
 end)
 
 -- Teleport
@@ -1005,27 +1043,27 @@ local tyBox = makeBox(MoveWin, "Y", 86, 188, 70, 24)
 local tzBox = makeBox(MoveWin, "Z", 162, 188, 70, 24)
 local tpBtn = makeBtn(MoveWin, "TELEPORT", 10, 216, 130, 26, Color3.fromRGB(0, 40, 60), Color3.fromRGB(0, 180, 255))
 tpBtn.MouseButton1Click:Connect(function()
-    local x,y,z = tonumber(txBox.Text), tonumber(tyBox.Text), tonumber(tzBox.Text)
-    if x and y and z then
-        local root = getRoot()
-        if root then
-            root.CFrame = CFrame.new(x, y, z)
-            logOutput(string.format("TP → (%.0f,%.0f,%.0f)", x, y, z))
-        end
+local x,y,z = tonumber(txBox.Text), tonumber(tyBox.Text), tonumber(tzBox.Text)
+if x and y and z then
+    local root = getRoot()
+    if root then
+        root.CFrame = CFrame.new(x, y, z)
+        logOutput(string.format("TP → (%.0f,%.0f,%.0f)", x, y, z))
     end
+end
 end)
 
 -- Get current pos
 local getPosBtn = makeBtn(MoveWin, "GET POS", 150, 216, 120, 26, Color3.fromRGB(20, 30, 20), Color3.fromRGB(57, 255, 20))
 getPosBtn.MouseButton1Click:Connect(function()
-    local root = getRoot()
-    if root then
-        local p = root.Position
-        txBox.Text = string.format("%.1f", p.X)
-        tyBox.Text = string.format("%.1f", p.Y)
-        tzBox.Text = string.format("%.1f", p.Z)
-        pcall(function() setclipboard(string.format("%.1f,%.1f,%.1f", p.X, p.Y, p.Z)) end)
-    end
+local root = getRoot()
+if root then
+    local p = root.Position
+    txBox.Text = string.format("%.1f", p.X)
+    tyBox.Text = string.format("%.1f", p.Y)
+    tzBox.Text = string.format("%.1f", p.Z)
+    pcall(function() setclipboard(string.format("%.1f,%.1f,%.1f", p.X, p.Y, p.Z)) end)
+end
 end)
 
 -- Godmode (infinite health loop)
@@ -1033,21 +1071,21 @@ local godActive = false
 local godConn   = nil
 local godBtn = makeBtn(MoveWin, "GODMODE: OFF", 10, 252, 130, 26, Color3.fromRGB(30, 20, 0), Color3.fromRGB(255, 200, 0))
 godBtn.MouseButton1Click:Connect(function()
-    godActive = not godActive
-    if godActive then
-        godBtn.Text = "GODMODE: ON"
-        godBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 0)
-        godConn = RunService.Heartbeat:Connect(function()
-            local hum = getHum()
-            if hum then hum.Health = hum.MaxHealth end
-        end)
-        logOutput("GODMODE ON")
-    else
-        godBtn.Text = "GODMODE: OFF"
-        godBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 0)
-        if godConn then godConn:Disconnect() godConn = nil end
-        logOutput("GODMODE OFF")
-    end
+godActive = not godActive
+if godActive then
+    godBtn.Text = "GODMODE: ON"
+    godBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 0)
+    godConn = RunService.Heartbeat:Connect(function()
+        local hum = getHum()
+        if hum then hum.Health = hum.MaxHealth end
+    end)
+    logOutput("GODMODE ON")
+else
+    godBtn.Text = "GODMODE: OFF"
+    godBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 0)
+    if godConn then godConn:Disconnect() godConn = nil end
+    logOutput("GODMODE OFF")
+end
 end)
 
 -- Inf Jump
@@ -1055,21 +1093,21 @@ local infJumpConn = nil
 local infJumpActive = false
 local infJumpBtn = makeBtn(MoveWin, "INF JUMP: OFF", 150, 252, 120, 26, Color3.fromRGB(20, 20, 40), Color3.fromRGB(0, 180, 255))
 infJumpBtn.MouseButton1Click:Connect(function()
-    infJumpActive = not infJumpActive
-    if infJumpActive then
-        infJumpBtn.Text = "INF JUMP: ON"
-        infJumpBtn.BackgroundColor3 = Color3.fromRGB(0, 50, 100)
-        infJumpConn = UserInputService.JumpRequest:Connect(function()
-            local hum = getHum()
-            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
-        end)
-        logOutput("INF JUMP ON")
-    else
-        infJumpBtn.Text = "INF JUMP: OFF"
-        infJumpBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-        if infJumpConn then infJumpConn:Disconnect() infJumpConn = nil end
-        logOutput("INF JUMP OFF")
-    end
+infJumpActive = not infJumpActive
+if infJumpActive then
+    infJumpBtn.Text = "INF JUMP: ON"
+    infJumpBtn.BackgroundColor3 = Color3.fromRGB(0, 50, 100)
+    infJumpConn = UserInputService.JumpRequest:Connect(function()
+        local hum = getHum()
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end)
+    logOutput("INF JUMP ON")
+else
+    infJumpBtn.Text = "INF JUMP: OFF"
+    infJumpBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    if infJumpConn then infJumpConn:Disconnect() infJumpConn = nil end
+    logOutput("INF JUMP OFF")
+end
 end)
 
 -- TP to player
@@ -1077,18 +1115,18 @@ makeLabel(MoveWin, "TP to Player:", 10, 286, 200, 16, Color3.fromRGB(200, 200, 2
 local tpNameBox = makeBox(MoveWin, "Player name...", 10, 304, 190, 24)
 local tpPlayerBtn = makeBtn(MoveWin, "GO", 206, 304, 60, 24, Color3.fromRGB(0, 40, 60), Color3.fromRGB(0, 180, 255))
 tpPlayerBtn.MouseButton1Click:Connect(function()
-    local name = tpNameBox.Text:lower()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr.Name:lower():find(name) and plr.Character then
-            local root = getRoot()
-            local tRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-            if root and tRoot then
-                root.CFrame = tRoot.CFrame + Vector3.new(3, 0, 0)
-                logOutput("TP to " .. plr.Name)
-            end
-            break
+local name = tpNameBox.Text:lower()
+for _, plr in pairs(Players:GetPlayers()) do
+    if plr.Name:lower():find(name) and plr.Character then
+        local root = getRoot()
+        local tRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+        if root and tRoot then
+            root.CFrame = tRoot.CFrame + Vector3.new(3, 0, 0)
+            logOutput("TP to " .. plr.Name)
         end
+        break
     end
+end
 end)
 
 MoveBtn.MouseButton1Click:Connect(function() MoveWin.Visible = not MoveWin.Visible end)
@@ -1097,35 +1135,35 @@ MoveBtn.MouseButton1Click:Connect(function() MoveWin.Visible = not MoveWin.Visib
 -- 12. ARG SNIFFER
 -- ============================================================
 local function serializeArg(v, depth)
-    depth = depth or 0
-    local t = typeof(v)
-    if t == "nil" then return "nil"
-    elseif t == "boolean" or t == "number" then return tostring(v)
-    elseif t == "string" then return '"' .. v .. '"'
-    elseif t == "table" then
-        if depth >= 3 then return "{...}" end
-        local parts = {}
-        for k, val in pairs(v) do
-            local ks = type(k) == "string" and k or ("[" .. tostring(k) .. "]")
-            table.insert(parts, ks .. "=" .. serializeArg(val, depth + 1))
-        end
-        return "{" .. table.concat(parts, ", ") .. "}"
-    elseif t == "Vector3" then return string.format("V3(%.3f, %.3f, %.3f)", v.X, v.Y, v.Z)
-    elseif t == "Vector2" then return string.format("V2(%.3f, %.3f)", v.X, v.Y)
-    elseif t == "CFrame" then local p = v.Position return string.format("CF(%.3f, %.3f, %.3f)", p.X, p.Y, p.Z)
-    elseif t == "Color3" then return string.format("Color3(%.0f, %.0f, %.0f)", v.R*255, v.G*255, v.B*255)
-    elseif t == "EnumItem" then return "Enum." .. tostring(v)
-    elseif t == "Instance" then
-        local ok, path = pcall(function() return v:GetFullName() end)
-        return ok and ("[" .. path .. "]") or "[Instance]"
-    else return tostring(v) end
+depth = depth or 0
+local t = typeof(v)
+if t == "nil" then return "nil"
+elseif t == "boolean" or t == "number" then return tostring(v)
+elseif t == "string" then return '"' .. v .. '"'
+elseif t == "table" then
+    if depth >= 3 then return "{...}" end
+    local parts = {}
+    for k, val in pairs(v) do
+        local ks = type(k) == "string" and k or ("[" .. tostring(k) .. "]")
+        table.insert(parts, ks .. "=" .. serializeArg(val, depth + 1))
+    end
+    return "{" .. table.concat(parts, ", ") .. "}"
+elseif t == "Vector3" then return string.format("V3(%.3f, %.3f, %.3f)", v.X, v.Y, v.Z)
+elseif t == "Vector2" then return string.format("V2(%.3f, %.3f)", v.X, v.Y)
+elseif t == "CFrame" then local p = v.Position return string.format("CF(%.3f, %.3f, %.3f)", p.X, p.Y, p.Z)
+elseif t == "Color3" then return string.format("Color3(%.0f, %.0f, %.0f)", v.R*255, v.G*255, v.B*255)
+elseif t == "EnumItem" then return "Enum." .. tostring(v)
+elseif t == "Instance" then
+    local ok, path = pcall(function() return v:GetFullName() end)
+    return ok and ("[" .. path .. "]") or "[Instance]"
+else return tostring(v) end
 end
 
 local function serializeArgs(args)
-    if #args == 0 then return "<none>" end
-    local parts = {}
-    for _, v in ipairs(args) do table.insert(parts, serializeArg(v)) end
-    return table.concat(parts, ", ")
+if #args == 0 then return "<none>" end
+local parts = {}
+for _, v in ipairs(args) do table.insert(parts, serializeArg(v)) end
+return table.concat(parts, ", ")
 end
 
 local SnifferGui = Instance.new("Frame")
@@ -1169,85 +1207,93 @@ SnifferScroll.Parent = SnifferGui
 local SnifferList = Instance.new("UIListLayout", SnifferScroll)
 SnifferList.Padding = UDim.new(0, 2)
 SnifferList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    SnifferScroll.CanvasSize = UDim2.new(0, 0, 0, SnifferList.AbsoluteContentSize.Y + 8)
-    SnifferScroll.CanvasPosition = Vector2.new(0, SnifferList.AbsoluteContentSize.Y)
+SnifferScroll.CanvasSize = UDim2.new(0, 0, 0, SnifferList.AbsoluteContentSize.Y + 8)
+SnifferScroll.CanvasPosition = Vector2.new(0, SnifferList.AbsoluteContentSize.Y)
 end)
 
 local snifferLog = {}
 local MAX_SNIFF = 150
 
 local function addSnifferEntry(remoteName, method, args)
-    local ts = string.format("%.1f", tick() % 1000)
-    local argStr = serializeArgs(args)
-    local row = Instance.new("TextLabel")
-    row.Size = UDim2.new(1, -6, 0, 32)
-    row.BackgroundColor3 = Color3.fromRGB(12, 5, 18)
-    row.Font = Enum.Font.Code
-    row.TextSize = 11
-    row.TextColor3 = Color3.fromRGB(255, 80, 200)
-    row.TextXAlignment = Enum.TextXAlignment.Left
-    row.TextYAlignment = Enum.TextYAlignment.Top
-    row.TextWrapped = true
-    row.Text = string.format("  [%s] %s::%s  %s", ts, remoteName, method, argStr)
-    row.Parent = SnifferScroll
-    Instance.new("UICorner", row)
-    table.insert(snifferLog, row)
-    if #snifferLog > MAX_SNIFF then
-        local old = table.remove(snifferLog, 1)
-        if old and old.Parent then old:Destroy() end
-    end
+local ts = string.format("%.1f", tick() % 1000)
+local argStr = serializeArgs(args)
+local row = Instance.new("TextLabel")
+row.Size = UDim2.new(1, -6, 0, 0)
+row.AutomaticSize = Enum.AutomaticSize.Y
+row.BackgroundColor3 = Color3.fromRGB(12, 5, 18)
+row.Font = Enum.Font.Code
+row.TextSize = 11
+row.TextColor3 = Color3.fromRGB(255, 80, 200)
+row.TextXAlignment = Enum.TextXAlignment.Left
+row.TextWrapped = true
+row.Text = string.format("  [%s] %s::%s  %s", ts, remoteName, method, argStr)
+row.Parent = SnifferScroll
+Instance.new("UICorner", row)
+table.insert(snifferLog, row)
+if #snifferLog > MAX_SNIFF then
+    local old = table.remove(snifferLog, 1)
+    if old and old.Parent then old:Destroy() end
+end
 end
 
 -- MASTER NAMECALL HOOK — sniffer + anti-kick + RF spoof all in one chain
+-- Wrapped in pcall so a hook failure never breaks remote execution
 local masterOldNC
-masterOldNC = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
+local hookOk, hookErr = pcall(function()
+    masterOldNC = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
 
-    -- Anti-Kick
-    if method == "Kick" and antiKickActive then
-        task.defer(function()
-            logOutput("KICK BLOCKED: " .. (rawget(self,"Name") or "?"), Color3.fromRGB(255, 80, 80))
-        end)
-        return
-    end
+        -- Anti-Kick
+        if method == "Kick" and antiKickActive then
+            task.defer(function()
+                logOutput("KICK BLOCKED: " .. (rawget(self,"Name") or "?"), Color3.fromRGB(255, 80, 80))
+            end)
+            return
+        end
 
-    -- RF Admin Spoof
-    if method == "InvokeServer" and rfSpoofActive then
-        local rname = (rawget(self,"Name") or ""):lower()
-        for _, key in pairs({"admin","rank","check","isadmin","hasadmin","verify","perm","auth","access"}) do
-            if rname:find(key) then
-                task.defer(function()
-                    logOutput("RF SPOOF hit: " .. rname, Color3.fromRGB(200, 80, 255))
-                end)
-                return true, 255
+        -- RF Admin Spoof
+        if method == "InvokeServer" and rfSpoofActive then
+            local rname = (rawget(self,"Name") or ""):lower()
+            for _, key in pairs({"admin","rank","check","isadmin","hasadmin","verify","perm","auth","access"}) do
+                if rname:find(key) then
+                    task.defer(function()
+                        logOutput("RF SPOOF hit: " .. rname, Color3.fromRGB(200, 80, 255))
+                    end)
+                    return true, 255
+                end
             end
         end
-    end
 
-    -- Sniffer capture
-    if method == "FireServer" or method == "InvokeServer" or method == "Fire" or method == "Invoke" then
-        local name = rawget(self, "Name") or "?"
-        local args = {...}
-        task.defer(function() addSnifferEntry(name, method, args) end)
-    end
+        -- Sniffer capture (non-blocking, never interrupts the call)
+        if method == "FireServer" or method == "InvokeServer" or method == "Fire" or method == "Invoke" then
+            local name = rawget(self, "Name") or "?"
+            local args = {...}
+            task.defer(function() addSnifferEntry(name, method, args) end)
+        end
 
-    return masterOldNC(self, ...)
+        -- Always pass through to the original — must never be skipped for fire calls
+        return masterOldNC(self, ...)
+    end)
 end)
+
+if not hookOk then
+    logOutput("HOOK WARN: " .. tostring(hookErr) .. " — remotes still work normally", Color3.fromRGB(255, 180, 0))
+end
 
 -- Sniffer toggle
 SniffToggleBtn.MouseButton1Click:Connect(function()
-    SnifferGui.Visible = not SnifferGui.Visible
-    if SnifferGui.Visible then
-        SniffToggleBtn.Text = "SNIFFER"
-        SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 10, 100)
-    else
-        SniffToggleBtn.Text = "SNIFFER"
-        SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 5, 40)
-    end
+SnifferGui.Visible = not SnifferGui.Visible
+if SnifferGui.Visible then
+    SniffToggleBtn.Text = "SNIFFER"
+    SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 10, 100)
+else
+    SniffToggleBtn.Text = "SNIFFER"
+    SniffToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 5, 40)
+end
 end)
 
 SnifferCloseBtn.MouseButton1Click:Connect(function() SnifferGui.Visible = false end)
 SnifferClearBtn.MouseButton1Click:Connect(function()
-    for _, row in ipairs(snifferLog) do if row and row.Parent then row:Destroy() end end
-    snifferLog = {}
+for _, row in ipairs(snifferLog) do if row and row.Parent then row:Destroy() end end
+snifferLog = {}
 end)
