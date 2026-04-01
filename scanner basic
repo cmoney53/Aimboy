@@ -331,6 +331,26 @@ local clickConn = nil
 local collapsedCategories = {}
 local remoteRegistry = {}  -- all found fireable remotes for Fire All
 
+-- Pagination state (persists across rescans)
+local PAGE_SIZE     = 50   -- entries shown per page per category
+local catPages      = {}   -- catPages["Remotes"] = 2  (current page)
+local allResults    = {}   -- allResults["Remotes"] = { {obj, typeTag}, ... }
+local SCAN_GUARD    = false
+local REBUILD_GUARD = false
+
+local CAT_ORDER = {"Admin Remotes", "Guis", "Data", "Remotes", "Utilities", "Scripts"}
+local CAT_COLORS = {
+    ["Admin Remotes"] = Color3.fromRGB(180, 0, 0),
+    Guis              = Color3.fromRGB(0, 100, 150),
+    Data              = Color3.fromRGB(150, 100, 0),
+    Remotes           = Color3.fromRGB(0, 150, 50),
+    Utilities         = Color3.fromRGB(150, 50, 50),
+    Scripts           = Color3.fromRGB(80, 0, 150),
+}
+
+-- Forward declaration so addCategoryHeader can reference it
+local rebuildUI
+
 -- Core fire function — uses argMode to decide what to pass
 local function doExecute(obj, typeTag)
 if not obj or not obj.Parent then
@@ -482,23 +502,90 @@ if selectedObj and selectedObj.Parent then
 end
 end)
 
--- CATEGORY HEADERS
-local function addCategoryHeader(name, color)
-local h = Instance.new("TextButton")
-h.Size = UDim2.new(1, 0, 0, 35)
-h.BackgroundColor3 = color
-h.Text = "  ▼ CATEGORY: " .. name:upper()
-h.TextColor3 = Color3.fromRGB(255, 255, 255)
-h.Font = Enum.Font.SourceSansBold
-h.TextSize = 16
-h.TextXAlignment = Enum.TextXAlignment.Left
-h.Name = "Category_" .. name
-h.Parent = Scroll
-Instance.new("UICorner", h)
-if collapsedCategories[name] then h.Text = "  ▶ CATEGORY: " .. name:upper() end
-h.MouseButton1Click:Connect(function()
-    collapsedCategories[name] = not collapsedCategories[name]
-end)
+-- CATEGORY HEADERS (with pagination controls)
+local function addCategoryHeader(name, totalCount)
+    local color      = CAT_COLORS[name] or Color3.fromRGB(60, 60, 60)
+    local page       = catPages[name] or 1
+    local totalPages = math.max(1, math.ceil(totalCount / PAGE_SIZE))
+    catPages[name]   = math.clamp(page, 1, totalPages)
+
+    -- Outer frame so we can fit both the toggle and page buttons
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, 0, 0, 35)
+    container.BackgroundColor3 = color
+    container.Name = "Category_" .. name
+    container.Parent = Scroll
+    Instance.new("UICorner", container)
+
+    -- Collapse/expand toggle (left portion)
+    local arrow = collapsedCategories[name] and "▶" or "▼"
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(1, -122, 1, 0)
+    toggleBtn.Position = UDim2.new(0, 0, 0, 0)
+    toggleBtn.BackgroundTransparency = 1
+    toggleBtn.Text = "  " .. arrow .. " " .. name:upper() .. "  (" .. totalCount .. ")"
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleBtn.Font = Enum.Font.SourceSansBold
+    toggleBtn.TextSize = 14
+    toggleBtn.TextXAlignment = Enum.TextXAlignment.Left
+    toggleBtn.Parent = container
+    toggleBtn.MouseButton1Click:Connect(function()
+        collapsedCategories[name] = not collapsedCategories[name]
+        rebuildUI()
+    end)
+
+    -- Prev page button
+    local prevBtn = Instance.new("TextButton")
+    prevBtn.Size = UDim2.new(0, 26, 0, 26)
+    prevBtn.Position = UDim2.new(1, -118, 0.5, -13)
+    prevBtn.Text = "◀"
+    prevBtn.BackgroundColor3 = catPages[name] > 1
+        and Color3.fromRGB(40, 40, 40) or Color3.fromRGB(18, 18, 18)
+    prevBtn.TextColor3 = catPages[name] > 1
+        and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(60, 60, 60)
+    prevBtn.Font = Enum.Font.SourceSansBold
+    prevBtn.TextSize = 11
+    prevBtn.Parent = container
+    Instance.new("UICorner", prevBtn)
+
+    -- Page indicator label
+    local pageLabel = Instance.new("TextLabel")
+    pageLabel.Size = UDim2.new(0, 58, 0, 26)
+    pageLabel.Position = UDim2.new(1, -88, 0.5, -13)
+    pageLabel.Text = catPages[name] .. " / " .. totalPages
+    pageLabel.BackgroundTransparency = 1
+    pageLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    pageLabel.Font = Enum.Font.Code
+    pageLabel.TextSize = 11
+    pageLabel.TextXAlignment = Enum.TextXAlignment.Center
+    pageLabel.Parent = container
+
+    -- Next page button
+    local nextBtn = Instance.new("TextButton")
+    nextBtn.Size = UDim2.new(0, 26, 0, 26)
+    nextBtn.Position = UDim2.new(1, -30, 0.5, -13)
+    nextBtn.Text = "▶"
+    nextBtn.BackgroundColor3 = catPages[name] < totalPages
+        and Color3.fromRGB(40, 40, 40) or Color3.fromRGB(18, 18, 18)
+    nextBtn.TextColor3 = catPages[name] < totalPages
+        and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(60, 60, 60)
+    nextBtn.Font = Enum.Font.SourceSansBold
+    nextBtn.TextSize = 11
+    nextBtn.Parent = container
+    Instance.new("UICorner", nextBtn)
+
+    prevBtn.MouseButton1Click:Connect(function()
+        if (catPages[name] or 1) > 1 then
+            catPages[name] = catPages[name] - 1
+            rebuildUI()
+        end
+    end)
+    nextBtn.MouseButton1Click:Connect(function()
+        if (catPages[name] or 1) < totalPages then
+            catPages[name] = catPages[name] + 1
+            rebuildUI()
+        end
+    end)
 end
 
 -- ENTRY BUTTON
@@ -560,119 +647,152 @@ local allServices = {
 "ReplicatedFirst","Players","Chat","InsertService","MarketplaceService"
 }
 
-local function runOmniScan()
-for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
-remoteRegistry = {}
+-- rebuildUI: re-renders the list from allResults using current catPages
+-- No data re-collection — just UI work, done in batches to avoid frame drops
+rebuildUI = function()
+    if REBUILD_GUARD then return end
+    REBUILD_GUARD = true
 
--- GUIs (enabled + hidden)
-addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
-for _, g in pairs(PlayerGui:GetChildren()) do
-    if g:IsA("ScreenGui") and g ~= ScreenGui then
-        addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis")
-    end
-end
-
--- Player Data/Values
-addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
-for _, v in pairs(Player:GetDescendants()) do
-    if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
-end
-
--- Admin-specific remotes (top priority)
-addCategoryHeader("Admin Remotes", Color3.fromRGB(180, 0, 0))
--- Standard remotes/bindables
-addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
--- Keyword-matched utilities
-addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
--- LocalScripts (intelligence — shows admin script names)
-addCategoryHeader("Scripts", Color3.fromRGB(80, 0, 150))
-
-local seenRemotes = {}
-
-local function deepScan(parent)
-    for _, child in pairs(parent:GetChildren()) do
-        local lowName = child.Name:lower()
-        local id = tostring(child)
-
-        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-            if not seenRemotes[id] then
-                seenRemotes[id] = true
-                local isAdmin = false
-                for _, key in pairs(adminKeywords) do
-                    if lowName:find(key) then isAdmin = true break end
-                end
-                if isAdmin then
-                    addEntry(child, "ADMIN REMOTE", "Admin Remotes")
-                end
-                addEntry(child, "REMOTE", "Remotes")
-            end
-        elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
-            if not seenRemotes[id] then
-                seenRemotes[id] = true
-                addEntry(child, "BINDABLE", "Remotes")
+    task.spawn(function()
+        -- Clear existing items in small batches
+        local children = Scroll:GetChildren()
+        local cleared = 0
+        for _, v in ipairs(children) do
+            if not v:IsA("UIListLayout") then
+                v:Destroy()
+                cleared = cleared + 1
+                if cleared % 30 == 0 then task.wait() end
             end
         end
+        remoteRegistry = {}
 
-        -- Keyword utilities (non-remote objects matching keywords)
-        if not child:IsA("RemoteEvent") and not child:IsA("RemoteFunction") then
-            for _, key in pairs(adminKeywords) do
-                if lowName:find(key) then
-                    if child:IsA("ValueBase") then
-                        addEntry(child, "ADMIN DATA", "Admin Remotes")
-                    elseif child:IsA("LocalScript") or child:IsA("Script") or child:IsA("ModuleScript") then
-                        addEntry(child, "SCRIPT[" .. child.ClassName .. "]", "Scripts")
-                    else
-                        addEntry(child, "UTILITY", "Utilities")
+        for _, cat in ipairs(CAT_ORDER) do
+            local list = allResults[cat]
+            if list and #list > 0 then
+                addCategoryHeader(cat, #list)
+                if not collapsedCategories[cat] then
+                    local page       = catPages[cat] or 1
+                    local totalPages = math.max(1, math.ceil(#list / PAGE_SIZE))
+                    local p          = math.clamp(page, 1, totalPages)
+                    local startIdx   = (p - 1) * PAGE_SIZE + 1
+                    local endIdx     = math.min(startIdx + PAGE_SIZE - 1, #list)
+                    local count      = 0
+                    for i = startIdx, endIdx do
+                        addEntry(list[i].obj, list[i].typeTag, cat)
+                        count = count + 1
+                        if count % 15 == 0 then task.wait() end
                     end
-                    break
                 end
             end
         end
 
-        -- All local/module scripts (for intel)
-        if child:IsA("LocalScript") or child:IsA("ModuleScript") then
-            if not collapsedCategories["Scripts"] then
-                local b = Instance.new("TextButton")
-                b.Size = UDim2.new(1, 0, 0, 32)
-                b.BackgroundColor3 = Color3.fromRGB(20, 10, 30)
-                b.Text = "  ↳ [" .. child.ClassName .. "] " .. child.Name
-                b.TextColor3 = Color3.fromRGB(180, 100, 255)
-                b.TextXAlignment = Enum.TextXAlignment.Left
-                b.Parent = Scroll
-                Instance.new("UICorner", b)
-                b.MouseButton1Click:Connect(function()
-                    OutputSayer.Text = child.Name
-                    InfoLabel.Text = "NAME: " .. child.Name .. "\nTYPE: " .. child.ClassName .. "\nPATH: " .. child:GetFullName()
-                    Main.ClipsDescendants = false
-                    Side.Visible = true
-                end)
-            end
-        end
-
-        if not child:IsA("Player") and not child:IsA("Terrain") then
-            pcall(function() deepScan(child) end)
-        end
-    end
-end
-
--- Scan all known services
-for _, svcName in pairs(allServices) do
-    pcall(function()
-        local svc = game:GetService(svcName)
-        if svc then deepScan(svc) end
+        REBUILD_GUARD = false
     end)
 end
 
--- Also scan workspace players' characters for exploitable values
-pcall(function()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr.Character then
-            for _, v in pairs(plr.Character:GetDescendants()) do
-                if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
+-- runOmniScan: collects all data, then triggers rebuildUI
+local function runOmniScan()
+    if SCAN_GUARD then return end
+    SCAN_GUARD = true
+
+    -- Collect into a fresh table (synchronous, no UI — very fast)
+    local newResults = {
+        Guis              = {},
+        Data              = {},
+        ["Admin Remotes"] = {},
+        Remotes           = {},
+        Utilities         = {},
+        Scripts           = {},
+    }
+
+    for _, g in pairs(PlayerGui:GetChildren()) do
+        if g:IsA("ScreenGui") and g ~= ScreenGui then
+            table.insert(newResults["Guis"], {obj = g, typeTag = g.Enabled and "GUI" or "HIDDEN GUI"})
+        end
+    end
+
+    for _, v in pairs(Player:GetDescendants()) do
+        if v:IsA("ValueBase") then
+            table.insert(newResults["Data"], {obj = v, typeTag = "DATA"})
+        end
+    end
+
+    pcall(function()
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr.Character then
+                for _, v in pairs(plr.Character:GetDescendants()) do
+                    if v:IsA("ValueBase") then
+                        table.insert(newResults["Data"], {obj = v, typeTag = "DATA"})
+                    end
+                end
+            end
+        end
+    end)
+
+    local seenRemotes = {}
+    local seenScripts = {}
+
+    local function deepCollect(parent, depth)
+        if depth > 6 then return end
+        for _, child in pairs(parent:GetChildren()) do
+            local lowName = child.Name:lower()
+            local id      = tostring(child)
+
+            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                if not seenRemotes[id] then
+                    seenRemotes[id] = true
+                    local isAdmin = false
+                    for _, key in pairs(adminKeywords) do
+                        if lowName:find(key) then isAdmin = true break end
+                    end
+                    if isAdmin then
+                        table.insert(newResults["Admin Remotes"], {obj = child, typeTag = "ADMIN REMOTE"})
+                    end
+                    table.insert(newResults["Remotes"], {obj = child, typeTag = "REMOTE"})
+                end
+            elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
+                if not seenRemotes[id] then
+                    seenRemotes[id] = true
+                    table.insert(newResults["Remotes"], {obj = child, typeTag = "BINDABLE"})
+                end
+            end
+
+            if not child:IsA("RemoteEvent") and not child:IsA("RemoteFunction") then
+                for _, key in pairs(adminKeywords) do
+                    if lowName:find(key) then
+                        if child:IsA("ValueBase") then
+                            table.insert(newResults["Admin Remotes"], {obj = child, typeTag = "ADMIN DATA"})
+                        elseif child:IsA("LocalScript") or child:IsA("Script") or child:IsA("ModuleScript") then
+                            table.insert(newResults["Scripts"], {obj = child, typeTag = "SCRIPT[" .. child.ClassName .. "]"})
+                        else
+                            table.insert(newResults["Utilities"], {obj = child, typeTag = "UTILITY"})
+                        end
+                        break
+                    end
+                end
+            end
+
+            if (child:IsA("LocalScript") or child:IsA("ModuleScript")) and not seenScripts[id] then
+                seenScripts[id] = true
+                table.insert(newResults["Scripts"], {obj = child, typeTag = child.ClassName})
+            end
+
+            if not child:IsA("Player") and not child:IsA("Terrain") then
+                pcall(function() deepCollect(child, depth + 1) end)
             end
         end
     end
-end)
+
+    for _, svcName in pairs(allServices) do
+        pcall(function()
+            local svc = game:GetService(svcName)
+            if svc then deepCollect(svc, 0) end
+        end)
+    end
+
+    allResults  = newResults
+    SCAN_GUARD  = false
+    rebuildUI()
 end
 
 -- 8. SEARCH & UPDATE LOOP
@@ -688,7 +808,7 @@ end)
 task.spawn(function()
 while true do
     runOmniScan()
-    task.wait(6)
+    task.wait(20)
 end
 end)
 
@@ -735,7 +855,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V22.0 MAX"
+TitleLabel.Text = "SYSTEM_OMEGA // V231.0 MAX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
