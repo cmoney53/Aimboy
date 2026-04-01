@@ -927,7 +927,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAX"
+TitleLabel.Text = "SYSTEM_OMEGA // V21.0 M99AX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
