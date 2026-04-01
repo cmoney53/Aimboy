@@ -328,8 +328,8 @@ end)
 
 -- 6. CORE EXECUTE ENGINE
 local clickConn = nil
-local collapsedCategories = {}
-local remoteRegistry = {}  -- all found fireable remotes for Fire All
+local categoryContainers = {}   -- name → container Frame
+local remoteRegistry = {}       -- all found fireable remotes for Fire All
 
 -- Core fire function — uses argMode to decide what to pass
 local function doExecute(obj, typeTag)
@@ -484,10 +484,11 @@ end)
 
 -- CATEGORY HEADERS
 local function addCategoryHeader(name, color)
+    -- Header button — starts with ▶ (collapsed)
     local h = Instance.new("TextButton")
     h.Size = UDim2.new(1, 0, 0, 35)
     h.BackgroundColor3 = color
-    h.Text = "  ▼ CATEGORY: " .. name:upper()
+    h.Text = "  ▶ " .. name:upper()
     h.TextColor3 = Color3.fromRGB(255, 255, 255)
     h.Font = Enum.Font.SourceSansBold
     h.TextSize = 16
@@ -495,15 +496,32 @@ local function addCategoryHeader(name, color)
     h.Name = "Category_" .. name
     h.Parent = Scroll
     Instance.new("UICorner", h)
-    if collapsedCategories[name] then h.Text = "  ▶ CATEGORY: " .. name:upper() end
+
+    -- Container frame holds all entries; starts hidden (collapsed)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, 0, 0, 0)
+    container.BackgroundTransparency = 1
+    container.Visible = false
+    container.Name = "Container_" .. name
+    container.Parent = Scroll
+    local cLayout = Instance.new("UIListLayout", container)
+    cLayout.Padding = UDim.new(0, 3)
+    cLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        container.Size = UDim2.new(1, 0, 0, cLayout.AbsoluteContentSize.Y + 4)
+    end)
+    categoryContainers[name] = container
+
+    -- Instant toggle: one Visible flip, no iteration
     h.MouseButton1Click:Connect(function()
-        collapsedCategories[name] = not collapsedCategories[name]
+        container.Visible = not container.Visible
+        h.Text = (container.Visible and "  ▼ " or "  ▶ ") .. name:upper()
     end)
 end
 
 -- ENTRY BUTTON
 local function addEntry(obj, typeTag, category)
-    if collapsedCategories[category] then return end
+    local container = categoryContainers[category]
+    if not container then return end
 
     -- Register fireable remotes
     if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or obj:IsA("BindableEvent") or obj:IsA("BindableFunction") then
@@ -518,11 +536,10 @@ local function addEntry(obj, typeTag, category)
     elseif typeTag:find("DATA") then b.TextColor3 = Color3.fromRGB(255, 180, 0)
     elseif typeTag:find("ADMIN") then b.TextColor3 = Color3.fromRGB(255, 60, 60)
     elseif typeTag:find("CMD") or typeTag:find("REMOTE") then b.TextColor3 = Color3.fromRGB(57, 255, 20)
-    elseif typeTag:find("SCRIPT") then b.TextColor3 = Color3.fromRGB(180, 100, 255)
     elseif typeTag:find("UTILITY") then b.TextColor3 = Color3.fromRGB(255, 80, 80)
     else b.TextColor3 = Color3.fromRGB(200, 200, 200) end
     b.TextXAlignment = Enum.TextXAlignment.Left
-    b.Parent = Scroll
+    b.Parent = container
     Instance.new("UICorner", b)
 
     if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
@@ -547,22 +564,18 @@ end
 
 -- 7. EXTENDED OMNI-SCAN ENGINE
 local adminKeywords = {
-    "admin","command","server","drop","spawn","give","money","cash","rank",
-    "ban","kick","god","fly","speed","noclip","teleport","invisible","freeze",
-    "kill","damage","heal","respawn","item","weapon","tool","pet","data","save",
-    "load","reset","unlock","upgrade","purchase","buy","sell","trade","transfer",
-    "claim","redeem","code","promo","quest","mission","level","exp","xp","vip","owner"
+    "admin","command","give","money","cash","rank","ban","kick","god",
+    "fly","speed","noclip","teleport","kill","heal","data","vip","owner"
 }
 
 local allServices = {
-    "ReplicatedStorage","Workspace","Lighting","StarterGui","StarterPack",
-    "StarterPlayer","Teams","SoundService","TextChatService","TweenService",
-    "ReplicatedFirst","Players","Chat","InsertService","MarketplaceService"
+    "ReplicatedStorage","Workspace","Players","StarterGui","StarterPlayer","Teams"
 }
 
 local function runOmniScan()
     for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
     remoteRegistry = {}
+    categoryContainers = {}
 
     -- GUIs (enabled + hidden)
     addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
@@ -584,8 +597,6 @@ local function runOmniScan()
     addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
     -- Keyword-matched utilities
     addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
-    -- LocalScripts (intelligence — shows admin script names)
-    addCategoryHeader("Scripts", Color3.fromRGB(80, 0, 150))
 
     local seenRemotes = {}
 
@@ -629,26 +640,6 @@ local function runOmniScan()
                 end
             end
 
-            -- All local/module scripts (for intel)
-            if child:IsA("LocalScript") or child:IsA("ModuleScript") then
-                if not collapsedCategories["Scripts"] then
-                    local b = Instance.new("TextButton")
-                    b.Size = UDim2.new(1, 0, 0, 32)
-                    b.BackgroundColor3 = Color3.fromRGB(20, 10, 30)
-                    b.Text = "  ↳ [" .. child.ClassName .. "] " .. child.Name
-                    b.TextColor3 = Color3.fromRGB(180, 100, 255)
-                    b.TextXAlignment = Enum.TextXAlignment.Left
-                    b.Parent = Scroll
-                    Instance.new("UICorner", b)
-                    b.MouseButton1Click:Connect(function()
-                        OutputSayer.Text = child.Name
-                        InfoLabel.Text = "NAME: " .. child.Name .. "\nTYPE: " .. child.ClassName .. "\nPATH: " .. child:GetFullName()
-                        Main.ClipsDescendants = false
-                        Side.Visible = true
-                    end)
-                end
-            end
-
             if not child:IsA("Player") and not child:IsA("Terrain") then
                 pcall(function() deepScan(child) end)
             end
@@ -663,34 +654,22 @@ local function runOmniScan()
         end)
     end
 
-    -- Also scan workspace players' characters for exploitable values
-    pcall(function()
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr.Character then
-                for _, v in pairs(plr.Character:GetDescendants()) do
-                    if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
-                end
-            end
-        end
-    end)
 end
 
 -- 8. SEARCH & UPDATE LOOP
 Search:GetPropertyChangedSignal("Text"):Connect(function()
     local f = Search.Text:lower()
-    for _, b in pairs(Scroll:GetChildren()) do
-        if b:IsA("TextButton") and not b.Name:find("Category") then
-            b.Visible = b.Text:lower():find(f) ~= nil
+    for _, container in pairs(categoryContainers) do
+        for _, b in pairs(container:GetChildren()) do
+            if b:IsA("TextButton") then
+                b.Visible = (f == "" or b.Text:lower():find(f) ~= nil)
+            end
         end
     end
 end)
 
-task.spawn(function()
-    while true do
-        runOmniScan()
-        task.wait(6)
-    end
-end)
+-- Single scan on load, deferred so the GUI appears first
+task.defer(runOmniScan)
 
 -- 9. HEADER CONTROLS
 local CloseBtn = Instance.new("TextButton")
