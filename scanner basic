@@ -644,7 +644,8 @@ local adminKeywords = {
 local allServices = {
 "ReplicatedStorage","Workspace","Lighting","StarterGui","StarterPack",
 "StarterPlayer","Teams","SoundService","TextChatService","TweenService",
-"ReplicatedFirst","Players","Chat","InsertService","MarketplaceService"
+"ReplicatedFirst","Players","Chat","InsertService","MarketplaceService",
+"CoreGui","LocalizationService","VoiceChatService","CollectionService"
 }
 
 -- rebuildUI: re-renders the list from allResults using current catPages
@@ -652,6 +653,9 @@ local allServices = {
 rebuildUI = function()
     if REBUILD_GUARD then return end
     REBUILD_GUARD = true
+
+    local query    = Search.Text:lower()
+    local isSearch = query ~= ""
 
     task.spawn(function()
         -- Clear existing items in small batches
@@ -667,11 +671,28 @@ rebuildUI = function()
         remoteRegistry = {}
 
         for _, cat in ipairs(CAT_ORDER) do
-            local list = allResults[cat]
-            if list and #list > 0 then
+            local source = allResults[cat] or {}
+
+            -- When searching, filter across ALL pages of ALL categories
+            local list
+            if isSearch then
+                list = {}
+                for _, entry in ipairs(source) do
+                    local ok, name = pcall(function() return entry.obj.Name end)
+                    local searchStr = ("[" .. entry.typeTag .. "] " .. (ok and name or "")):lower()
+                    if searchStr:find(query, 1, true) then
+                        table.insert(list, entry)
+                    end
+                end
+            else
+                list = source
+            end
+
+            if #list > 0 then
                 addCategoryHeader(cat, #list)
                 if not collapsedCategories[cat] then
-                    local page       = catPages[cat] or 1
+                    -- In search mode always start from page 1 of the filtered results
+                    local page       = isSearch and 1 or (catPages[cat] or 1)
                     local totalPages = math.max(1, math.ceil(#list / PAGE_SIZE))
                     local p          = math.clamp(page, 1, totalPages)
                     local startIdx   = (p - 1) * PAGE_SIZE + 1
@@ -796,13 +817,9 @@ local function runOmniScan()
 end
 
 -- 8. SEARCH & UPDATE LOOP
+-- Search across ALL collected data in every category (not just current page)
 Search:GetPropertyChangedSignal("Text"):Connect(function()
-local f = Search.Text:lower()
-for _, b in pairs(Scroll:GetChildren()) do
-    if b:IsA("TextButton") and not b.Name:find("Category") then
-        b.Visible = b.Text:lower():find(f) ~= nil
-    end
-end
+    rebuildUI()
 end)
 
 task.spawn(function()
@@ -855,7 +872,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V231.0 MAX"
+TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
