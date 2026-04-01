@@ -1239,6 +1239,12 @@ end
 -- MASTER NAMECALL HOOK — sniffer + anti-kick + RF spoof all in one chain
 -- Wrapped in pcall so a hook failure never breaks remote execution
 local masterOldNC
+-- Safe name getter — works on any Instance without rawget
+local function instName(obj)
+    local ok, n = pcall(function() return obj.Name end)
+    return (ok and n) or "?"
+end
+
 local hookOk, hookErr = pcall(function()
     masterOldNC = hookmetamethod(game, "__namecall", function(self, ...)
         local method = getnamecallmethod()
@@ -1246,14 +1252,14 @@ local hookOk, hookErr = pcall(function()
         -- Anti-Kick
         if method == "Kick" and antiKickActive then
             task.defer(function()
-                logOutput("KICK BLOCKED: " .. (rawget(self,"Name") or "?"), Color3.fromRGB(255, 80, 80))
+                logOutput("KICK BLOCKED: " .. instName(self), Color3.fromRGB(255, 80, 80))
             end)
             return
         end
 
         -- RF Admin Spoof
         if method == "InvokeServer" and rfSpoofActive then
-            local rname = (rawget(self,"Name") or ""):lower()
+            local rname = instName(self):lower()
             for _, key in pairs({"admin","rank","check","isadmin","hasadmin","verify","perm","auth","access"}) do
                 if rname:find(key) then
                     task.defer(function()
@@ -1266,7 +1272,7 @@ local hookOk, hookErr = pcall(function()
 
         -- Sniffer capture (non-blocking, never interrupts the call)
         if method == "FireServer" or method == "InvokeServer" or method == "Fire" or method == "Invoke" then
-            local name = rawget(self, "Name") or "?"
+            local name = instName(self)
             local args = {...}
             task.defer(function() addSnifferEntry(name, method, args) end)
         end
