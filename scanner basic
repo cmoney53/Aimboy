@@ -336,7 +336,6 @@ local PAGE_SIZE     = 50   -- entries shown per page per category
 local catPages      = {}   -- catPages["Remotes"] = 2  (current page)
 local allResults    = {}   -- allResults["Remotes"] = { {obj, typeTag}, ... }
 local SCAN_GUARD    = false
-local REBUILD_GUARD = false
 
 local CAT_ORDER = {"Admin Remotes", "Guis", "Data", "Remotes", "Utilities", "Scripts"}
 local CAT_COLORS = {
@@ -648,23 +647,37 @@ local allServices = {
 "CoreGui","LocalizationService","VoiceChatService","CollectionService"
 }
 
--- rebuildUI: paginated display only — no search logic here
-rebuildUI = function()
-    if REBUILD_GUARD then return end
-    REBUILD_GUARD = true
+-- ── Unified display queue ────────────────────────────────────────────────────
+-- Only one display operation runs at a time (no concurrent scroll writes).
+-- `displayPending` holds the LATEST requested action:
+--   "rebuild"        → normal paginated view
+--   any other string → search query
+-- When the running operation finishes it checks for a pending action and
+-- immediately starts it, so the UI is always up to date.
 
-    task.spawn(function()
-        local children = Scroll:GetChildren()
-        local cleared = 0
-        for _, v in ipairs(children) do
-            if not v:IsA("UIListLayout") then
-                v:Destroy()
-                cleared = cleared + 1
-                if cleared % 30 == 0 then task.wait() end
-            end
+local DISPLAY_BUSY   = false
+local displayPending = nil   -- set by scheduleDisplay, consumed by _runDisplay
+
+local function _clearScroll()
+    local children = Scroll:GetChildren()
+    local n = 0
+    for _, v in ipairs(children) do
+        if not v:IsA("UIListLayout") then
+            v:Destroy()
+            n = n + 1
+            if n % 30 == 0 then task.wait() end
         end
-        remoteRegistry = {}
+    end
+    remoteRegistry = {}
+end
 
+local function _runDisplay(action)
+    DISPLAY_BUSY = true
+
+    _clearScroll()
+
+    if action == "rebuild" then
+        -- paginated view
         for _, cat in ipairs(CAT_ORDER) do
             local list = allResults[cat] or {}
             if #list > 0 then
@@ -684,55 +697,25 @@ rebuildUI = function()
                 end
             end
         end
-
-        REBUILD_GUARD = false
-    end)
-end
-
--- runSearch: completely independent of rebuildUI/REBUILD_GUARD
--- Searches ALL collected data across every category and every page instantly
--- Uses a sequence counter so rapid keystrokes cancel previous pending searches
-local searchSeq = 0
-local function runSearch(query)
-    searchSeq = searchSeq + 1
-    local mySeq = searchSeq
-    local f     = query:lower()
-
-    -- Small debounce (0.2s) so we don't rebuild on every single keystroke
-    task.delay(0.2, function()
-        if mySeq ~= searchSeq then return end  -- a newer keystroke arrived, abort
-
-        -- Clear scroll independently (doesn't touch REBUILD_GUARD)
-        local children = Scroll:GetChildren()
-        local removed  = 0
-        for _, v in ipairs(children) do
-            if not v:IsA("UIListLayout") then
-                v:Destroy()
-                removed = removed + 1
-                if removed % 30 == 0 then task.wait() end
-            end
-        end
-        remoteRegistry = {}
-
+    else
+        -- search view — show ALL matches across every page of every category
+        local f     = action:lower()
         local total = 0
         for _, cat in ipairs(CAT_ORDER) do
             local source  = allResults[cat] or {}
             local matches = {}
-
             for _, entry in ipairs(source) do
-                -- Search by name, full path, AND type tag so nothing is missed
                 local okN, name = pcall(function() return entry.obj.Name end)
                 local okP, path = pcall(function() return entry.obj:GetFullName() end)
-                local haystack  = (
+                local hay = (
                     "[" .. entry.typeTag .. "] " ..
                     (okN and name or "") .. " " ..
                     (okP and path or "")
                 ):lower()
-                if haystack:find(f, 1, true) then
+                if hay:find(f, 1, true) then
                     table.insert(matches, entry)
                 end
             end
-
             if #matches > 0 then
                 addCategoryHeader(cat, #matches)
                 if not collapsedCategories[cat] then
@@ -744,7 +727,33 @@ local function runSearch(query)
                 end
             end
         end
-    end)
+    end
+
+    DISPLAY_BUSY = false
+
+    -- run any action that arrived while we were busy
+    if displayPending then
+        local next = displayPending
+        displayPending = nil
+        task.spawn(_runDisplay, next)
+    end
+end
+
+local function scheduleDisplay(action)
+    if DISPLAY_BUSY then
+        displayPending = action   -- latest wins; old pending is discarded
+    else
+        task.spawn(_runDisplay, action)
+    end
+end
+
+-- Public helpers used by the rest of the script
+rebuildUI = function()
+    scheduleDisplay("rebuild")
+end
+
+local function runSearch(query)
+    scheduleDisplay(query)   -- non-rebuild string = search query
 end
 
 -- runOmniScan: collects all data, then triggers rebuildUI
@@ -849,11 +858,16 @@ local function runOmniScan()
 
     allResults  = newResults
     SCAN_GUARD  = false
-    rebuildUI()
+    -- If the user has typed a search, refresh it with new data; otherwise paginate
+    local q = Search.Text
+    if q ~= "" then
+        scheduleDisplay(q)
+    else
+        scheduleDisplay("rebuild")
+    end
 end
 
 -- 8. SEARCH & UPDATE LOOP
--- Search: uses its own independent function so REBUILD_GUARD never blocks it
 Search:GetPropertyChangedSignal("Text"):Connect(function()
     local q = Search.Text
     if q == "" then
@@ -913,7 +927,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V21.0 M<MAX"
+TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
