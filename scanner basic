@@ -445,7 +445,7 @@ spamThread = task.spawn(function()
         doExecute(selectedObj, selectedTypeTag)
         spamCount = spamCount + 1
         SpamCountLabel.Text = "Fired: " .. spamCount
-        task.wait(0.1)
+        task.wait(0.03)
     end
 end)
 end
@@ -551,65 +551,121 @@ local adminKeywords = {
 "ban","kick","god","fly","speed","noclip","teleport","invisible","freeze",
 "kill","damage","heal","respawn","item","weapon","tool","pet","data","save",
 "load","reset","unlock","upgrade","purchase","buy","sell","trade","transfer",
-"claim","redeem","code","promo","quest","mission","level","exp","xp","vip","owner"
+"claim","redeem","code","promo","quest","mission","level","exp","xp","vip","owner",
+-- money / depth / earning system keywords
+"earn","coin","coins","gem","gems","currency","balance","wallet","income",
+"passive","multiplier","boost","reward","collect","loot","chest","treasure",
+"depth","floor","zone","region","area","stage","layer","mine","dig","ore",
+"drop","collect","farm","grind","rebirth","prestige","token","tokens",
+"point","points","credit","credits","dollar","dollars","cash","bank",
+"distance","y","ypos","yvalue","position","deep","deeper","underground",
+"collect","pickup","gain","receive","payout","pay","profit","rate","yield"
 }
 
 local allServices = {
 "ReplicatedStorage","Workspace","Lighting","StarterGui","StarterPack",
 "StarterPlayer","Teams","SoundService","TextChatService","TweenService",
-"ReplicatedFirst","Players","Chat","InsertService","MarketplaceService"
+"ReplicatedFirst","Players","Chat","InsertService","MarketplaceService",
+"CollectionService","PhysicsService","RunService"
 }
+
+-- Money/depth keywords defined once outside the scan
+local moneyDepthKeywords = {
+"earn","coin","coins","gem","gems","currency","balance","wallet","income",
+"passive","multiplier","boost","reward","collect","loot","chest","treasure",
+"depth","floor","zone","region","area","stage","layer","mine","dig","ore",
+"farm","grind","rebirth","prestige","token","tokens","point","points",
+"credit","credits","dollar","dollars","bank","distance","deep","deeper",
+"underground","pickup","gain","receive","payout","profit","rate","yield","money","cash"
+}
+
+-- Max entries per category before we stop adding (prevents thousands of buttons)
+local CAT_MAX = 80
+local catCount = {}
+
+local function canAddToCategory(cat)
+catCount[cat] = (catCount[cat] or 0) + 1
+return catCount[cat] <= CAT_MAX
+end
 
 local function runOmniScan()
 for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
 remoteRegistry = {}
+catCount = {}
+
+-- All categories start COLLAPSED so nothing renders until the user opens one
+collapsedCategories = {
+    Guis = true,
+    Data = true,
+    ["Admin Remotes"] = true,
+    ["Money/Depth Remotes"] = true,
+    Remotes = true,
+    Utilities = true,
+    Scripts = true,
+}
 
 -- GUIs (enabled + hidden)
 addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
 for _, g in pairs(PlayerGui:GetChildren()) do
     if g:IsA("ScreenGui") and g ~= ScreenGui then
-        addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis")
+        if canAddToCategory("Guis") then addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis") end
     end
 end
 
 -- Player Data/Values
 addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
 for _, v in pairs(Player:GetDescendants()) do
-    if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
+    if v:IsA("ValueBase") then
+        if canAddToCategory("Data") then addEntry(v, "DATA", "Data") end
+    end
 end
 
--- Admin-specific remotes (top priority)
+-- Category headers only — entries added during deepScan below
 addCategoryHeader("Admin Remotes", Color3.fromRGB(180, 0, 0))
--- Standard remotes/bindables
+addCategoryHeader("Money/Depth Remotes", Color3.fromRGB(255, 200, 0))
 addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
--- Keyword-matched utilities
 addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
--- LocalScripts (intelligence — shows admin script names)
 addCategoryHeader("Scripts", Color3.fromRGB(80, 0, 150))
 
 local seenRemotes = {}
+local scanStepCount = 0
 
 local function deepScan(parent)
     for _, child in pairs(parent:GetChildren()) do
         local lowName = child.Name:lower()
         local id = tostring(child)
 
+        -- Yield every 25 objects so the game doesn't freeze
+        scanStepCount = scanStepCount + 1
+        if scanStepCount % 25 == 0 then task.wait() end
+
         if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
             if not seenRemotes[id] then
                 seenRemotes[id] = true
                 local isAdmin = false
+                local isMoney = false
                 for _, key in pairs(adminKeywords) do
                     if lowName:find(key) then isAdmin = true break end
                 end
-                if isAdmin then
+                for _, key in pairs(moneyDepthKeywords) do
+                    if lowName:find(key) then isMoney = true break end
+                end
+                if isMoney and canAddToCategory("Money/Depth Remotes") then
+                    addEntry(child, "MONEY REMOTE", "Money/Depth Remotes")
+                end
+                if isAdmin and canAddToCategory("Admin Remotes") then
                     addEntry(child, "ADMIN REMOTE", "Admin Remotes")
                 end
-                addEntry(child, "REMOTE", "Remotes")
+                if canAddToCategory("Remotes") then
+                    addEntry(child, "REMOTE", "Remotes")
+                end
             end
         elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
             if not seenRemotes[id] then
                 seenRemotes[id] = true
-                addEntry(child, "BINDABLE", "Remotes")
+                if canAddToCategory("Remotes") then
+                    addEntry(child, "BINDABLE", "Remotes")
+                end
             end
         end
 
@@ -618,20 +674,20 @@ local function deepScan(parent)
             for _, key in pairs(adminKeywords) do
                 if lowName:find(key) then
                     if child:IsA("ValueBase") then
-                        addEntry(child, "ADMIN DATA", "Admin Remotes")
+                        if canAddToCategory("Admin Remotes") then addEntry(child, "ADMIN DATA", "Admin Remotes") end
                     elseif child:IsA("LocalScript") or child:IsA("Script") or child:IsA("ModuleScript") then
-                        addEntry(child, "SCRIPT[" .. child.ClassName .. "]", "Scripts")
+                        if canAddToCategory("Scripts") then addEntry(child, "SCRIPT[" .. child.ClassName .. "]", "Scripts") end
                     else
-                        addEntry(child, "UTILITY", "Utilities")
+                        if canAddToCategory("Utilities") then addEntry(child, "UTILITY", "Utilities") end
                     end
                     break
                 end
             end
         end
 
-        -- All local/module scripts (for intel)
+        -- All local/module scripts (for intel) — only if category is open
         if child:IsA("LocalScript") or child:IsA("ModuleScript") then
-            if not collapsedCategories["Scripts"] then
+            if not collapsedCategories["Scripts"] and canAddToCategory("Scripts") then
                 local b = Instance.new("TextButton")
                 b.Size = UDim2.new(1, 0, 0, 32)
                 b.BackgroundColor3 = Color3.fromRGB(20, 10, 30)
@@ -685,11 +741,14 @@ for _, b in pairs(Scroll:GetChildren()) do
 end
 end)
 
+-- Run initial scan in background so it doesn't freeze the game on load
 task.spawn(function()
-while true do
     runOmniScan()
-    task.wait(6)
-end
+    -- Auto-rescan every 60 seconds instead of 6 (way less lag)
+    while true do
+        task.wait(60)
+        runOmniScan()
+    end
 end)
 
 -- 9. HEADER CONTROLS
