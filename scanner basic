@@ -483,11 +483,14 @@ end
 end)
 
 -- CATEGORY HEADERS
+-- Track entries per category so header clicks can show/hide them
+local categoryEntries = {}
+local categoryHeaders = {}
+
 local function addCategoryHeader(name, color)
 local h = Instance.new("TextButton")
 h.Size = UDim2.new(1, 0, 0, 35)
 h.BackgroundColor3 = color
-h.Text = "  ▼ CATEGORY: " .. name:upper()
 h.TextColor3 = Color3.fromRGB(255, 255, 255)
 h.Font = Enum.Font.SourceSansBold
 h.TextSize = 16
@@ -495,17 +498,25 @@ h.TextXAlignment = Enum.TextXAlignment.Left
 h.Name = "Category_" .. name
 h.Parent = Scroll
 Instance.new("UICorner", h)
-if collapsedCategories[name] then h.Text = "  ▶ CATEGORY: " .. name:upper() end
+categoryEntries[name] = categoryEntries[name] or {}
+categoryHeaders[name] = h
+local collapsed = collapsedCategories[name]
+h.Text = (collapsed and "  ▶ CATEGORY: " or "  ▼ CATEGORY: ") .. name:upper()
 h.MouseButton1Click:Connect(function()
     collapsedCategories[name] = not collapsedCategories[name]
+    local isNowCollapsed = collapsedCategories[name]
+    h.Text = (isNowCollapsed and "  ▶ CATEGORY: " or "  ▼ CATEGORY: ") .. name:upper()
+    for _, btn in ipairs(categoryEntries[name]) do
+        if btn and btn.Parent then
+            btn.Visible = not isNowCollapsed
+        end
+    end
 end)
 end
 
 -- ENTRY BUTTON
 local function addEntry(obj, typeTag, category)
-if collapsedCategories[category] then return end
-
--- Register fireable remotes
+-- Register fireable remotes regardless of collapsed state
 if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or obj:IsA("BindableEvent") or obj:IsA("BindableFunction") then
     table.insert(remoteRegistry, {obj = obj, typeTag = typeTag})
 end
@@ -525,7 +536,13 @@ b.TextXAlignment = Enum.TextXAlignment.Left
 b.Parent = Scroll
 Instance.new("UICorner", b)
 
-if Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower()) then b.Visible = false end
+-- Hidden if category is collapsed OR search doesn't match
+local searchHide = Search.Text ~= "" and not b.Text:lower():find(Search.Text:lower())
+b.Visible = not collapsedCategories[category] and not searchHide
+
+-- Track this button under its category
+categoryEntries[category] = categoryEntries[category] or {}
+table.insert(categoryEntries[category], b)
 
 b.MouseButton1Click:Connect(function()
     stopSpam()
@@ -534,7 +551,6 @@ b.MouseButton1Click:Connect(function()
     Main.ClipsDescendants = false
     Side.Visible = true
     OutputSayer.Text = "Status: Selected " .. obj.Name
-    -- Original CommandBox fill logic — untouched
     CommandBox.Text = tostring(obj:IsA("ValueBase") and obj.Value or obj.Name)
     InfoLabel.Text = "NAME: " .. obj.Name .. "\nTYPE: " .. typeTag .. "\nPATH: " .. obj:GetFullName()
 
@@ -592,6 +608,8 @@ local function runOmniScan()
 for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
 remoteRegistry = {}
 catCount = {}
+categoryEntries = {}
+categoryHeaders = {}
 
 -- All categories start COLLAPSED so nothing renders until the user opens one
 collapsedCategories = {
@@ -794,7 +812,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAdX"
+TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
