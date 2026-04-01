@@ -280,13 +280,13 @@ local function logOutput(msg, color)
     color = color or Color3.fromRGB(57, 255, 20)
     local ts = string.format("[%.1f]", tick() % 1000)
     local entry = Instance.new("TextLabel")
-    entry.Size = UDim2.new(1, -4, 0, 0)
-    entry.AutomaticSize = Enum.AutomaticSize.Y
+    entry.Size = UDim2.new(1, -4, 0, 32)
     entry.BackgroundTransparency = 1
     entry.Font = Enum.Font.Code
     entry.TextSize = 10
     entry.TextColor3 = color
     entry.TextXAlignment = Enum.TextXAlignment.Left
+    entry.TextYAlignment = Enum.TextYAlignment.Top
     entry.TextWrapped = true
     entry.Text = " " .. ts .. " " .. tostring(msg)
     entry.Parent = CmdLogScroll
@@ -805,9 +805,7 @@ end)
 antiKickBtn = makeBtn(BypassWin, "ANTI-KICK: OFF", 10, 89, 145, 28, Color3.fromRGB(40, 10, 10), Color3.fromRGB(255, 80, 80))
 local kickStatus   = makeLabel(BypassWin, "", 165, 94, 145, 18, Color3.fromRGB(160, 160, 160), 10)
 
-local origNamecallBypass
-local kickHookActive = false
-
+-- Anti-kick toggle — master hook at the bottom of the file checks antiKickActive flag
 antiKickBtn.MouseButton1Click:Connect(function()
     antiKickActive = not antiKickActive
     if antiKickActive then
@@ -815,21 +813,6 @@ antiKickBtn.MouseButton1Click:Connect(function()
         antiKickBtn.BackgroundColor3 = Color3.fromRGB(120, 10, 10)
         kickStatus.Text = "BLOCKING :Kick()"
         logOutput("BYPASS: Anti-Kick ON", Color3.fromRGB(255, 80, 80))
-        -- Hook namecall to block Kick
-        if not kickHookActive then
-            kickHookActive = true
-            pcall(function()
-                local oldNC2
-                oldNC2 = hookmetamethod(game, "__namecall", function(self, ...)
-                    local m = getnamecallmethod()
-                    if m == "Kick" then
-                        logOutput("KICK BLOCKED on " .. (rawget(self,"Name") or "?"), Color3.fromRGB(255, 80, 80))
-                        return
-                    end
-                    return oldNC2(self, ...)
-                end)
-            end)
-        end
     else
         antiKickBtn.Text = "ANTI-KICK: OFF"
         antiKickBtn.BackgroundColor3 = Color3.fromRGB(40, 10, 10)
@@ -862,30 +845,14 @@ end)
 -- RemoteFunction spoof — auto-intercept admin check RFs and return true
 rfSpoofBtn = makeBtn(BypassWin, "RF ADMIN SPOOF: OFF", 10, 159, 200, 28, Color3.fromRGB(20, 0, 30), Color3.fromRGB(200, 80, 255))
 local rfStatus    = makeLabel(BypassWin, "", 10, 191, 300, 18, Color3.fromRGB(160, 160, 160), 10)
+-- RF spoof toggle — master hook at the bottom checks rfSpoofActive flag
 rfSpoofBtn.MouseButton1Click:Connect(function()
     rfSpoofActive = not rfSpoofActive
     if rfSpoofActive then
         rfSpoofBtn.Text = "RF ADMIN SPOOF: ON"
         rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
-        rfStatus.Text = "All RF InvokeServer returns spoofed"
-        logOutput("BYPASS: RF Spoof ON — hooking all InvokeServer", Color3.fromRGB(200, 80, 255))
-        -- Hook InvokeServer: if RF name matches admin keywords, return true/255
-        pcall(function()
-            local oldNC3
-            oldNC3 = hookmetamethod(game, "__namecall", function(self, ...)
-                local m = getnamecallmethod()
-                if m == "InvokeServer" and rfSpoofActive then
-                    local rname = (rawget(self, "Name") or ""):lower()
-                    for _, key in pairs({"admin","rank","check","isadmin","hasadmin","verify","perm","auth"}) do
-                        if rname:find(key) then
-                            logOutput("RF SPOOF: intercepted " .. rname .. " → true", Color3.fromRGB(200, 80, 255))
-                            return true, 255
-                        end
-                    end
-                end
-                return oldNC3(self, ...)
-            end)
-        end)
+        rfStatus.Text = "InvokeServer admin-keyword names → true,255"
+        logOutput("BYPASS: RF Spoof ON", Color3.fromRGB(200, 80, 255))
     else
         rfSpoofBtn.Text = "RF ADMIN SPOOF: OFF"
         rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(20, 0, 30)
@@ -902,28 +869,23 @@ nameSpoofBtn.TextSize = 10
 nameSpoofBtn.MouseButton1Click:Connect(function()
     local newName = nameBox.Text
     if newName == "" then return end
-    pcall(function()
-        hookmetamethod(game, "__index", function(self, key)
-            if self == Player and key == "Name" then return newName end
-            if self == Player and key == "DisplayName" then return newName end
-        end)
-    end)
-    logOutput("BYPASS: Name spoofed to " .. newName, Color3.fromRGB(100, 150, 255))
+    -- Safe: try setting DisplayName directly (no hookmetamethod to avoid crashes)
+    local ok = pcall(function() Player.DisplayName = newName end)
+    if ok then
+        logOutput("BYPASS: DisplayName set to " .. newName, Color3.fromRGB(100, 150, 255))
+    else
+        logOutput("BYPASS: Name set failed (read-only)", Color3.fromRGB(255, 180, 0))
+    end
 end)
 
 local uidLabel = makeLabel(BypassWin, "Spoof UserId:", 10, 243, 150, 16, Color3.fromRGB(200, 200, 200), 10)
 local uidBox = makeBox(BypassWin, "Target UserId...", 10, 261, 190, 24)
-local uidSpoofBtn = makeBtn(BypassWin, "SPOOF UID", 206, 261, 100, 24, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
+local uidSpoofBtn = makeBtn(BypassWin, "LOG MY UID", 206, 261, 100, 24, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
 uidSpoofBtn.TextSize = 10
 uidSpoofBtn.MouseButton1Click:Connect(function()
-    local uid = tonumber(uidBox.Text)
-    if not uid then return end
-    pcall(function()
-        hookmetamethod(game, "__index", function(self, key)
-            if self == Player and key == "UserId" then return uid end
-        end)
-    end)
-    logOutput("BYPASS: UserId spoofed to " .. uid, Color3.fromRGB(100, 150, 255))
+    -- Log current player info for reference (UserId is read-only, can't be changed safely)
+    logOutput("MY UID: " .. tostring(Player.UserId) .. "  NAME: " .. Player.Name, Color3.fromRGB(100, 150, 255))
+    pcall(function() setclipboard(tostring(Player.UserId)) end)
 end)
 
 BypassBtn.MouseButton1Click:Connect(function() BypassWin.Visible = not BypassWin.Visible end)
@@ -1218,13 +1180,13 @@ local function addSnifferEntry(remoteName, method, args)
     local ts = string.format("%.1f", tick() % 1000)
     local argStr = serializeArgs(args)
     local row = Instance.new("TextLabel")
-    row.Size = UDim2.new(1, -6, 0, 0)
-    row.AutomaticSize = Enum.AutomaticSize.Y
+    row.Size = UDim2.new(1, -6, 0, 32)
     row.BackgroundColor3 = Color3.fromRGB(12, 5, 18)
     row.Font = Enum.Font.Code
     row.TextSize = 11
     row.TextColor3 = Color3.fromRGB(255, 80, 200)
     row.TextXAlignment = Enum.TextXAlignment.Left
+    row.TextYAlignment = Enum.TextYAlignment.Top
     row.TextWrapped = true
     row.Text = string.format("  [%s] %s::%s  %s", ts, remoteName, method, argStr)
     row.Parent = SnifferScroll
