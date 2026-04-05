@@ -185,12 +185,14 @@ VAL    = Color3.fromRGB(57, 255, 20),
 PLAYER = Color3.fromRGB(0, 180, 255),
 NIL    = Color3.fromRGB(255, 180, 0),
 NONE   = Color3.fromRGB(200, 80, 80),
+MULTI  = Color3.fromRGB(255, 120, 0),
+AUTO   = Color3.fromRGB(220, 60, 220),
 }
 local argModeBtns = {}
-local modeNames = {"VAL", "PLAYER", "NIL", "NONE"}
+local modeNames = {"VAL", "PLAYER", "NIL", "NONE", "MULTI", "AUTO"}
 for i, mode in ipairs(modeNames) do
-local bx = 10 + (i-1) * 50
-local mb = makeBtn(Side, mode, bx, 49, 46, 18, Color3.fromRGB(30, 30, 30), argModeColors[mode])
+local bx = 10 + (i-1) * 32
+local mb = makeBtn(Side, mode, bx, 49, 30, 18, Color3.fromRGB(30, 30, 30), argModeColors[mode])
 mb.TextSize = 10
 argModeBtns[mode] = mb
 mb.MouseButton1Click:Connect(function()
@@ -331,6 +333,32 @@ local clickConn = nil
 local collapsedCategories = {}
 local remoteRegistry = {}  -- all found fireable remotes for Fire All
 
+-- Parse "val1, val2, val3" string into a typed args table
+local function parseMultiArgs(text)
+local args = {}
+local count = 0
+for token in (text .. ","):gmatch("([^,]*),") do
+    token = token:match("^%s*(.-)%s*$")
+    count = count + 1
+    if token == "nil" or token == "" then
+        args[count] = nil
+    elseif token == "true" then
+        args[count] = true
+    elseif token == "false" then
+        args[count] = false
+    elseif token:lower() == "player" or token:lower() == "localplayer" then
+        args[count] = Player
+    elseif tonumber(token) then
+        args[count] = tonumber(token)
+    elseif (token:sub(1,1) == '"' and token:sub(-1) == '"') or (token:sub(1,1) == "'" and token:sub(-1) == "'") then
+        args[count] = token:sub(2, -2)
+    else
+        args[count] = token
+    end
+end
+return args, count
+end
+
 -- Core fire function — uses argMode to decide what to pass
 local function doExecute(obj, typeTag)
 if not obj or not obj.Parent then
@@ -358,38 +386,114 @@ elseif typeTag == "DATA" then
     logOutput("SET " .. obj.Name .. " = " .. tostring(val))
 
 elseif obj:IsA("RemoteEvent") then
-    local ok, err = pcall(function()
-        if argMode == "VAL" then obj:FireServer(val)
-        elseif argMode == "PLAYER" then obj:FireServer(Player)
-        elseif argMode == "NIL" then obj:FireServer(nil)
-        elseif argMode == "NONE" then obj:FireServer()
+    if argMode == "AUTO" then
+        OutputSayer.Text = "AUTO testing..."
+        local autoCombos = {
+            {{}, 0, "<none>"},
+            {{nil}, 1, "nil"},
+            {{Player}, 1, "player"},
+            {{1}, 1, "1"},
+            {{true}, 1, "true"},
+            {{false}, 1, "false"},
+            {{"give"}, 1, '"give"'},
+            {{Player, 1}, 2, "player,1"},
+            {{Player, true}, 2, "player,true"},
+            {{Player, ""}, 2, 'player,""'},
+            {{1, Player}, 2, "1,player"},
+        }
+        task.spawn(function()
+            local ok_count = 0
+            for _, combo in ipairs(autoCombos) do
+                local cargs, ccount, clabel = combo[1], combo[2], combo[3]
+                local ok, err = pcall(function() obj:FireServer(table.unpack(cargs, 1, ccount)) end)
+                if ok then
+                    ok_count = ok_count + 1
+                    logOutput("AUTO OK  (" .. clabel .. ") → " .. obj.Name, Color3.fromRGB(57, 255, 20))
+                else
+                    logOutput("AUTO ERR (" .. clabel .. ") " .. tostring(err):sub(1, 60), Color3.fromRGB(80, 80, 80))
+                end
+                task.wait(0.05)
+            end
+            OutputSayer.Text = "AUTO: " .. ok_count .. "/" .. #autoCombos .. " OK"
+        end)
+    elseif argMode == "MULTI" then
+        local margs, mcount = parseMultiArgs(CommandBox.Text)
+        local ok, err = pcall(function() obj:FireServer(table.unpack(margs, 1, mcount)) end)
+        if ok then
+            OutputSayer.Text = "MULTI Fired OK"
+            logOutput("MULTI FIRE " .. obj:GetFullName() .. "\n  ARGS=" .. CommandBox.Text, Color3.fromRGB(255, 120, 0))
+        else
+            OutputSayer.Text = "ERR (see log)"
+            logOutput("ERR MULTI " .. obj.Name .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
         end
-    end)
-    if ok then
-        OutputSayer.Text = "Fired [" .. argMode .. "] OK"
-        logOutput("FIRE " .. obj:GetFullName() .. "\n  MODE=" .. argMode .. "  ARG=" .. tostring(val))
     else
-        OutputSayer.Text = "ERR (see log)"
-        logOutput("ERR FIRE " .. obj:GetFullName() .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
+        local ok, err = pcall(function()
+            if argMode == "VAL" then obj:FireServer(val)
+            elseif argMode == "PLAYER" then obj:FireServer(Player)
+            elseif argMode == "NIL" then obj:FireServer(nil)
+            elseif argMode == "NONE" then obj:FireServer()
+            end
+        end)
+        if ok then
+            OutputSayer.Text = "Fired [" .. argMode .. "] OK"
+            logOutput("FIRE " .. obj:GetFullName() .. "\n  MODE=" .. argMode .. "  ARG=" .. tostring(val))
+        else
+            OutputSayer.Text = "ERR (see log)"
+            logOutput("ERR FIRE " .. obj:GetFullName() .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
+        end
     end
 
 elseif obj:IsA("RemoteFunction") then
     OutputSayer.Text = "Invoking [" .. argMode .. "]..."
-    logOutput("INVOKE " .. obj:GetFullName() .. "\n  MODE=" .. argMode .. "  ARG=" .. tostring(val))
     task.spawn(function()
-        local ok, result = pcall(function()
-            if argMode == "VAL" then return obj:InvokeServer(val)
-            elseif argMode == "PLAYER" then return obj:InvokeServer(Player)
-            elseif argMode == "NIL" then return obj:InvokeServer(nil)
-            elseif argMode == "NONE" then return obj:InvokeServer()
+        if argMode == "MULTI" then
+            local margs, mcount = parseMultiArgs(CommandBox.Text)
+            logOutput("MULTI INVOKE " .. obj:GetFullName() .. "\n  ARGS=" .. CommandBox.Text, Color3.fromRGB(255, 120, 0))
+            local ok, result = pcall(function() return obj:InvokeServer(table.unpack(margs, 1, mcount)) end)
+            if ok then
+                OutputSayer.Text = "Done"
+                logOutput("RETURN " .. obj.Name .. "\n  => " .. tostring(result), Color3.fromRGB(255, 120, 0))
+            else
+                OutputSayer.Text = "ERR (see log)"
+                logOutput("ERR MULTI INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
             end
-        end)
-        if ok then
-            OutputSayer.Text = "Done"
-            logOutput("RETURN " .. obj.Name .. "\n  => " .. tostring(result))
+        elseif argMode == "AUTO" then
+            local autoCombos = {
+                {{}, 0, "<none>"},
+                {{Player}, 1, "player"},
+                {{nil}, 1, "nil"},
+                {{1}, 1, "1"},
+                {{true}, 1, "true"},
+                {{Player, 1}, 2, "player,1"},
+                {{Player, true}, 2, "player,true"},
+            }
+            for _, combo in ipairs(autoCombos) do
+                local cargs, ccount, clabel = combo[1], combo[2], combo[3]
+                local ok, result = pcall(function() return obj:InvokeServer(table.unpack(cargs, 1, ccount)) end)
+                if ok then
+                    logOutput("AUTO INVOKE OK (" .. clabel .. ") => " .. tostring(result), Color3.fromRGB(57, 255, 20))
+                else
+                    logOutput("AUTO INVOKE ERR (" .. clabel .. ")", Color3.fromRGB(80, 80, 80))
+                end
+                task.wait(0.05)
+            end
+            OutputSayer.Text = "AUTO done"
         else
-            OutputSayer.Text = "ERR (see log)"
-            logOutput("ERR INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
+            logOutput("INVOKE " .. obj:GetFullName() .. "\n  MODE=" .. argMode .. "  ARG=" .. tostring(val))
+            local ok, result = pcall(function()
+                if argMode == "VAL" then return obj:InvokeServer(val)
+                elseif argMode == "PLAYER" then return obj:InvokeServer(Player)
+                elseif argMode == "NIL" then return obj:InvokeServer(nil)
+                elseif argMode == "NONE" then return obj:InvokeServer()
+                end
+            end)
+            if ok then
+                OutputSayer.Text = "Done"
+                logOutput("RETURN " .. obj.Name .. "\n  => " .. tostring(result))
+            else
+                OutputSayer.Text = "ERR (see log)"
+                logOutput("ERR INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
+            end
         end
     end)
 
@@ -1337,21 +1441,84 @@ end)
 local snifferLog = {}
 local MAX_SNIFF = 150
 
-local function addSnifferEntry(remoteName, method, args)
+local function addSnifferEntry(remoteObj, remoteName, method, args)
 local ts = string.format("%.1f", tick() % 1000)
 local argStr = serializeArgs(args)
-local row = Instance.new("TextLabel")
+local argCount = #args
+
+local row = Instance.new("Frame")
 row.Size = UDim2.new(1, -6, 0, 0)
 row.AutomaticSize = Enum.AutomaticSize.Y
 row.BackgroundColor3 = Color3.fromRGB(12, 5, 18)
-row.Font = Enum.Font.Code
-row.TextSize = 11
-row.TextColor3 = Color3.fromRGB(255, 80, 200)
-row.TextXAlignment = Enum.TextXAlignment.Left
-row.TextWrapped = true
-row.Text = string.format("  [%s] %s::%s  %s", ts, remoteName, method, argStr)
+row.BorderSizePixel = 0
 row.Parent = SnifferScroll
 Instance.new("UICorner", row)
+
+local lbl = Instance.new("TextLabel")
+lbl.Size = UDim2.new(1, -58, 0, 0)
+lbl.AutomaticSize = Enum.AutomaticSize.Y
+lbl.Position = UDim2.new(0, 4, 0, 2)
+lbl.BackgroundTransparency = 1
+lbl.Font = Enum.Font.Code
+lbl.TextSize = 11
+lbl.TextColor3 = Color3.fromRGB(255, 80, 200)
+lbl.TextXAlignment = Enum.TextXAlignment.Left
+lbl.TextWrapped = true
+lbl.Text = string.format("[%s] %s::%s  %s", ts, remoteName, method, argStr)
+lbl.Parent = row
+
+-- REPLAY button — re-fires with the exact same captured args
+local canReplay = remoteObj and remoteObj.Parent and
+    (remoteObj:IsA("RemoteEvent") or remoteObj:IsA("RemoteFunction") or
+     remoteObj:IsA("BindableEvent") or remoteObj:IsA("BindableFunction"))
+
+local replayBtn = Instance.new("TextButton")
+replayBtn.Size = UDim2.new(0, 50, 0, 20)
+replayBtn.Position = UDim2.new(1, -54, 0, 2)
+replayBtn.Text = canReplay and "REPLAY" or "N/A"
+replayBtn.Font = Enum.Font.SourceSansBold
+replayBtn.TextSize = 10
+replayBtn.BackgroundColor3 = canReplay and Color3.fromRGB(30, 80, 30) or Color3.fromRGB(40, 40, 40)
+replayBtn.TextColor3 = canReplay and Color3.fromRGB(57, 255, 20) or Color3.fromRGB(100, 100, 100)
+replayBtn.Parent = row
+Instance.new("UICorner", replayBtn)
+
+if canReplay then
+    replayBtn.MouseButton1Click:Connect(function()
+        pcall(function()
+            if not remoteObj.Parent then
+                logOutput("REPLAY ERR: remote gone — " .. remoteName, Color3.fromRGB(255, 80, 80))
+                return
+            end
+            if remoteObj:IsA("RemoteEvent") then
+                remoteObj:FireServer(table.unpack(args, 1, argCount))
+                logOutput("REPLAY FIRE: " .. remoteName .. "  " .. argStr, Color3.fromRGB(57, 255, 20))
+            elseif remoteObj:IsA("RemoteFunction") then
+                task.spawn(function()
+                    local ok, result = pcall(function()
+                        return remoteObj:InvokeServer(table.unpack(args, 1, argCount))
+                    end)
+                    if ok then
+                        logOutput("REPLAY INVOKE: " .. remoteName .. " => " .. tostring(result), Color3.fromRGB(57, 255, 20))
+                    else
+                        logOutput("REPLAY ERR: " .. remoteName .. " " .. tostring(result), Color3.fromRGB(255, 80, 80))
+                    end
+                end)
+            elseif remoteObj:IsA("BindableEvent") then
+                remoteObj:Fire(table.unpack(args, 1, argCount))
+                logOutput("REPLAY BIND:FIRE: " .. remoteName .. "  " .. argStr, Color3.fromRGB(57, 255, 20))
+            elseif remoteObj:IsA("BindableFunction") then
+                task.spawn(function()
+                    local ok, result = pcall(function()
+                        return remoteObj:Invoke(table.unpack(args, 1, argCount))
+                    end)
+                    logOutput("REPLAY BIND:INVOKE: " .. remoteName .. " => " .. tostring(result), Color3.fromRGB(57, 255, 20))
+                end)
+            end
+        end)
+    end)
+end
+
 table.insert(snifferLog, row)
 if #snifferLog > MAX_SNIFF then
     local old = table.remove(snifferLog, 1)
@@ -1396,8 +1563,9 @@ local hookOk, hookErr = pcall(function()
         -- Sniffer capture (non-blocking, never interrupts the call)
         if method == "FireServer" or method == "InvokeServer" or method == "Fire" or method == "Invoke" then
             local name = instName(self)
+            local capturedSelf = self
             local args = {...}
-            task.defer(function() addSnifferEntry(name, method, args) end)
+            task.defer(function() addSnifferEntry(capturedSelf, name, method, args) end)
         end
 
         -- Always pass through to the original — must never be skipped for fire calls
