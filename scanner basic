@@ -309,14 +309,26 @@ local Search = Instance.new("TextBox")
 Search.Size = UDim2.new(1, -30, 0, 35)
 Search.Position = UDim2.new(0, 15, 0, 45)
 Search.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Search.PlaceholderText = "Search all remotes, data, scripts, GUIs..."
+Search.PlaceholderText = "Search name/path · re: gui: data: mod: bind: admin: script:"
 Search.TextColor3 = Color3.fromRGB(255, 255, 255)
 Search.Parent = Main
 Instance.new("UICorner", Search)
 
+-- Result count label sits just above the scroll area
+local ResultCountLabel = Instance.new("TextLabel")
+ResultCountLabel.Size = UDim2.new(1, -30, 0, 18)
+ResultCountLabel.Position = UDim2.new(0, 15, 0, 83)
+ResultCountLabel.BackgroundTransparency = 1
+ResultCountLabel.Text = ""
+ResultCountLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
+ResultCountLabel.Font = Enum.Font.Code
+ResultCountLabel.TextSize = 10
+ResultCountLabel.TextXAlignment = Enum.TextXAlignment.Right
+ResultCountLabel.Parent = Main
+
 local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1, -30, 1, -120)
-Scroll.Position = UDim2.new(0, 15, 0, 95)
+Scroll.Size = UDim2.new(1, -30, 1, -135)
+Scroll.Position = UDim2.new(0, 15, 0, 108)
 Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 6
 Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -380,7 +392,7 @@ if typeTag:find("GUI") then
     OutputSayer.Text = "Status: GUI Force-Opened"
     logOutput("GUI opened: " .. obj.Name)
 
-elseif typeTag == "DATA" then
+elseif typeTag:find("DATA") then
     pcall(function() obj.Value = val end)
     OutputSayer.Text = "Status: Data Applied"
     logOutput("SET " .. obj.Name .. " = " .. tostring(val))
@@ -498,33 +510,93 @@ elseif obj:IsA("RemoteFunction") then
     end)
 
 elseif obj:IsA("BindableEvent") then
-    local ok, err = pcall(function()
-        if argMode == "VAL" then obj:Fire(val)
-        elseif argMode == "PLAYER" then obj:Fire(Player)
-        elseif argMode == "NIL" then obj:Fire(nil)
-        elseif argMode == "NONE" then obj:Fire()
+    if argMode == "MULTI" then
+        local margs, mcount = parseMultiArgs(CommandBox.Text)
+        local ok, err = pcall(function() obj:Fire(table.unpack(margs, 1, mcount)) end)
+        if ok then
+            OutputSayer.Text = "MULTI Bind Fired OK"
+            logOutput("MULTI BIND:FIRE " .. obj:GetFullName() .. "\n  ARGS=" .. CommandBox.Text, Color3.fromRGB(255, 120, 0))
+        else
+            OutputSayer.Text = "ERR (see log)"
+            logOutput("ERR MULTI BIND:FIRE " .. obj.Name .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
         end
-    end)
-    if ok then
-        OutputSayer.Text = "Bindable Fired [" .. argMode .. "]"
-        logOutput("BIND:FIRE " .. obj:GetFullName() .. "\n  MODE=" .. argMode)
+    elseif argMode == "AUTO" then
+        OutputSayer.Text = "AUTO testing..."
+        task.spawn(function()
+            local autoCombos = {
+                {{}, 0, "<none>"}, {{nil}, 1, "nil"}, {{Player}, 1, "player"},
+                {{1}, 1, "1"}, {{true}, 1, "true"}, {{Player, 1}, 2, "player,1"},
+            }
+            local ok_count = 0
+            for _, combo in ipairs(autoCombos) do
+                local cargs, ccount, clabel = combo[1], combo[2], combo[3]
+                local ok, err = pcall(function() obj:Fire(table.unpack(cargs, 1, ccount)) end)
+                if ok then ok_count = ok_count + 1
+                    logOutput("AUTO BIND OK  (" .. clabel .. ") → " .. obj.Name, Color3.fromRGB(57, 255, 20))
+                else
+                    logOutput("AUTO BIND ERR (" .. clabel .. ") " .. tostring(err):sub(1,50), Color3.fromRGB(80,80,80))
+                end
+                task.wait(0.05)
+            end
+            OutputSayer.Text = "AUTO: " .. ok_count .. "/" .. 6 .. " OK"
+        end)
     else
-        logOutput("ERR BIND:FIRE " .. obj.Name .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
+        local ok, err = pcall(function()
+            if argMode == "VAL" then obj:Fire(val)
+            elseif argMode == "PLAYER" then obj:Fire(Player)
+            elseif argMode == "NIL" then obj:Fire(nil)
+            elseif argMode == "NONE" then obj:Fire()
+            end
+        end)
+        if ok then
+            OutputSayer.Text = "Bindable Fired [" .. argMode .. "]"
+            logOutput("BIND:FIRE " .. obj:GetFullName() .. "\n  MODE=" .. argMode)
+        else
+            logOutput("ERR BIND:FIRE " .. obj.Name .. "\n  " .. tostring(err), Color3.fromRGB(255, 80, 80))
+        end
     end
 
 elseif obj:IsA("BindableFunction") then
     task.spawn(function()
-        local ok, result = pcall(function()
-            if argMode == "VAL" then return obj:Invoke(val)
-            elseif argMode == "PLAYER" then return obj:Invoke(Player)
-            elseif argMode == "NIL" then return obj:Invoke(nil)
-            elseif argMode == "NONE" then return obj:Invoke()
+        if argMode == "MULTI" then
+            local margs, mcount = parseMultiArgs(CommandBox.Text)
+            local ok, result = pcall(function() return obj:Invoke(table.unpack(margs, 1, mcount)) end)
+            if ok then
+                OutputSayer.Text = "MULTI Invoke OK"
+                logOutput("MULTI BIND:INVOKE " .. obj.Name .. " => " .. tostring(result), Color3.fromRGB(255, 120, 0))
+            else
+                OutputSayer.Text = "ERR (see log)"
+                logOutput("ERR MULTI BIND:INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
             end
-        end)
-        if ok then
-            logOutput("BIND:RETURN " .. obj.Name .. "\n  => " .. tostring(result))
+        elseif argMode == "AUTO" then
+            local autoCombos = {
+                {{}, 0, "<none>"}, {{Player}, 1, "player"}, {{nil}, 1, "nil"},
+                {{1}, 1, "1"}, {{true}, 1, "true"}, {{Player, 1}, 2, "player,1"},
+            }
+            for _, combo in ipairs(autoCombos) do
+                local cargs, ccount, clabel = combo[1], combo[2], combo[3]
+                local ok, result = pcall(function() return obj:Invoke(table.unpack(cargs, 1, ccount)) end)
+                if ok then
+                    logOutput("AUTO BIND:INVOKE OK (" .. clabel .. ") => " .. tostring(result), Color3.fromRGB(57, 255, 20))
+                else
+                    logOutput("AUTO BIND:INVOKE ERR (" .. clabel .. ")", Color3.fromRGB(80, 80, 80))
+                end
+                task.wait(0.05)
+            end
+            OutputSayer.Text = "AUTO done"
         else
-            logOutput("ERR BIND:INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
+            local ok, result = pcall(function()
+                if argMode == "VAL" then return obj:Invoke(val)
+                elseif argMode == "PLAYER" then return obj:Invoke(Player)
+                elseif argMode == "NIL" then return obj:Invoke(nil)
+                elseif argMode == "NONE" then return obj:Invoke()
+                end
+            end)
+            if ok then
+                logOutput("BIND:RETURN " .. obj.Name .. "\n  => " .. tostring(result))
+            else
+                logOutput("ERR BIND:INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
+            end
         end
     end)
 
@@ -564,6 +636,86 @@ elseif obj:IsA("ModuleScript") then
             OutputSayer.Text = "ERR require"
             logOutput("ERR require " .. obj.Name .. ":\n  " .. tostring(mod), Color3.fromRGB(255, 80, 80))
         end
+    end)
+
+elseif obj:IsA("LocalScript") then
+    -- Try to enable it (if disabled), then clone+run it in our own context
+    OutputSayer.Text = "LocalScript: enabling..."
+    logOutput("SCRIPT: targeting LocalScript " .. obj:GetFullName(), Color3.fromRGB(180, 100, 255))
+    pcall(function()
+        obj.Disabled = false
+    end)
+    -- Try loadstring if the executor exposes Source
+    task.spawn(function()
+        local ok, src = pcall(function() return obj.Source end)
+        if ok and src and src ~= "" then
+            local fn, err = loadstring(src)
+            if fn then
+                local ok2, result = pcall(fn)
+                if ok2 then
+                    OutputSayer.Text = "Script ran OK"
+                    logOutput("SCRIPT RAN: " .. obj.Name .. " => " .. tostring(result), Color3.fromRGB(180, 100, 255))
+                else
+                    OutputSayer.Text = "Script ERR"
+                    logOutput("ERR SCRIPT RUN " .. obj.Name .. ":\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
+                end
+            else
+                OutputSayer.Text = "Enabled (no Source)"
+                logOutput("SCRIPT: enabled " .. obj.Name .. " (loadstring ERR: " .. tostring(err) .. ")", Color3.fromRGB(180, 100, 255))
+            end
+        else
+            OutputSayer.Text = "Enabled (Source N/A)"
+            logOutput("SCRIPT: enabled " .. obj.Name .. " — Source not accessible", Color3.fromRGB(180, 100, 255))
+        end
+    end)
+
+elseif obj:IsA("Script") then
+    -- Server scripts can't be run from client — log info and try to read what we can
+    OutputSayer.Text = "Server Script (info only)"
+    logOutput("SERVER SCRIPT: " .. obj:GetFullName() .. "\nClass=" .. obj.ClassName .. "  Disabled=" .. tostring(obj.Disabled), Color3.fromRGB(180, 100, 255))
+    pcall(function()
+        local ok, src = pcall(function() return obj.Source end)
+        if ok and src and src ~= "" then
+            logOutput("SERVER SCRIPT SRC (first 200):\n" .. src:sub(1, 200), Color3.fromRGB(150, 80, 200))
+        end
+    end)
+
+else
+    -- UTILITY / unknown — try every generic trick
+    OutputSayer.Text = "UTILITY: probing..."
+    logOutput("UTILITY: " .. obj.Name .. "  Class=" .. obj.ClassName .. "\nPATH=" .. obj:GetFullName(), Color3.fromRGB(255, 80, 80))
+    pcall(function()
+        -- If it has a Value property, set it
+        if obj:IsA("ValueBase") then
+            obj.Value = val
+            logOutput("UTILITY SET .Value = " .. tostring(val), Color3.fromRGB(255, 120, 0))
+            OutputSayer.Text = "Value set"
+            return
+        end
+        -- If it's a BasePart, log its position and try to touch-trigger
+        if obj:IsA("BasePart") then
+            local p = obj.Position
+            logOutput("UTILITY PART pos=" .. string.format("(%.1f,%.1f,%.1f)", p.X, p.Y, p.Z), Color3.fromRGB(255, 80, 80))
+            -- Try to teleport player to it
+            local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            if root and CommandBox.Text:lower() == "tp" then
+                root.CFrame = obj.CFrame + Vector3.new(0, 3, 0)
+                logOutput("UTILITY TP → " .. obj.Name, Color3.fromRGB(57, 255, 20))
+                OutputSayer.Text = "TP'd to part"
+            else
+                OutputSayer.Text = "Part logged (type tp to teleport)"
+            end
+            return
+        end
+        -- Generic: try to call it as a function
+        if type(obj) == "function" then
+            local ok2, r = pcall(obj)
+            logOutput("UTILITY CALL: " .. obj.Name .. " => " .. tostring(r), Color3.fromRGB(255, 80, 80))
+            OutputSayer.Text = ok2 and "Called OK" or "Call ERR"
+            return
+        end
+        logOutput("UTILITY: no executable action for class " .. obj.ClassName, Color3.fromRGB(120, 120, 120))
+        OutputSayer.Text = "Logged (no action)"
     end)
 end
 end
@@ -628,6 +780,8 @@ end)
 -- Track entries per category so header clicks can show/hide them
 local categoryEntries = {}
 local categoryHeaders = {}
+-- Search metadata: button → {name, typeTag, path, category}
+local entryMeta = {}
 
 local function addCategoryHeader(name, color)
 local h = Instance.new("TextButton")
@@ -685,6 +839,16 @@ b.Visible = not collapsedCategories[category] and not searchHide
 -- Track this button under its category
 categoryEntries[category] = categoryEntries[category] or {}
 table.insert(categoryEntries[category], b)
+
+-- Store rich search metadata for advanced filtering
+local fullPath = ""
+pcall(function() fullPath = obj:GetFullName():lower() end)
+entryMeta[b] = {
+    name     = obj.Name:lower(),
+    typeTag  = typeTag:lower(),
+    path     = fullPath,
+    category = category,
+}
 
 b.MouseButton1Click:Connect(function()
     stopSpam()
@@ -752,6 +916,7 @@ remoteRegistry = {}
 catCount = {}
 categoryEntries = {}
 categoryHeaders = {}
+entryMeta = {}
 
 -- All categories start COLLAPSED so nothing renders until the user opens one
 collapsedCategories = {
@@ -856,6 +1021,18 @@ local function deepScan(parent)
                 b.TextXAlignment = Enum.TextXAlignment.Left
                 b.Parent = Scroll
                 Instance.new("UICorner", b)
+                -- Store search metadata for this script button
+                local scriptPath = ""
+                pcall(function() scriptPath = child:GetFullName():lower() end)
+                entryMeta[b] = {
+                    name    = child.Name:lower(),
+                    typeTag = child.ClassName:lower(),
+                    path    = scriptPath,
+                    category = "Scripts",
+                }
+                categoryEntries["Scripts"] = categoryEntries["Scripts"] or {}
+                table.insert(categoryEntries["Scripts"], b)
+
                 b.MouseButton1Click:Connect(function()
                     stopSpam()
                     selectedObj = child
@@ -899,13 +1076,83 @@ pcall(function()
 end)
 end
 
--- 8. SEARCH & UPDATE LOOP
+-- 8. ADVANCED SEARCH
+-- Prefix filters: re: gui: data: mod: bind: admin: script:
+-- Searches name, full path, and typeTag simultaneously
+local TYPE_PREFIXES = {
+    re      = function(t) return t:find("remote") end,
+    gui     = function(t) return t:find("gui") end,
+    data    = function(t) return t:find("data") end,
+    mod     = function(t) return t:find("module") end,
+    bind    = function(t) return t:find("bind") end,
+    admin   = function(t) return t:find("admin") end,
+    script  = function(t) return t:find("script") end,
+    money   = function(t) return t:find("money") end,
+    util    = function(t) return t:find("util") end,
+}
+
 Search:GetPropertyChangedSignal("Text"):Connect(function()
-local f = Search.Text:lower()
-for _, b in pairs(Scroll:GetChildren()) do
-    if b:IsA("TextButton") and not b.Name:find("Category") then
-        b.Visible = b.Text:lower():find(f) ~= nil
+local raw = Search.Text
+local f   = raw:lower()
+local isSearching = f ~= ""
+
+-- Parse optional prefix filter (e.g. "re:give" → filter=re, text=give)
+local filterFn  = nil
+local textQuery = f
+local prefix, rest = f:match("^(%a+):(.*)")
+if prefix and TYPE_PREFIXES[prefix] then
+    filterFn  = TYPE_PREFIXES[prefix]
+    textQuery = rest:match("^%s*(.-)%s*$")  -- trim whitespace
+end
+
+local totalVisible = 0
+local catHasMatch = {}
+
+-- Evaluate each tracked entry button
+for b, meta in pairs(entryMeta) do
+    if b and b.Parent then
+        local show = true
+        if isSearching then
+            -- 1. Type filter
+            if filterFn and not filterFn(meta.typeTag) then
+                show = false
+            end
+            -- 2. Text filter (name OR path OR typeTag all searched)
+            if show and textQuery ~= "" then
+                show = meta.name:find(textQuery, 1, true) ~= nil
+                    or meta.path:find(textQuery, 1, true) ~= nil
+                    or meta.typeTag:find(textQuery, 1, true) ~= nil
+            end
+        else
+            -- Restore natural collapsed state
+            show = not collapsedCategories[meta.category]
+        end
+        b.Visible = show
+        if show then
+            totalVisible = totalVisible + 1
+            catHasMatch[meta.category] = true
+        end
     end
+end
+
+-- Show/hide category headers based on whether they have visible results
+for cat, hdr in pairs(categoryHeaders) do
+    if isSearching then
+        hdr.Visible = catHasMatch[cat] == true
+    else
+        hdr.Visible = true
+    end
+end
+
+-- Update result count label
+if isSearching then
+    local suffix = prefix and (" [" .. prefix .. ":]") or ""
+    ResultCountLabel.Text = totalVisible .. " result" .. (totalVisible == 1 and "" or "s") .. suffix
+    ResultCountLabel.TextColor3 = totalVisible > 0
+        and Color3.fromRGB(57, 255, 20)
+        or  Color3.fromRGB(255, 80, 80)
+else
+    ResultCountLabel.Text = ""
 end
 end)
 
@@ -962,7 +1209,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MA9X"
+TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
