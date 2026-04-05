@@ -423,6 +423,44 @@ elseif obj:IsA("BindableFunction") then
             logOutput("ERR BIND:INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
         end
     end)
+
+elseif obj:IsA("ModuleScript") then
+    local funcName = (CommandBox.Text ~= "" and CommandBox.Text ~= obj.Name) and CommandBox.Text or nil
+    OutputSayer.Text = "Requiring module..."
+    logOutput("MODULE: requiring " .. obj:GetFullName(), Color3.fromRGB(180, 100, 255))
+    task.spawn(function()
+        local ok, mod = pcall(require, obj)
+        if ok then
+            local modType = type(mod)
+            if funcName and modType == "table" and type(mod[funcName]) == "function" then
+                local ok2, result = pcall(mod[funcName])
+                if ok2 then
+                    OutputSayer.Text = "Module fn OK"
+                    logOutput("MODULE:" .. obj.Name .. "." .. funcName .. "() => " .. tostring(result), Color3.fromRGB(180, 100, 255))
+                else
+                    OutputSayer.Text = "ERR (see log)"
+                    logOutput("ERR MODULE fn '" .. funcName .. "': " .. tostring(result), Color3.fromRGB(255, 80, 80))
+                end
+            elseif funcName and modType == "table" and mod[funcName] == nil then
+                OutputSayer.Text = "Fn not found"
+                local keys = {}
+                for k in pairs(mod) do table.insert(keys, tostring(k)) end
+                logOutput("MODULE: '" .. funcName .. "' not found\nAvailable: " .. table.concat(keys, ", "), Color3.fromRGB(255, 180, 0))
+            else
+                OutputSayer.Text = "Required OK"
+                if modType == "table" then
+                    local keys = {}
+                    for k in pairs(mod) do table.insert(keys, tostring(k)) end
+                    logOutput("MODULE: " .. obj.Name .. " OK\nKeys: " .. table.concat(keys, ", "), Color3.fromRGB(180, 100, 255))
+                else
+                    logOutput("MODULE: " .. obj.Name .. " OK\nReturned: " .. modType, Color3.fromRGB(180, 100, 255))
+                end
+            end
+        else
+            OutputSayer.Text = "ERR require"
+            logOutput("ERR require " .. obj.Name .. ":\n  " .. tostring(mod), Color3.fromRGB(255, 80, 80))
+        end
+    end)
 end
 end
 
@@ -715,10 +753,18 @@ local function deepScan(parent)
                 b.Parent = Scroll
                 Instance.new("UICorner", b)
                 b.MouseButton1Click:Connect(function()
-                    OutputSayer.Text = child.Name
-                    InfoLabel.Text = "NAME: " .. child.Name .. "\nTYPE: " .. child.ClassName .. "\nPATH: " .. child:GetFullName()
+                    stopSpam()
+                    selectedObj = child
+                    selectedTypeTag = child.ClassName:upper()
+                    OutputSayer.Text = "Selected: " .. child.Name
+                    CommandBox.Text = child.Name
+                    InfoLabel.Text = "NAME: " .. child.Name .. "\nTYPE: " .. child.ClassName .. "\nPATH: " .. child:GetFullName() .. "\n[EXECUTE = require | type fn name to call it]"
                     Main.ClipsDescendants = false
                     Side.Visible = true
+                    if clickConn then clickConn:Disconnect() end
+                    clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
+                        doExecute(selectedObj, selectedTypeTag)
+                    end)
                 end)
             end
         end
