@@ -885,10 +885,36 @@ local adminKeywords = {
 }
 
 local allServices = {
-"ReplicatedStorage","Workspace","Lighting","StarterGui","StarterPack",
-"StarterPlayer","Teams","SoundService","TextChatService","TweenService",
-"ReplicatedFirst","Players","Chat","InsertService","MarketplaceService",
-"CollectionService","PhysicsService","RunService"
+-- Core replication containers (most remotes live here)
+"ReplicatedStorage","ReplicatedFirst",
+-- World & player containers
+"Workspace","Players",
+-- Starter containers (scripts + GUIs that get cloned to the client)
+"StarterGui","StarterPack","StarterPlayer",
+-- Lighting & environment
+"Lighting","SoundService",
+-- Communication / chat
+"Chat","TextChatService",
+-- Marketplace / badge / group services
+"MarketplaceService","BadgeService","GroupService","FriendService",
+-- Insert / content
+"InsertService","ContentProvider",
+-- Physics / tweening / running
+"PhysicsService","TweenService","RunService","PathfindingService",
+-- Collections / tags
+"CollectionService",
+-- Localisation
+"LocalizationService",
+-- Input & GUI services (some games attach bindables here)
+"UserInputService","ContextActionService","GuiService","VRService","HapticService",
+-- Teleportation (some games attach remotes here)
+"TeleportService",
+-- Policy & analytics
+"PolicyService","RbxAnalyticsService",
+-- Teams
+"Teams",
+-- CoreGui (restricted, pcall guards the attempt)
+"CoreGui",
 }
 
 -- Money/depth keywords defined once outside the scan
@@ -902,7 +928,7 @@ local moneyDepthKeywords = {
 }
 
 -- Max entries per category before we stop adding (prevents thousands of buttons)
-local CAT_MAX = 80
+local CAT_MAX = 300
 local catCount = {}
 
 local function canAddToCategory(cat)
@@ -958,7 +984,9 @@ local scanStepCount = 0
 local function deepScan(parent)
     for _, child in pairs(parent:GetChildren()) do
         local lowName = child.Name:lower()
-        local id = tostring(child)
+        local id = ""
+        pcall(function() id = child:GetFullName() end)
+        if id == "" then id = tostring(child) end
 
         -- Yield every 25 objects so the game doesn't freeze
         scanStepCount = scanStepCount + 1
@@ -1057,12 +1085,27 @@ local function deepScan(parent)
 end
 
 -- Scan all known services
+local scannedServiceIds = {}
 for _, svcName in pairs(allServices) do
     pcall(function()
         local svc = game:GetService(svcName)
-        if svc then deepScan(svc) end
+        if svc then
+            scannedServiceIds[tostring(svc)] = true
+            deepScan(svc)
+        end
     end)
 end
+
+-- Catch-all: scan any root-level game children not already covered above
+-- (custom services, root folders, FE/RE containers, etc.)
+pcall(function()
+    for _, child in pairs(game:GetChildren()) do
+        if not scannedServiceIds[tostring(child)] then
+            scannedServiceIds[tostring(child)] = true
+            pcall(function() deepScan(child) end)
+        end
+    end
+end)
 
 -- Also scan workspace players' characters for exploitable values
 pcall(function()
