@@ -1117,6 +1117,34 @@ pcall(function()
         end
     end
 end)
+
+-- LIVE SCAN: watch all scanned services for remotes added AFTER initial scan
+pcall(function()
+    for _, svcName in pairs(allServices) do
+        pcall(function()
+            local svc = game:GetService(svcName)
+            if not svc then return end
+            svc.DescendantAdded:Connect(function(child)
+                if not (child:IsA("RemoteEvent") or child:IsA("RemoteFunction")
+                    or child:IsA("BindableEvent") or child:IsA("BindableFunction")) then return end
+                local id = ""
+                pcall(function() id = child:GetFullName() end)
+                if id == "" then id = tostring(child) end
+                if seenRemotes[id] then return end
+                seenRemotes[id] = true
+                local lowName = child.Name:lower()
+                local isAdmin, isMoney = false, false
+                for _, key in pairs(adminKeywords) do if lowName:find(key) then isAdmin = true break end end
+                for _, key in pairs(moneyDepthKeywords) do if lowName:find(key) then isMoney = true break end end
+                local tag = child:IsA("RemoteEvent") and "REMOTE" or child:IsA("RemoteFunction") and "REMOTE" or "BINDABLE"
+                if isMoney and canAddToCategory("Money/Depth Remotes") then addEntry(child, "MONEY REMOTE", "Money/Depth Remotes") end
+                if isAdmin and canAddToCategory("Admin Remotes") then addEntry(child, "ADMIN REMOTE", "Admin Remotes") end
+                if canAddToCategory("Remotes") then addEntry(child, tag, "Remotes") end
+                logOutput("LIVE SCAN: found new remote → " .. child:GetFullName(), Color3.fromRGB(57, 255, 20))
+            end)
+        end)
+    end
+end)
 end
 
 -- 8. ADVANCED SEARCH
@@ -1252,7 +1280,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAX9"
+TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
@@ -1322,31 +1350,13 @@ end)
 antiKickBtn = makeBtn(BypassWin, "ANTI-KICK: OFF", 10, 89, 145, 28, Color3.fromRGB(40, 10, 10), Color3.fromRGB(255, 80, 80))
 local kickStatus   = makeLabel(BypassWin, "", 165, 94, 145, 18, Color3.fromRGB(160, 160, 160), 10)
 
-local origNamecallBypass
-local kickHookActive = false
-
 antiKickBtn.MouseButton1Click:Connect(function()
 antiKickActive = not antiKickActive
 if antiKickActive then
     antiKickBtn.Text = "ANTI-KICK: ON"
     antiKickBtn.BackgroundColor3 = Color3.fromRGB(120, 10, 10)
     kickStatus.Text = "BLOCKING :Kick()"
-    logOutput("BYPASS: Anti-Kick ON", Color3.fromRGB(255, 80, 80))
-    -- Hook namecall to block Kick
-    if not kickHookActive then
-        kickHookActive = true
-        pcall(function()
-            local oldNC2
-            oldNC2 = hookmetamethod(game, "__namecall", function(self, ...)
-                local m = getnamecallmethod()
-                if m == "Kick" then
-                    logOutput("KICK BLOCKED on " .. (rawget(self,"Name") or "?"), Color3.fromRGB(255, 80, 80))
-                    return
-                end
-                return oldNC2(self, ...)
-            end)
-        end)
-    end
+    logOutput("BYPASS: Anti-Kick ON — master hook active", Color3.fromRGB(255, 80, 80))
 else
     antiKickBtn.Text = "ANTI-KICK: OFF"
     antiKickBtn.BackgroundColor3 = Color3.fromRGB(40, 10, 10)
@@ -1363,11 +1373,11 @@ rankSpoofActive = not rankSpoofActive
 if rankSpoofActive then
     rankBtn.Text = "RANK SPOOF: ON"
     rankBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 0)
-    rankStatus.Text = "GetRankInGroup→255"
-    logOutput("BYPASS: Rank Spoof ON (GetRankInGroup→255)", Color3.fromRGB(255, 180, 0))
-    pcall(function()
-        hookfunction(Player.GetRankInGroup, function() return 255 end)
-    end)
+    rankStatus.Text = "GetRankInGroup→255 | GetRoleInGroup→Owner | IsInGroup→true"
+    logOutput("BYPASS: Rank Spoof ON (rank=255, role=Owner, inGroup=true)", Color3.fromRGB(255, 180, 0))
+    pcall(function() hookfunction(Player.GetRankInGroup, function() return 255 end) end)
+    pcall(function() hookfunction(Player.GetRoleInGroup, function() return "Owner" end) end)
+    pcall(function() hookfunction(Player.IsInGroup, function() return true end) end)
 else
     rankBtn.Text = "RANK SPOOF: OFF"
     rankBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 0)
@@ -1384,25 +1394,8 @@ rfSpoofActive = not rfSpoofActive
 if rfSpoofActive then
     rfSpoofBtn.Text = "RF ADMIN SPOOF: ON"
     rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
-    rfStatus.Text = "All RF InvokeServer returns spoofed"
-    logOutput("BYPASS: RF Spoof ON — hooking all InvokeServer", Color3.fromRGB(200, 80, 255))
-    -- Hook InvokeServer: if RF name matches admin keywords, return true/255
-    pcall(function()
-        local oldNC3
-        oldNC3 = hookmetamethod(game, "__namecall", function(self, ...)
-            local m = getnamecallmethod()
-            if m == "InvokeServer" and rfSpoofActive then
-                local rname = (rawget(self, "Name") or ""):lower()
-                for _, key in pairs({"admin","rank","check","isadmin","hasadmin","verify","perm","auth"}) do
-                    if rname:find(key) then
-                        logOutput("RF SPOOF: intercepted " .. rname .. " → true", Color3.fromRGB(200, 80, 255))
-                        return true, 255
-                    end
-                end
-            end
-            return oldNC3(self, ...)
-        end)
-    end)
+    rfStatus.Text = "Intercepting all admin RF calls via master hook"
+    logOutput("BYPASS: RF Spoof ON — master hook intercepting InvokeServer", Color3.fromRGB(200, 80, 255))
 else
     rfSpoofBtn.Text = "RF ADMIN SPOOF: OFF"
     rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(20, 0, 30)
@@ -1416,13 +1409,14 @@ local nameLabel = makeLabel(BypassWin, "Spoof Player Name:", 10, 195, 150, 16, C
 local nameBox = makeBox(BypassWin, "Target admin name...", 10, 213, 190, 24)
 local nameSpoofBtn = makeBtn(BypassWin, "SPOOF NAME", 206, 213, 100, 24, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
 nameSpoofBtn.TextSize = 10
+local _nameOldIdx
 nameSpoofBtn.MouseButton1Click:Connect(function()
 local newName = nameBox.Text
 if newName == "" then return end
 pcall(function()
-    hookmetamethod(game, "__index", function(self, key)
-        if self == Player and key == "Name" then return newName end
-        if self == Player and key == "DisplayName" then return newName end
+    _nameOldIdx = hookmetamethod(game, "__index", function(self, key)
+        if self == Player and (key == "Name" or key == "DisplayName") then return newName end
+        return _nameOldIdx(self, key)
     end)
 end)
 logOutput("BYPASS: Name spoofed to " .. newName, Color3.fromRGB(100, 150, 255))
@@ -1432,12 +1426,14 @@ local uidLabel = makeLabel(BypassWin, "Spoof UserId:", 10, 243, 150, 16, Color3.
 local uidBox = makeBox(BypassWin, "Target UserId...", 10, 261, 190, 24)
 local uidSpoofBtn = makeBtn(BypassWin, "SPOOF UID", 206, 261, 100, 24, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
 uidSpoofBtn.TextSize = 10
+local _uidOldIdx
 uidSpoofBtn.MouseButton1Click:Connect(function()
 local uid = tonumber(uidBox.Text)
 if not uid then return end
 pcall(function()
-    hookmetamethod(game, "__index", function(self, key)
+    _uidOldIdx = hookmetamethod(game, "__index", function(self, key)
         if self == Player and key == "UserId" then return uid end
+        return _uidOldIdx(self, key)
     end)
 end)
 logOutput("BYPASS: UserId spoofed to " .. uid, Color3.fromRGB(100, 150, 255))
@@ -1840,10 +1836,15 @@ local hookOk, hookErr = pcall(function()
         -- RF Admin Spoof
         if method == "InvokeServer" and rfSpoofActive then
             local rname = instName(self):lower()
-            for _, key in pairs({"admin","rank","check","isadmin","hasadmin","verify","perm","auth","access"}) do
+            for _, key in pairs({
+                "admin","rank","check","isadmin","hasadmin","verify","perm","auth","access",
+                "staff","mod","owner","operator","trusted","whitelist","allowed","ismod",
+                "isowner","isstuff","isstaff","getrank","getperm","getaccess","getlevel",
+                "level","tier","role","group","ingroup","bypass","elevated","permission"
+            }) do
                 if rname:find(key) then
                     task.defer(function()
-                        logOutput("RF SPOOF hit: " .. rname, Color3.fromRGB(200, 80, 255))
+                        logOutput("RF SPOOF hit: " .. rname .. " → true/255", Color3.fromRGB(200, 80, 255))
                     end)
                     return true, 255
                 end
