@@ -1316,7 +1316,8 @@ end)
 -- ============================================================
 -- 10. BYPASS WINDOW
 -- ============================================================
-local BypassWin = makeWindow("BYPASS SYSTEM", 320, 320, 20, 60, Color3.fromRGB(255, 60, 60))
+local BypassWin = makeWindow("BYPASS SYSTEM + RANK GIVER", 340, 560, 20, 60, Color3.fromRGB(255, 60, 60))
+BypassWin.Size = UDim2.new(0, 340, 0, 560)
 
 local bypassStatus = makeLabel(BypassWin, "All bypasses: OFF", 10, 35, 200, 20, Color3.fromRGB(200, 200, 200), 11)
 
@@ -1365,78 +1366,399 @@ else
 end
 end)
 
--- Rank Spoof (hook GetRankInGroup to return 255)
+-- Rank Spoof — deep multi-hook version
 rankBtn = makeBtn(BypassWin, "RANK SPOOF: OFF", 10, 124, 145, 28, Color3.fromRGB(30, 20, 0), Color3.fromRGB(255, 180, 0))
-local rankStatus = makeLabel(BypassWin, "", 165, 129, 145, 18, Color3.fromRGB(160, 160, 160), 10)
-rankBtn.MouseButton1Click:Connect(function()
-rankSpoofActive = not rankSpoofActive
-if rankSpoofActive then
-    rankBtn.Text = "RANK SPOOF: ON"
-    rankBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 0)
-    rankStatus.Text = "GetRankInGroup→255 | GetRoleInGroup→Owner | IsInGroup→true"
-    logOutput("BYPASS: Rank Spoof ON (rank=255, role=Owner, inGroup=true)", Color3.fromRGB(255, 180, 0))
+local rankStatus = makeLabel(BypassWin, "", 162, 129, 168, 18, Color3.fromRGB(160, 160, 160), 10)
+local rankSpoofIdx = nil
+
+local function applyRankSpoof()
+    -- Hook the three core group methods
     pcall(function() hookfunction(Player.GetRankInGroup, function() return 255 end) end)
     pcall(function() hookfunction(Player.GetRoleInGroup, function() return "Owner" end) end)
-    pcall(function() hookfunction(Player.IsInGroup, function() return true end) end)
-else
-    rankBtn.Text = "RANK SPOOF: OFF"
-    rankBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 0)
-    rankStatus.Text = ""
-    logOutput("BYPASS: Rank Spoof OFF", Color3.fromRGB(160, 120, 0))
+    pcall(function() hookfunction(Player.IsInGroup,      function() return true  end) end)
+    -- Deep __index hook: intercept any property lookup that sounds rank-related
+    pcall(function()
+        if rankSpoofIdx then return end  -- don't double-hook
+        rankSpoofIdx = hookmetamethod(game, "__index", function(self, key)
+            local lk = tostring(key):lower()
+            if self == Player then
+                if lk == "userid"      then return rankSpoofIdx(self, key) end  -- pass through real UID
+                if lk == "name"        then return rankSpoofIdx(self, key) end  -- pass real name unless name-spoofed
+            end
+            -- Intercept rank/role property reads on any object
+            if lk == "rankvalue" or lk == "rank" or lk == "adminrank" then return 255 end
+            if lk == "rolevalue" or lk == "role" or lk == "adminrole"  then return "Owner" end
+            if lk == "isadmin"   or lk == "admin"                      then return true   end
+            return rankSpoofIdx(self, key)
+        end)
+    end)
 end
+
+rankBtn.MouseButton1Click:Connect(function()
+    rankSpoofActive = not rankSpoofActive
+    if rankSpoofActive then
+        rankBtn.Text = "RANK SPOOF: ON"
+        rankBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 0)
+        rankStatus.Text = "Rank→255 | Role→Owner | IsInGroup→true | __index hooked"
+        applyRankSpoof()
+        logOutput("BYPASS: Rank Spoof ON — full multi-hook active", Color3.fromRGB(255, 180, 0))
+    else
+        rankBtn.Text = "RANK SPOOF: OFF"
+        rankBtn.BackgroundColor3 = Color3.fromRGB(30, 20, 0)
+        rankStatus.Text = ""
+        logOutput("BYPASS: Rank Spoof OFF (hook persists until rejoin)", Color3.fromRGB(160, 120, 0))
+    end
 end)
 
--- RemoteFunction spoof — auto-intercept admin check RFs and return true
+-- RemoteFunction spoof — intercept admin checks and return true/255
 rfSpoofBtn = makeBtn(BypassWin, "RF ADMIN SPOOF: OFF", 10, 159, 200, 28, Color3.fromRGB(20, 0, 30), Color3.fromRGB(200, 80, 255))
-local rfStatus    = makeLabel(BypassWin, "", 10, 191, 300, 18, Color3.fromRGB(160, 160, 160), 10)
+local rfStatus = makeLabel(BypassWin, "", 10, 191, 316, 16, Color3.fromRGB(160, 160, 160), 10)
 rfSpoofBtn.MouseButton1Click:Connect(function()
-rfSpoofActive = not rfSpoofActive
-if rfSpoofActive then
-    rfSpoofBtn.Text = "RF ADMIN SPOOF: ON"
-    rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
-    rfStatus.Text = "Intercepting all admin RF calls via master hook"
-    logOutput("BYPASS: RF Spoof ON — master hook intercepting InvokeServer", Color3.fromRGB(200, 80, 255))
-else
-    rfSpoofBtn.Text = "RF ADMIN SPOOF: OFF"
-    rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(20, 0, 30)
-    rfStatus.Text = ""
-    logOutput("BYPASS: RF Spoof OFF", Color3.fromRGB(120, 50, 150))
-end
+    rfSpoofActive = not rfSpoofActive
+    if rfSpoofActive then
+        rfSpoofBtn.Text = "RF ADMIN SPOOF: ON"
+        rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
+        rfStatus.Text = "Intercepting ALL admin-check InvokeServer calls"
+        logOutput("BYPASS: RF Spoof ON — intercepts admin RF InvokeServer", Color3.fromRGB(200, 80, 255))
+    else
+        rfSpoofBtn.Text = "RF ADMIN SPOOF: OFF"
+        rfSpoofBtn.BackgroundColor3 = Color3.fromRGB(20, 0, 30)
+        rfStatus.Text = ""
+        logOutput("BYPASS: RF Spoof OFF", Color3.fromRGB(120, 50, 150))
+    end
 end)
 
--- Name/UserId spoof panel
-local nameLabel = makeLabel(BypassWin, "Spoof Player Name:", 10, 195, 150, 16, Color3.fromRGB(200, 200, 200), 10)
-local nameBox = makeBox(BypassWin, "Target admin name...", 10, 213, 190, 24)
-local nameSpoofBtn = makeBtn(BypassWin, "SPOOF NAME", 206, 213, 100, 24, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
+-- ── RANK BLASTER ────────────────────────────────────────────
+makeLabel(BypassWin, "── RANK BLASTER ──", 10, 213, 316, 16, Color3.fromRGB(255,130,0), 11).Font = Enum.Font.SourceSansBold
+
+-- Target player box (default = self)
+makeLabel(BypassWin, "Target (blank=you):", 10, 233, 160, 14, Color3.fromRGB(180,180,180), 10)
+local rankTargetBox = makeBox(BypassWin, "PlayerName or blank", 10, 249, 200, 22)
+local rankValueBox  = makeBox(BypassWin, "Rank/Level (255)", 216, 249, 114, 22)
+rankValueBox.Text = "255"
+
+-- Rank giver combos: [remoteName patterns, arg patterns]
+-- Each entry: remote name fragment to match, list of arg-combo generators
+local rankGiverPatterns = {
+    -- generic give-rank style
+    {"giverank","setrank","addrank","promoterank","setadmin","addadmin","giveadmin",
+     "rankplayer","promote","setlevel","setpermission","setperm","grantrole",
+     "setrole","giverole","addrole","givepermission","addpermission","elevate",
+     "makeadmin","makemod","makeowner","makestaff","setstaff","addstaff","rank",
+     -- common admin framework remotes
+     "adurite","adonis","hd","kohl","kohls","freeadmin","cmds","command",
+     "admincommand","cmdhandler","servercommand","execute","exec","run",
+    }
+}
+
+-- Generate argument combos for rank-giving
+local function rankBlastCombos(target, rankVal)
+    local rv = tonumber(rankVal) or 255
+    return {
+        -- (player, rank)
+        {target, rv},
+        {target, tostring(rv)},
+        {target.Name, rv},
+        {target.Name, tostring(rv)},
+        {target.UserId, rv},
+        -- (rank, player)
+        {rv, target},
+        {rv, target.Name},
+        -- Adonis-style: ":rank player 255"
+        {":rank " .. target.Name .. " " .. tostring(rv)},
+        {":promote " .. target.Name},
+        {":admin " .. target.Name},
+        {":setrank " .. target.Name .. " " .. tostring(rv)},
+        -- HD Admin style
+        {"rank", target, rv},
+        {"promote", target, rv},
+        {"admin", target},
+        -- Table payload
+        {{player=target, rank=rv}},
+        {{name=target.Name, rank=rv}},
+        {{userId=target.UserId, level=rv}},
+        -- Lone player
+        {target},
+        {target.Name},
+        -- (player, "admin")
+        {target, "admin"},
+        {target, "owner"},
+        {target, "mod"},
+        {target, "moderator"},
+        -- (player, rank, bool)
+        {target, rv, true},
+        {target.Name, rv, true},
+    }
+end
+
+local blastStatus = makeLabel(BypassWin, "Ready", 10, 275, 316, 14, Color3.fromRGB(57,255,20), 10)
+
+local blastBtn = makeBtn(BypassWin, "▶ BLAST RANK ALL ADMIN REMOTES", 10, 291, 316, 26,
+    Color3.fromRGB(80,30,0), Color3.fromRGB(255,130,0))
+blastBtn.TextSize = 11
+
+blastBtn.MouseButton1Click:Connect(function()
+    local targetName = rankTargetBox.Text
+    local target = Player
+    if targetName ~= "" then
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr.Name:lower():find(targetName:lower()) then target = plr break end
+        end
+    end
+    local rankVal = tonumber(rankValueBox.Text) or 255
+    local combos  = rankBlastCombos(target, rankVal)
+    local hitCount = 0
+
+    blastStatus.Text = "Scanning for admin remotes..."
+    blastBtn.BackgroundColor3 = Color3.fromRGB(120, 50, 0)
+
+    task.spawn(function()
+        -- Collect all remote-looking objects from every service
+        local candidates = {}
+        local seen = {}
+        local function collectRemotes(parent)
+            local ok, ch = pcall(function() return parent:GetChildren() end)
+            if not ok then return end
+            for _, child in ipairs(ch) do
+                if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                    local id = ""
+                    pcall(function() id = child:GetFullName() end)
+                    if not seen[id] then
+                        seen[id] = true
+                        local low = child.Name:lower()
+                        local isAdmin = false
+                        for _, pat in ipairs(rankGiverPatterns[1]) do
+                            if low:find(pat, 1, true) then isAdmin = true break end
+                        end
+                        if isAdmin then table.insert(candidates, child) end
+                    end
+                end
+                if not child:IsA("Terrain") and not child:IsA("Player") then
+                    pcall(function() collectRemotes(child) end)
+                end
+            end
+        end
+        for _, svcName in ipairs({"ReplicatedStorage","ReplicatedFirst","Workspace","Players","StarterGui","Chat","CoreGui"}) do
+            pcall(function()
+                local svc = game:GetService(svcName)
+                if svc then collectRemotes(svc) end
+            end)
+        end
+
+        blastStatus.Text = "Found " .. #candidates .. " targets — blasting..."
+        logOutput("RANK BLAST: " .. #candidates .. " candidates found", Color3.fromRGB(255,130,0))
+
+        for _, remote in ipairs(candidates) do
+            for _, combo in ipairs(combos) do
+                pcall(function()
+                    if remote:IsA("RemoteEvent") then
+                        remote:FireServer(table.unpack(combo))
+                        hitCount = hitCount + 1
+                    elseif remote:IsA("RemoteFunction") then
+                        remote:InvokeServer(table.unpack(combo))
+                        hitCount = hitCount + 1
+                    end
+                end)
+                task.wait(0.02)
+            end
+            logOutput("RANK BLAST: fired " .. remote.Name .. " (" .. #combos .. " combos)",
+                Color3.fromRGB(255,130,0))
+        end
+        blastStatus.Text = "Done — " .. hitCount .. " shots fired at " .. #candidates .. " remotes"
+        blastBtn.BackgroundColor3 = Color3.fromRGB(80,30,0)
+        logOutput("RANK BLAST COMPLETE — total shots: " .. hitCount, Color3.fromRGB(255,130,0))
+    end)
+end)
+
+-- Framework-specific rank commands
+makeLabel(BypassWin, "── Framework Targeting ──", 10, 325, 316, 14, Color3.fromRGB(200,100,0), 10).Font = Enum.Font.SourceSansBold
+local fwLabel = makeLabel(BypassWin, "Target name (blank=you):", 10, 341, 200, 13, Color3.fromRGB(180,180,180), 10)
+local fwTargetBox = makeBox(BypassWin, "Player name or blank", 10, 356, 200, 22)
+local fwStatus = makeLabel(BypassWin, "", 10, 382, 316, 13, Color3.fromRGB(180,180,180), 10)
+
+local function getFwTarget()
+    local n = fwTargetBox.Text
+    if n == "" then return Player end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Name:lower():find(n:lower()) then return p end
+    end
+    return Player
+end
+
+local function fwFire(label, fn)
+    task.spawn(function()
+        fwStatus.Text = label .. " — firing..."
+        local ok, err = pcall(fn)
+        if ok then
+            fwStatus.Text = label .. " — OK"
+            logOutput("FW RANK: " .. label .. " OK", Color3.fromRGB(255,130,0))
+        else
+            fwStatus.Text = label .. " — ERR"
+            logOutput("FW RANK ERR: " .. label .. " — " .. tostring(err):sub(1,60), Color3.fromRGB(255,80,80))
+        end
+    end)
+end
+
+-- Row 1: Adonis | HD Admin
+local adonisBtn = makeBtn(BypassWin, "ADONIS :admin", 10, 400, 152, 22, Color3.fromRGB(50,20,0), Color3.fromRGB(255,130,0))
+adonisBtn.TextSize = 10
+adonisBtn.MouseButton1Click:Connect(function()
+    local t = getFwTarget()
+    fwFire("Adonis :admin", function()
+        -- Adonis typically has a RemoteEvent called "Adonis" or "adurite" in ReplicatedStorage
+        for _, svcName in ipairs({"ReplicatedStorage","ReplicatedFirst"}) do
+            pcall(function()
+                local svc = game:GetService(svcName)
+                for _, obj in ipairs(svc:GetDescendants()) do
+                    if obj:IsA("RemoteEvent") then
+                        local low = obj.Name:lower()
+                        if low:find("adonis") or low:find("adurite") or low:find("cmd") or low:find("admin") then
+                            for _, payload in ipairs({
+                                {":admin " .. t.Name},
+                                {":rank " .. t.Name .. " 255"},
+                                {":mod " .. t.Name},
+                                {":owner " .. t.Name},
+                                {"admin", t.Name},
+                                {"rank", t, 255},
+                            }) do
+                                pcall(function() obj:FireServer(table.unpack(payload)) end)
+                                task.wait(0.03)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+local hdBtn = makeBtn(BypassWin, "HD ADMIN rank", 166, 400, 154, 22, Color3.fromRGB(50,20,0), Color3.fromRGB(255,130,0))
+hdBtn.TextSize = 10
+hdBtn.MouseButton1Click:Connect(function()
+    local t = getFwTarget()
+    fwFire("HD Admin rank", function()
+        for _, svcName in ipairs({"ReplicatedStorage","ReplicatedFirst"}) do
+            pcall(function()
+                local svc = game:GetService(svcName)
+                for _, obj in ipairs(svc:GetDescendants()) do
+                    if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                        local low = obj.Name:lower()
+                        if low:find("rank") or low:find("admin") or low:find("hd") or low:find("promote") then
+                            for _, payload in ipairs({
+                                {t, 255},
+                                {t.Name, 255},
+                                {"rank", t, 255},
+                                {"promote", t},
+                                {t, "owner"},
+                                {t.Name, "owner"},
+                            }) do
+                                pcall(function()
+                                    if obj:IsA("RemoteEvent") then obj:FireServer(table.unpack(payload))
+                                    else obj:InvokeServer(table.unpack(payload)) end
+                                end)
+                                task.wait(0.03)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+-- Row 2: Kohl's | Generic
+local kohlsBtn = makeBtn(BypassWin, "KOHL'S :rank", 10, 426, 152, 22, Color3.fromRGB(50,20,0), Color3.fromRGB(255,130,0))
+kohlsBtn.TextSize = 10
+kohlsBtn.MouseButton1Click:Connect(function()
+    local t = getFwTarget()
+    fwFire("Kohl's rank", function()
+        for _, svcName in ipairs({"ReplicatedStorage","Workspace","Players"}) do
+            pcall(function()
+                local svc = game:GetService(svcName)
+                for _, obj in ipairs(svc:GetDescendants()) do
+                    if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) then
+                        local low = obj.Name:lower()
+                        if low:find("kohl") or low:find("cmd") or low:find("command") or low:find("admin") then
+                            for _, payload in ipairs({
+                                {":rank " .. t.Name .. " 6"},
+                                {":admin " .. t.Name},
+                                {":superadmin " .. t.Name},
+                                {"rank", t.Name, 6},
+                                {t, 6},
+                            }) do
+                                pcall(function()
+                                    if obj:IsA("RemoteEvent") then obj:FireServer(table.unpack(payload))
+                                    else obj:InvokeServer(table.unpack(payload)) end
+                                end)
+                                task.wait(0.03)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+local genericRankBtn = makeBtn(BypassWin, "GENERIC giveRank", 166, 426, 154, 22, Color3.fromRGB(50,20,0), Color3.fromRGB(255,130,0))
+genericRankBtn.TextSize = 10
+genericRankBtn.MouseButton1Click:Connect(function()
+    local t  = getFwTarget()
+    local rv = tonumber(rankValueBox.Text) or 255
+    fwFire("Generic giveRank", function()
+        local combos = rankBlastCombos(t, rv)
+        for _, svcName in ipairs({"ReplicatedStorage","ReplicatedFirst","Workspace"}) do
+            pcall(function()
+                local svc = game:GetService(svcName)
+                for _, obj in ipairs(svc:GetDescendants()) do
+                    if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                        for _, combo in ipairs(combos) do
+                            pcall(function()
+                                if obj:IsA("RemoteEvent") then obj:FireServer(table.unpack(combo))
+                                else obj:InvokeServer(table.unpack(combo)) end
+                            end)
+                            task.wait(0.01)
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+-- Name/UserId spoof panel (moved down)
+local nameLabel = makeLabel(BypassWin, "Spoof Player Name:", 10, 457, 150, 14, Color3.fromRGB(200, 200, 200), 10)
+local nameBox = makeBox(BypassWin, "Target admin name...", 10, 473, 190, 22)
+local nameSpoofBtn = makeBtn(BypassWin, "SPOOF NAME", 206, 473, 124, 22, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
 nameSpoofBtn.TextSize = 10
 local _nameOldIdx
 nameSpoofBtn.MouseButton1Click:Connect(function()
-local newName = nameBox.Text
-if newName == "" then return end
-pcall(function()
-    _nameOldIdx = hookmetamethod(game, "__index", function(self, key)
-        if self == Player and (key == "Name" or key == "DisplayName") then return newName end
-        return _nameOldIdx(self, key)
+    local newName = nameBox.Text
+    if newName == "" then return end
+    pcall(function()
+        _nameOldIdx = hookmetamethod(game, "__index", function(self, key)
+            if self == Player and (key == "Name" or key == "DisplayName") then return newName end
+            return _nameOldIdx(self, key)
+        end)
     end)
-end)
-logOutput("BYPASS: Name spoofed to " .. newName, Color3.fromRGB(100, 150, 255))
+    logOutput("BYPASS: Name spoofed to " .. newName, Color3.fromRGB(100, 150, 255))
 end)
 
-local uidLabel = makeLabel(BypassWin, "Spoof UserId:", 10, 243, 150, 16, Color3.fromRGB(200, 200, 200), 10)
-local uidBox = makeBox(BypassWin, "Target UserId...", 10, 261, 190, 24)
-local uidSpoofBtn = makeBtn(BypassWin, "SPOOF UID", 206, 261, 100, 24, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
+local uidLabel = makeLabel(BypassWin, "Spoof UserId:", 10, 499, 150, 14, Color3.fromRGB(200, 200, 200), 10)
+local uidBox = makeBox(BypassWin, "Target UserId...", 10, 515, 190, 22)
+local uidSpoofBtn = makeBtn(BypassWin, "SPOOF UID", 206, 515, 124, 22, Color3.fromRGB(30, 30, 60), Color3.fromRGB(100, 150, 255))
 uidSpoofBtn.TextSize = 10
 local _uidOldIdx
 uidSpoofBtn.MouseButton1Click:Connect(function()
-local uid = tonumber(uidBox.Text)
-if not uid then return end
-pcall(function()
-    _uidOldIdx = hookmetamethod(game, "__index", function(self, key)
-        if self == Player and key == "UserId" then return uid end
-        return _uidOldIdx(self, key)
+    local uid = tonumber(uidBox.Text)
+    if not uid then return end
+    pcall(function()
+        _uidOldIdx = hookmetamethod(game, "__index", function(self, key)
+            if self == Player and key == "UserId" then return uid end
+            return _uidOldIdx(self, key)
+        end)
     end)
-end)
-logOutput("BYPASS: UserId spoofed to " .. uid, Color3.fromRGB(100, 150, 255))
+    logOutput("BYPASS: UserId spoofed to " .. uid, Color3.fromRGB(100, 150, 255))
 end)
 
 BypassBtn.MouseButton1Click:Connect(function() BypassWin.Visible = not BypassWin.Visible end)
@@ -1833,20 +2155,56 @@ local hookOk, hookErr = pcall(function()
             return
         end
 
-        -- RF Admin Spoof
+        -- RF Admin Spoof — catches every admin framework's check remote
         if method == "InvokeServer" and rfSpoofActive then
             local rname = instName(self):lower()
+            -- Also check the parent name for extra signal
+            local pname = ""
+            pcall(function()
+                if self.Parent then pname = self.Parent.Name:lower() end
+            end)
+            local fullCtx = rname .. " " .. pname
             for _, key in pairs({
-                "admin","rank","check","isadmin","hasadmin","verify","perm","auth","access",
-                "staff","mod","owner","operator","trusted","whitelist","allowed","ismod",
-                "isowner","isstuff","isstaff","getrank","getperm","getaccess","getlevel",
-                "level","tier","role","group","ingroup","bypass","elevated","permission"
+                -- generic admin checks
+                "admin","isadmin","hasadmin","checkadmin","getadmin","admincheck",
+                "rank","getrank","checkrank","rankcheck","getrankingroup","rankgroup",
+                "perm","getperm","checkperm","permission","hasperm","haspermission",
+                "auth","isauth","authorize","checkauth","authenticated","authentication",
+                "access","getaccess","checkaccess","hasaccess","accesscheck","accesslevel",
+                "verify","isverified","verifyplayer","verification",
+                "staff","isstaff","hasstaff","staffcheck","isstuff",
+                "mod","ismod","hasmod","modcheck","moderator","ismoderator",
+                "owner","isowner","hasowner","ownercheck",
+                "operator","isoperator","trusted","istrusted","hastrust",
+                "whitelist","iswhitelisted","whitelistcheck",
+                "allowed","isallowed","allowedcheck",
+                "elevated","iselevated","elevatedcheck",
+                "level","getlevel","checklevel","playerlevel","userlevel",
+                "tier","gettier","checktier","playertier",
+                "role","getrole","checkrole","playerrole",
+                "group","ingroup","isingroup","groupcheck","getgroup",
+                "bypass","isbypass","bypasscheck",
+                -- Adonis-specific
+                "adonis","adurite","oop","oopsie",
+                -- HD Admin
+                "hd","hdadmin","headless",
+                -- Kohl's
+                "kohl","kohls","ka",
+                -- common custom patterns
+                "command","commands","cmdcheck","cmds","cmd",
+                "serverrank","clientrank","rankverify","verifyrank",
+                "adminlevel","modlevel","stafflevel","usertrust",
+                "getpermission","checkpermission","permcheck",
+                "isadminplayer","adminplayer","privileged","privilege",
+                "hasgod","godcheck","isgod",
+                "superadmin","supermod","globalmod","globaladmin",
+                "donator","isdonator","vip","isvip","donor",
             }) do
-                if rname:find(key) then
+                if fullCtx:find(key, 1, true) then
                     task.defer(function()
                         logOutput("RF SPOOF hit: " .. rname .. " → true/255", Color3.fromRGB(200, 80, 255))
                     end)
-                    return true, 255
+                    return true, 255, "Owner", true
                 end
             end
         end
@@ -1884,4 +2242,470 @@ SnifferCloseBtn.MouseButton1Click:Connect(function() SnifferGui.Visible = false 
 SnifferClearBtn.MouseButton1Click:Connect(function()
 for _, row in ipairs(snifferLog) do if row and row.Parent then row:Destroy() end end
 snifferLog = {}
+end)
+
+-- ============================================================
+-- 13. ULTRA SCAN ENGINE
+-- ============================================================
+
+-- Server-execute style keywords (things that suggest the remote runs/executes code serverside)
+local execKeywords = {
+    "exec","execute","run","eval","cmd","command","commands","console","shell",
+    "loadstring","require","script","invoke","call","dispatch","trigger","process",
+    "handler","handle","action","perform","apply","do","operate","remote_exec",
+    "serverexec","runscript","runcmd","runcommand","executecommand","executeserver",
+    "serverrun","servercall","servercmd","serverdo","serverfunc","serveraction",
+    "adminexec","adminrun","admincmd","admincommand","adminscript","adminaction",
+    "request","fire","send","push","emit","broadcast","relay","forward",
+}
+
+-- Expanded admin detection keywords for ultra mode
+local ultraAdminKeywords = {
+    "admin","administrator","moderator","mod","staff","owner","operator","trusted",
+    "whitelist","permission","perm","access","auth","authorize","verify","check",
+    "rank","role","level","tier","group","ban","kick","mute","warn","punish",
+    "god","fly","speed","noclip","teleport","tp","invisible","freeze","kill",
+    "damage","heal","respawn","item","weapon","tool","pet","vip","donor",
+    "give","drop","spawn","delete","destroy","clear","wipe","reset","reload",
+    "enable","disable","toggle","set","get","change","update","override","force",
+    "announce","broadcast","notify","alert","message","chat","say","print",
+    "log","audit","track","monitor","report","flag","mark","tag",
+}
+
+-- Expanded money/economy keywords for ultra mode
+local ultraMoneyKeywords = {
+    "money","cash","coin","coins","gem","gems","currency","currencies","balance",
+    "wallet","bank","vault","account","funds","credits","credit","tokens","token",
+    "points","point","stars","star","diamond","diamonds","ruby","rubies",
+    "gold","silver","bronze","ore","resource","resources","material","materials",
+    "earn","income","salary","wage","payout","pay","profit","revenue","yield",
+    "reward","rewards","bonus","bonuses","loot","drop","chest","treasure","prize",
+    "purchase","buy","sell","trade","transfer","exchange","convert","redeem",
+    "upgrade","boost","multiplier","double","triple","passive","farm","grind",
+    "rebirth","prestige","ascend","tier","rank","level","progress","xp","exp",
+    "collect","pickup","gain","receive","claim","store","shop","market","auction",
+    "invest","stock","rate","interest","tax","fee","price","cost","value","worth",
+    "depth","floor","zone","region","stage","layer","underground","mine","dig",
+}
+
+-- ALL services including obscure ones for ultra-deep scan
+local ultraServices = {
+    "ReplicatedStorage","ReplicatedFirst","Workspace","Players",
+    "StarterGui","StarterPack","StarterPlayer","StarterCharacterScripts","StarterPlayerScripts",
+    "Lighting","SoundService","Chat","TextChatService",
+    "MarketplaceService","BadgeService","GroupService","FriendService",
+    "InsertService","ContentProvider","PhysicsService","TweenService",
+    "RunService","PathfindingService","CollectionService","LocalizationService",
+    "UserInputService","ContextActionService","GuiService","VRService","HapticService",
+    "TeleportService","PolicyService","RbxAnalyticsService","Teams","CoreGui",
+    "ServerStorage","ServerScriptService","JointsService","Selection",
+    "NetworkClient","NetworkServer","StudioService","TestService",
+    "AssetService","DataStoreService","MemoryStoreService","MessagingService",
+    "HttpService","AnalyticsService","GuidRegistryService","KeyframeSequenceProvider",
+}
+
+-- Registries for ultra scan results
+local ultraExecRegistry  = {}
+local ultraAdminRegistry = {}
+local ultraMoneyRegistry = {}
+local ultraAllRegistry   = {}
+local ultraScanCount     = 0
+local ultraSeenIds       = {}
+
+-- Helper: score a name for how likely it is to be a given type (0 = no match)
+local function scoreKeywords(name, keywords)
+    local low = name:lower()
+    local score = 0
+    for _, kw in ipairs(keywords) do
+        if low:find(kw, 1, true) then
+            score = score + (kw:len() > 5 and 2 or 1)
+        end
+    end
+    return score
+end
+
+-- ULTRA SCAN WINDOW
+local UltraWin = makeWindow("ULTRA SCAN // ALL EXECUTABLES", 520, 480, 40, 40, Color3.fromRGB(255, 60, 255))
+UltraWin.Size = UDim2.new(0, 520, 0, 480)
+
+local ultraProgressLabel = makeLabel(UltraWin, "Press ULTRA SCAN to begin...", 10, 35, 400, 18, Color3.fromRGB(255, 60, 255), 11)
+
+-- Category tab buttons for ultra window
+local ultraTabNames = {"EXEC", "ADMIN", "MONEY", "ALL"}
+local ultraTabColors = {
+    EXEC  = Color3.fromRGB(255, 60, 60),
+    ADMIN = Color3.fromRGB(255, 130, 0),
+    MONEY = Color3.fromRGB(255, 220, 0),
+    ALL   = Color3.fromRGB(57, 255, 20),
+}
+local ultraActiveTab = "EXEC"
+local ultraTabBtns   = {}
+
+for i, tname in ipairs(ultraTabNames) do
+    local tb = makeBtn(UltraWin, tname, 10 + (i-1)*82, 57, 78, 22, Color3.fromRGB(20,20,20), ultraTabColors[tname])
+    tb.TextSize = 11
+    ultraTabBtns[tname] = tb
+end
+ultraTabBtns["EXEC"].BackgroundColor3 = Color3.fromRGB(50,10,10)
+
+-- Fire-all row
+local fireExecBtn  = makeBtn(UltraWin, "FIRE ALL EXEC",  10,  83, 118, 22, Color3.fromRGB(80,0,0),   Color3.fromRGB(255,60,60))
+local fireAdminBtn = makeBtn(UltraWin, "FIRE ALL ADMIN", 132, 83, 118, 22, Color3.fromRGB(80,40,0),  Color3.fromRGB(255,130,0))
+local fireMoneyBtn = makeBtn(UltraWin, "FIRE ALL MONEY", 254, 83, 118, 22, Color3.fromRGB(80,70,0),  Color3.fromRGB(255,220,0))
+local fireAllUltra = makeBtn(UltraWin, "FIRE ALL",       376, 83, 134, 22, Color3.fromRGB(10,50,10), Color3.fromRGB(57,255,20))
+fireExecBtn.TextSize  = 10
+fireAdminBtn.TextSize = 10
+fireMoneyBtn.TextSize = 10
+fireAllUltra.TextSize = 10
+
+-- Ultra scroll list
+local UltraScroll = Instance.new("ScrollingFrame")
+UltraScroll.Size = UDim2.new(1, -20, 1, -115)
+UltraScroll.Position = UDim2.new(0, 10, 0, 110)
+UltraScroll.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+UltraScroll.BorderSizePixel = 0
+UltraScroll.ScrollBarThickness = 6
+UltraScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+UltraScroll.Parent = UltraWin
+Instance.new("UICorner", UltraScroll)
+Instance.new("UIStroke", UltraScroll).Color = Color3.fromRGB(80,0,80)
+
+local UltraList = Instance.new("UIListLayout", UltraScroll)
+UltraList.Padding = UDim.new(0, 3)
+UltraList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    UltraScroll.CanvasSize = UDim2.new(0,0,0,UltraList.AbsoluteContentSize.Y+10)
+end)
+
+local ultraEntries = {} -- current displayed buttons
+
+local function clearUltraList()
+    for _, b in ipairs(ultraEntries) do if b and b.Parent then b:Destroy() end end
+    ultraEntries = {}
+end
+
+local function ultraAutoFire(obj)
+    -- Fires the remote with a comprehensive set of argument combos
+    local autoCombos = {
+        {{}, 0},
+        {{Player}, 1},
+        {{nil}, 1},
+        {{1}, 1},
+        {{true}, 1},
+        {{false}, 1},
+        {{"give"}, 1},
+        {{"admin"}, 1},
+        {{"exec"}, 1},
+        {{"run"}, 1},
+        {{Player, 1}, 2},
+        {{Player, true}, 2},
+        {{Player, "give"}, 2},
+        {{Player, "admin"}, 2},
+        {{Player, ""}, 2},
+        {{1, Player}, 2},
+        {{Player, 1, true}, 3},
+        {{Player, "give", 1}, 3},
+    }
+    local okCount = 0
+    task.spawn(function()
+        for _, combo in ipairs(autoCombos) do
+            local cargs, ccount = combo[1], combo[2]
+            local ok, err = pcall(function()
+                if obj:IsA("RemoteEvent") then
+                    obj:FireServer(table.unpack(cargs, 1, ccount))
+                elseif obj:IsA("RemoteFunction") then
+                    return obj:InvokeServer(table.unpack(cargs, 1, ccount))
+                elseif obj:IsA("BindableEvent") then
+                    obj:Fire(table.unpack(cargs, 1, ccount))
+                elseif obj:IsA("BindableFunction") then
+                    return obj:Invoke(table.unpack(cargs, 1, ccount))
+                end
+            end)
+            if ok then okCount = okCount + 1 end
+            task.wait(0.04)
+        end
+        logOutput("ULTRA AUTO: " .. obj.Name .. " — " .. okCount .. "/" .. #autoCombos .. " combos OK",
+            Color3.fromRGB(255,60,255))
+    end)
+end
+
+local function addUltraEntry(obj, tag, execScore, adminScore, moneyScore)
+    local totalScore = execScore + adminScore + moneyScore
+    local color = Color3.fromRGB(200,200,200)
+    if execScore > 0  then color = Color3.fromRGB(255,60,60)   end
+    if adminScore > 0 then color = Color3.fromRGB(255,130,0)   end
+    if moneyScore > 0 then color = Color3.fromRGB(255,220,0)   end
+    if execScore > 0 and adminScore > 0 then color = Color3.fromRGB(255,80,200)  end
+    if execScore > 0 and moneyScore > 0 then color = Color3.fromRGB(255,60,60)   end
+
+    local scoreTxt = ""
+    if execScore  > 0 then scoreTxt = scoreTxt .. "EXEC:"  .. execScore  .. " " end
+    if adminScore > 0 then scoreTxt = scoreTxt .. "ADMIN:" .. adminScore .. " " end
+    if moneyScore > 0 then scoreTxt = scoreTxt .. "MONEY:" .. moneyScore .. " " end
+
+    local fullPath = ""
+    pcall(function() fullPath = obj:GetFullName() end)
+
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -8, 0, 38)
+    row.BackgroundColor3 = Color3.fromRGB(14, 6, 20)
+    row.BorderSizePixel = 0
+    row.Parent = UltraScroll
+    Instance.new("UICorner", row)
+
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Size = UDim2.new(1, -160, 0, 18)
+    nameLbl.Position = UDim2.new(0, 6, 0, 1)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Font = Enum.Font.Code
+    nameLbl.TextSize = 11
+    nameLbl.TextColor3 = color
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.TextWrapped = false
+    nameLbl.ClipsDescendants = true
+    nameLbl.Text = "[" .. tag .. "] " .. obj.Name
+    nameLbl.Parent = row
+
+    local pathLbl = Instance.new("TextLabel")
+    pathLbl.Size = UDim2.new(1, -10, 0, 14)
+    pathLbl.Position = UDim2.new(0, 6, 0, 20)
+    pathLbl.BackgroundTransparency = 1
+    pathLbl.Font = Enum.Font.Code
+    pathLbl.TextSize = 9
+    pathLbl.TextColor3 = Color3.fromRGB(120,100,120)
+    pathLbl.TextXAlignment = Enum.TextXAlignment.Left
+    pathLbl.ClipsDescendants = true
+    pathLbl.Text = fullPath .. "  " .. scoreTxt
+    pathLbl.Parent = row
+
+    local selectBtn = makeBtn(row, "SELECT", -106, 8, 50, 22, Color3.fromRGB(20,20,40), Color3.fromRGB(100,150,255))
+    selectBtn.Position = UDim2.new(1, -106, 0, 8)
+    selectBtn.TextSize = 10
+    selectBtn.MouseButton1Click:Connect(function()
+        stopSpam()
+        selectedObj = obj
+        selectedTypeTag = tag
+        Main.ClipsDescendants = false
+        Side.Visible = true
+        OutputSayer.Text = "Selected: " .. obj.Name
+        CommandBox.Text = obj.Name
+        InfoLabel.Text = "NAME: " .. obj.Name .. "\nTYPE: " .. tag .. "\nPATH: " .. fullPath
+        if clickConn then clickConn:Disconnect() end
+        clickConn = ExecuteBtn.MouseButton1Click:Connect(function()
+            doExecute(selectedObj, selectedTypeTag)
+        end)
+        logOutput("ULTRA SELECT: " .. fullPath, Color3.fromRGB(100,150,255))
+    end)
+
+    local autoBtn = makeBtn(row, "AUTO", -52, 8, 46, 22, Color3.fromRGB(40,0,50), Color3.fromRGB(255,60,255))
+    autoBtn.Position = UDim2.new(1, -52, 0, 8)
+    autoBtn.TextSize = 10
+    autoBtn.MouseButton1Click:Connect(function()
+        logOutput("ULTRA AUTO FIRE: " .. obj.Name, Color3.fromRGB(255,60,255))
+        ultraAutoFire(obj)
+    end)
+
+    table.insert(ultraEntries, row)
+end
+
+-- Populate ultra scroll from a registry
+local function showUltraTab(tabName)
+    ultraActiveTab = tabName
+    -- Highlight active tab
+    for tname, tb in pairs(ultraTabBtns) do
+        tb.BackgroundColor3 = Color3.fromRGB(20,20,20)
+    end
+    local tc = ultraTabColors[tabName]
+    ultraTabBtns[tabName].BackgroundColor3 = Color3.fromRGB(
+        math.floor(tc.R*255*0.3), math.floor(tc.G*255*0.3), math.floor(tc.B*255*0.3))
+
+    clearUltraList()
+    local registry
+    if tabName == "EXEC"  then registry = ultraExecRegistry
+    elseif tabName == "ADMIN" then registry = ultraAdminRegistry
+    elseif tabName == "MONEY" then registry = ultraMoneyRegistry
+    else registry = ultraAllRegistry end
+
+    if #registry == 0 then
+        local lbl = makeLabel(UltraScroll, "No entries — run ULTRA SCAN first", 6, 6, 400, 20, Color3.fromRGB(150,150,150), 11)
+        table.insert(ultraEntries, lbl)
+        return
+    end
+
+    -- Sort by total score descending
+    local sorted = {}
+    for _, e in ipairs(registry) do table.insert(sorted, e) end
+    table.sort(sorted, function(a,b) return (a.es+a.as+a.ms) > (b.es+b.bs+b.ms) end)
+
+    for _, e in ipairs(sorted) do
+        if e.obj and e.obj.Parent then
+            addUltraEntry(e.obj, e.tag, e.es, e.as, e.ms)
+        end
+    end
+    ultraProgressLabel.Text = "Tab: " .. tabName .. " — " .. #sorted .. " entries"
+end
+
+-- Wire tab buttons
+for _, tname in ipairs(ultraTabNames) do
+    ultraTabBtns[tname].MouseButton1Click:Connect(function() showUltraTab(tname) end)
+end
+
+-- FIRE ALL helpers
+local function ultraFireAll(registry, label)
+    local count = 0
+    local val = tonumber(CommandBox.Text) or CommandBox.Text
+    for _, e in ipairs(registry) do
+        pcall(function()
+            if e.obj and e.obj.Parent then
+                if e.obj:IsA("RemoteEvent") then e.obj:FireServer(val) count=count+1
+                elseif e.obj:IsA("BindableEvent") then e.obj:Fire(val) count=count+1 end
+            end
+        end)
+        task.wait()
+    end
+    logOutput("ULTRA FIRE ALL " .. label .. ": " .. count .. " fired", Color3.fromRGB(255,60,255))
+    OutputSayer.Text = "ULTRA: fired " .. count
+end
+
+fireExecBtn.MouseButton1Click:Connect(function()  ultraFireAll(ultraExecRegistry,  "EXEC")  end)
+fireAdminBtn.MouseButton1Click:Connect(function() ultraFireAll(ultraAdminRegistry, "ADMIN") end)
+fireMoneyBtn.MouseButton1Click:Connect(function() ultraFireAll(ultraMoneyRegistry, "MONEY") end)
+fireAllUltra.MouseButton1Click:Connect(function() ultraFireAll(ultraAllRegistry,   "ALL")   end)
+
+-- THE ULTRA SCAN FUNCTION
+local function runUltraScan()
+    ultraExecRegistry  = {}
+    ultraAdminRegistry = {}
+    ultraMoneyRegistry = {}
+    ultraAllRegistry   = {}
+    ultraSeenIds       = {}
+    ultraScanCount     = 0
+    clearUltraList()
+    ultraProgressLabel.Text = "SCANNING... please wait"
+    ultraProgressLabel.TextColor3 = Color3.fromRGB(255,60,255)
+
+    local function ultraDeep(parent)
+        local ok, children = pcall(function() return parent:GetChildren() end)
+        if not ok then return end
+        for _, child in ipairs(children) do
+            ultraScanCount = ultraScanCount + 1
+            if ultraScanCount % 20 == 0 then
+                ultraProgressLabel.Text = "Scanned: " .. ultraScanCount .. " objects..."
+                task.wait()
+            end
+
+            local id = ""
+            pcall(function() id = child:GetFullName() end)
+            if id == "" then id = tostring(child) end
+
+            local isFireable = child:IsA("RemoteEvent") or child:IsA("RemoteFunction")
+                or child:IsA("BindableEvent") or child:IsA("BindableFunction")
+
+            if isFireable and not ultraSeenIds[id] then
+                ultraSeenIds[id] = true
+
+                local tag = "REMOTE"
+                if child:IsA("RemoteEvent")    then tag = "RE"
+                elseif child:IsA("RemoteFunction") then tag = "RF"
+                elseif child:IsA("BindableEvent")  then tag = "BIND:E"
+                elseif child:IsA("BindableFunction") then tag = "BIND:F" end
+
+                local es = scoreKeywords(child.Name, execKeywords)
+                local as = scoreKeywords(child.Name, ultraAdminKeywords)
+                local ms = scoreKeywords(child.Name, ultraMoneyKeywords)
+
+                -- Also score the parent name for extra signal
+                pcall(function()
+                    if child.Parent then
+                        es = es + scoreKeywords(child.Parent.Name, execKeywords)  * 0.5
+                        as = as + scoreKeywords(child.Parent.Name, ultraAdminKeywords) * 0.5
+                        ms = ms + scoreKeywords(child.Parent.Name, ultraMoneyKeywords) * 0.5
+                    end
+                end)
+                es = math.floor(es)
+                as = math.floor(as)
+                ms = math.floor(ms)
+
+                local entry = {obj=child, tag=tag, es=es, as=as, ms=ms, bs=0}
+
+                if es > 0 then table.insert(ultraExecRegistry,  entry) end
+                if as > 0 then table.insert(ultraAdminRegistry, entry) end
+                if ms > 0 then table.insert(ultraMoneyRegistry, entry) end
+                table.insert(ultraAllRegistry, entry)
+            end
+
+            -- Recurse (skip terrain and player chars to keep it fast)
+            if not child:IsA("Terrain") and not child:IsA("Player") then
+                pcall(function() ultraDeep(child) end)
+            end
+        end
+    end
+
+    -- Scan every service
+    local scanned = {}
+    for _, svcName in ipairs(ultraServices) do
+        pcall(function()
+            local svc = game:GetService(svcName)
+            if svc and not scanned[tostring(svc)] then
+                scanned[tostring(svc)] = true
+                ultraDeep(svc)
+            end
+        end)
+    end
+    -- Catch any root-level children not yet scanned
+    pcall(function()
+        for _, child in ipairs(game:GetChildren()) do
+            if not scanned[tostring(child)] then
+                scanned[tostring(child)] = true
+                pcall(function() ultraDeep(child) end)
+            end
+        end
+    end)
+
+    -- Summary
+    local execC  = #ultraExecRegistry
+    local adminC = #ultraAdminRegistry
+    local moneyC = #ultraMoneyRegistry
+    local allC   = #ultraAllRegistry
+    ultraProgressLabel.Text = string.format(
+        "DONE  Objects:%d  ALL:%d  EXEC:%d  ADMIN:%d  MONEY:%d",
+        ultraScanCount, allC, execC, adminC, moneyC)
+    ultraProgressLabel.TextColor3 = Color3.fromRGB(57,255,20)
+    logOutput(string.format("ULTRA SCAN COMPLETE — %d remotes | EXEC:%d ADMIN:%d MONEY:%d",
+        allC, execC, adminC, moneyC), Color3.fromRGB(255,60,255))
+
+    showUltraTab(ultraActiveTab)
+end
+
+-- ULTRA SCAN button in toolbar (bottom row)
+local UltraBtn = makeBtn(Main, "ULTRA", 10, 400, 90, 24, Color3.fromRGB(50,0,60), Color3.fromRGB(255,60,255))
+
+-- Shift other bottom buttons right to make space (reposition existing ones)
+SniffToggleBtn.Position = UDim2.new(0, 104,  0, 400)
+BypassBtn.Position      = UDim2.new(0, 196,  0, 400)
+MoveBtn.Position        = UDim2.new(0, 272,  0, 400)
+FireAllBtn.Position     = UDim2.new(0, 358,  0, 400)
+ScanBtn.Position        = UDim2.new(0, 394,  0, 400)
+
+-- Resize bottom buttons to fit
+SniffToggleBtn.Size = UDim2.new(0, 88,  0, 24)
+BypassBtn.Size      = UDim2.new(0, 72,  0, 24)
+MoveBtn.Size        = UDim2.new(0, 82,  0, 24)
+FireAllBtn.Size     = UDim2.new(0, 72,  0, 24)
+ScanBtn.Size        = UDim2.new(0, 62,  0, 24)
+
+-- ULTRA SCAN button in window
+local UltraScanRunBtn = makeBtn(UltraWin, "▶ ULTRA SCAN ALL SERVICES", 10, 35, 360, 20, Color3.fromRGB(60,0,70), Color3.fromRGB(255,60,255))
+UltraScanRunBtn.TextSize = 11
+UltraScanRunBtn.MouseButton1Click:Connect(function()
+    UltraScanRunBtn.Text = "SCANNING..."
+    UltraScanRunBtn.BackgroundColor3 = Color3.fromRGB(80,10,90)
+    task.spawn(function()
+        runUltraScan()
+        UltraScanRunBtn.Text = "▶ ULTRA SCAN ALL SERVICES"
+        UltraScanRunBtn.BackgroundColor3 = Color3.fromRGB(60,0,70)
+    end)
+end)
+
+UltraBtn.MouseButton1Click:Connect(function()
+    UltraWin.Visible = not UltraWin.Visible
 end)
