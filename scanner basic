@@ -867,73 +867,103 @@ b.MouseButton1Click:Connect(function()
 end)
 end
 
--- 7. EXTENDED OMNI-SCAN ENGINE
+-- 7. HEAVY OMNI-SCAN ENGINE vMAX
 local adminKeywords = {
 "admin","command","server","drop","spawn","give","money","cash","rank",
 "ban","kick","god","fly","speed","noclip","teleport","invisible","freeze",
 "kill","damage","heal","respawn","item","weapon","tool","pet","data","save",
 "load","reset","unlock","upgrade","purchase","buy","sell","trade","transfer",
 "claim","redeem","code","promo","quest","mission","level","exp","xp","vip","owner",
--- money / depth / earning system keywords
 "earn","coin","coins","gem","gems","currency","balance","wallet","income",
 "passive","multiplier","boost","reward","collect","loot","chest","treasure",
 "depth","floor","zone","region","area","stage","layer","mine","dig","ore",
-"drop","collect","farm","grind","rebirth","prestige","token","tokens",
-"point","points","credit","credits","dollar","dollars","cash","bank",
-"distance","y","ypos","yvalue","position","deep","deeper","underground",
-"collect","pickup","gain","receive","payout","pay","profit","rate","yield"
+"farm","grind","rebirth","prestige","token","tokens","point","points",
+"credit","credits","dollar","dollars","cash","bank","distance","deep","deeper",
+"underground","pickup","gain","receive","payout","pay","profit","rate","yield",
+"exec","execute","run","eval","cmd","handler","action","request","invoke",
+"fire","send","emit","broadcast","relay","trigger","process","dispatch",
+"permission","perm","auth","access","verify","staff","mod","operator","trusted",
+"whitelist","allowed","elevated","bypass","role","group","ingroup","tier",
+"enable","disable","toggle","set","get","change","update","override","force",
+"delete","destroy","clear","wipe","warp","move","push","pull",
+"attack","shoot","hit","touch","interact","use","activate","open","close",
+"chat","say","announce","notify","alert","message","print","log","report",
 }
 
-local allServices = {
--- Core replication containers (most remotes live here)
-"ReplicatedStorage","ReplicatedFirst",
--- World & player containers
-"Workspace","Players",
--- Starter containers (scripts + GUIs that get cloned to the client)
-"StarterGui","StarterPack","StarterPlayer",
--- Lighting & environment
-"Lighting","SoundService",
--- Communication / chat
-"Chat","TextChatService",
--- Marketplace / badge / group services
-"MarketplaceService","BadgeService","GroupService","FriendService",
--- Insert / content
-"InsertService","ContentProvider",
--- Physics / tweening / running
-"PhysicsService","TweenService","RunService","PathfindingService",
--- Collections / tags
-"CollectionService",
--- Localisation
-"LocalizationService",
--- Input & GUI services (some games attach bindables here)
-"UserInputService","ContextActionService","GuiService","VRService","HapticService",
--- Teleportation (some games attach remotes here)
-"TeleportService",
--- Policy & analytics
-"PolicyService","RbxAnalyticsService",
--- Teams
-"Teams",
--- CoreGui (restricted, pcall guards the attempt)
-"CoreGui",
-}
-
--- Money/depth keywords defined once outside the scan
 local moneyDepthKeywords = {
 "earn","coin","coins","gem","gems","currency","balance","wallet","income",
 "passive","multiplier","boost","reward","collect","loot","chest","treasure",
 "depth","floor","zone","region","area","stage","layer","mine","dig","ore",
 "farm","grind","rebirth","prestige","token","tokens","point","points",
 "credit","credits","dollar","dollars","bank","distance","deep","deeper",
-"underground","pickup","gain","receive","payout","profit","rate","yield","money","cash"
+"underground","pickup","gain","receive","payout","profit","rate","yield","money","cash",
+"resource","resources","material","materials","gold","silver","bronze","ruby","diamond",
+"star","stars","shop","store","market","auction","invest","price","cost","value",
 }
 
--- Max entries per category before we stop adding (prevents thousands of buttons)
-local CAT_MAX = 300
+-- EVERY known Roblox service — maximum coverage
+local allServices = {
+    -- Primary replication (remotes almost always here)
+    "ReplicatedStorage","ReplicatedFirst",
+    -- World / workspace
+    "Workspace",
+    -- Player containers
+    "Players",
+    -- Starter containers cloned to client
+    "StarterGui","StarterPack","StarterPlayer",
+    "StarterCharacterScripts","StarterPlayerScripts",
+    -- Lighting & environment
+    "Lighting","SoundService","Atmosphere",
+    -- Chat / communication
+    "Chat","TextChatService","BubbleChatConfiguration",
+    -- Marketplace / social
+    "MarketplaceService","BadgeService","GroupService","FriendService",
+    -- Content
+    "InsertService","ContentProvider","AssetService",
+    -- Physics / tween / run
+    "PhysicsService","TweenService","RunService","PathfindingService",
+    -- Tags / collections
+    "CollectionService",
+    -- Localisation
+    "LocalizationService",
+    -- Input & GUI
+    "UserInputService","ContextActionService","GuiService",
+    "VRService","HapticService","TouchInputService",
+    -- Teleport
+    "TeleportService",
+    -- Policy / analytics
+    "PolicyService","RbxAnalyticsService","AnalyticsService",
+    -- Teams
+    "Teams",
+    -- CoreGui (guarded)
+    "CoreGui",
+    -- Server-side (executor may expose these)
+    "ServerStorage","ServerScriptService",
+    -- Networking internals
+    "NetworkClient","NetworkServer",
+    -- Data / memory stores (sometimes hold folders with remotes)
+    "DataStoreService","MemoryStoreService",
+    -- Messaging
+    "MessagingService",
+    -- HTTP / misc
+    "HttpService","KeyframeSequenceProvider",
+    "GuidRegistryService","JointsService",
+    "TestService","StudioService","Selection",
+    "ScriptContext","ScriptEditorService",
+    "ChangeHistoryService","CorePackages",
+    "RobloxPluginGuiService","PluginGuiService",
+}
+
+-- No hard limit on remotes — we want EVERYTHING
+local CAT_MAX_REMOTE = 3000
+local CAT_MAX_OTHER  = 500
 local catCount = {}
 
 local function canAddToCategory(cat)
-catCount[cat] = (catCount[cat] or 0) + 1
-return catCount[cat] <= CAT_MAX
+    catCount[cat] = (catCount[cat] or 0) + 1
+    local lim = cat:find("Remote") or cat == "Player Remotes" or cat == "Script Remotes"
+        or cat == "Server Remotes" or cat == "Bindables" or cat == "ALL REMOTES"
+    return catCount[cat] <= (lim and CAT_MAX_REMOTE or CAT_MAX_OTHER)
 end
 
 local function runOmniScan()
@@ -944,18 +974,22 @@ categoryEntries = {}
 categoryHeaders = {}
 entryMeta = {}
 
--- All categories start COLLAPSED so nothing renders until the user opens one
 collapsedCategories = {
-    Guis = true,
-    Data = true,
+    Guis              = true,
+    Data              = true,
     ["Admin Remotes"] = true,
     ["Money/Depth Remotes"] = true,
-    Remotes = true,
-    Utilities = true,
-    Scripts = true,
+    Remotes           = true,
+    ["Script Remotes"]  = true,
+    ["Player Remotes"]  = true,
+    ["Server Remotes"]  = true,
+    Bindables           = true,
+    ["ALL REMOTES"]     = true,
+    Utilities           = true,
+    Scripts             = true,
 }
 
--- GUIs (enabled + hidden)
+-- GUIs
 addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
 for _, g in pairs(PlayerGui:GetChildren()) do
     if g:IsA("ScreenGui") and g ~= ScreenGui then
@@ -963,84 +997,169 @@ for _, g in pairs(PlayerGui:GetChildren()) do
     end
 end
 
--- Player Data/Values
+-- Player Data / Values (LocalPlayer + all players)
 addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
-for _, v in pairs(Player:GetDescendants()) do
-    if v:IsA("ValueBase") then
-        if canAddToCategory("Data") then addEntry(v, "DATA", "Data") end
+pcall(function()
+    for _, v in pairs(Player:GetDescendants()) do
+        if v:IsA("ValueBase") then
+            if canAddToCategory("Data") then addEntry(v, "DATA", "Data") end
+        end
     end
+end)
+pcall(function()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= Player then
+            for _, v in pairs(plr:GetDescendants()) do
+                if v:IsA("ValueBase") then
+                    if canAddToCategory("Data") then addEntry(v, "DATA:" .. plr.Name, "Data") end
+                end
+            end
+        end
+    end
+end)
+
+-- Category headers — all filled during deepScan
+addCategoryHeader("Admin Remotes",       Color3.fromRGB(180, 0,   0  ))
+addCategoryHeader("Money/Depth Remotes", Color3.fromRGB(200, 160, 0  ))
+addCategoryHeader("Script Remotes",      Color3.fromRGB(140, 0,   200))
+addCategoryHeader("Player Remotes",      Color3.fromRGB(0,   120, 200))
+addCategoryHeader("Server Remotes",      Color3.fromRGB(255, 60,  60 ))
+addCategoryHeader("Bindables",           Color3.fromRGB(0,   180, 120))
+addCategoryHeader("Remotes",             Color3.fromRGB(0,   150, 50 ))
+addCategoryHeader("ALL REMOTES",         Color3.fromRGB(57,  255, 20 ))
+addCategoryHeader("Utilities",           Color3.fromRGB(150, 50,  50 ))
+addCategoryHeader("Scripts",             Color3.fromRGB(80,  0,   150))
+
+local seenRemotes    = {}
+local scanStepCount  = 0
+local totalFound     = 0
+
+-- Keywords for script-related remotes
+local scriptRemoteKws = {
+    "script","localscript","modulescript","serverscript","exec","execute","run",
+    "eval","loadstring","require","handler","module","loader","boot","init","main",
+    "core","system","framework","manager","controller","service","util","lib","library",
+    "callback","hook","event","signal","trigger","dispatch","process","compute",
+}
+-- Keywords that suggest server-side origin
+local serverRemoteKws = {
+    "server","serverside","ss","remote","network","replication","replicated",
+    "serverrequest","serversignal","serverevent","serverfunc","serverfunction",
+    "rpc","call","api","endpoint","route","request","response","sync","async",
+    "backend","datasync","dataservice","gameserver","worldserver","hostserver",
+}
+-- Keywords for player-specific remotes
+local playerRemoteKws = {
+    "player","plr","char","character","client","localplayer","user","usr",
+    "inventory","backpack","leaderstats","stats","profile","avatar","rig",
+    "humanoid","health","stamina","jump","move","action","interact","pickup",
+}
+
+local function classifyRemote(name, fullPath)
+    local low  = name:lower()
+    local path = fullPath:lower()
+    local ctx  = low .. " " .. path
+
+    local isAdmin  = false
+    local isMoney  = false
+    local isScript = false
+    local isServer = false
+    local isPlayer = false
+
+    for _, k in ipairs(adminKeywords)     do if ctx:find(k,1,true) then isAdmin  = true break end end
+    for _, k in ipairs(moneyDepthKeywords) do if ctx:find(k,1,true) then isMoney  = true break end end
+    for _, k in ipairs(scriptRemoteKws)   do if ctx:find(k,1,true) then isScript = true break end end
+    for _, k in ipairs(serverRemoteKws)   do if ctx:find(k,1,true) then isServer = true break end end
+    for _, k in ipairs(playerRemoteKws)   do if ctx:find(k,1,true) then isPlayer = true break end end
+
+    return isAdmin, isMoney, isScript, isServer, isPlayer
 end
 
--- Category headers only — entries added during deepScan below
-addCategoryHeader("Admin Remotes", Color3.fromRGB(180, 0, 0))
-addCategoryHeader("Money/Depth Remotes", Color3.fromRGB(255, 200, 0))
-addCategoryHeader("Remotes", Color3.fromRGB(0, 150, 50))
-addCategoryHeader("Utilities", Color3.fromRGB(150, 50, 50))
-addCategoryHeader("Scripts", Color3.fromRGB(80, 0, 150))
+local function registerRemote(child, id, baseTag)
+    seenRemotes[id] = true
+    totalFound = totalFound + 1
+    local fullPath = ""
+    pcall(function() fullPath = child:GetFullName() end)
+    local isAdmin, isMoney, isScript, isServer, isPlayer =
+        classifyRemote(child.Name, fullPath)
 
-local seenRemotes = {}
-local scanStepCount = 0
+    -- Always add to ALL REMOTES
+    if canAddToCategory("ALL REMOTES") then addEntry(child, baseTag, "ALL REMOTES") end
+    -- Always add to Remotes (base list)
+    if canAddToCategory("Remotes")    then addEntry(child, baseTag, "Remotes")     end
+    -- Classified categories
+    if isAdmin  and canAddToCategory("Admin Remotes")       then addEntry(child, "ADMIN:"  ..baseTag, "Admin Remotes")       end
+    if isMoney  and canAddToCategory("Money/Depth Remotes") then addEntry(child, "MONEY:"  ..baseTag, "Money/Depth Remotes") end
+    if isScript and canAddToCategory("Script Remotes")      then addEntry(child, "SCRIPT:" ..baseTag, "Script Remotes")      end
+    if isServer and canAddToCategory("Server Remotes")      then addEntry(child, "SERVER:" ..baseTag, "Server Remotes")      end
+    if isPlayer and canAddToCategory("Player Remotes")      then addEntry(child, "PLAYER:" ..baseTag, "Player Remotes")      end
+end
 
-local function deepScan(parent)
-    for _, child in pairs(parent:GetChildren()) do
-        local lowName = child.Name:lower()
+local function heavyDeepScan(parent, depth)
+    depth = depth or 0
+    local ok, children = pcall(function() return parent:GetChildren() end)
+    if not ok then return end
+
+    for _, child in ipairs(children) do
         local id = ""
         pcall(function() id = child:GetFullName() end)
         if id == "" then id = tostring(child) end
 
-        -- Yield every 25 objects so the game doesn't freeze
         scanStepCount = scanStepCount + 1
-        if scanStepCount % 25 == 0 then task.wait() end
+        -- Yield every 15 objects for smooth operation
+        if scanStepCount % 15 == 0 then task.wait() end
 
-        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+        -- ── REMOTE EVENTS ──────────────────────────────────────────
+        if child:IsA("RemoteEvent") then
+            if not seenRemotes[id] then registerRemote(child, id, "RE") end
+
+        -- ── REMOTE FUNCTIONS ───────────────────────────────────────
+        elseif child:IsA("RemoteFunction") then
+            if not seenRemotes[id] then registerRemote(child, id, "RF") end
+
+        -- ── BINDABLES ──────────────────────────────────────────────
+        elseif child:IsA("BindableEvent") then
             if not seenRemotes[id] then
                 seenRemotes[id] = true
-                local isAdmin = false
-                local isMoney = false
-                for _, key in pairs(adminKeywords) do
-                    if lowName:find(key) then isAdmin = true break end
-                end
-                for _, key in pairs(moneyDepthKeywords) do
-                    if lowName:find(key) then isMoney = true break end
-                end
-                if isMoney and canAddToCategory("Money/Depth Remotes") then
-                    addEntry(child, "MONEY REMOTE", "Money/Depth Remotes")
-                end
-                if isAdmin and canAddToCategory("Admin Remotes") then
-                    addEntry(child, "ADMIN REMOTE", "Admin Remotes")
-                end
-                if canAddToCategory("Remotes") then
-                    addEntry(child, "REMOTE", "Remotes")
-                end
+                totalFound = totalFound + 1
+                if canAddToCategory("Bindables")    then addEntry(child, "BIND:E",   "Bindables")    end
+                if canAddToCategory("ALL REMOTES")  then addEntry(child, "BIND:E",   "ALL REMOTES")  end
+                if canAddToCategory("Remotes")      then addEntry(child, "BINDABLE", "Remotes")      end
             end
-        elseif child:IsA("BindableEvent") or child:IsA("BindableFunction") then
+        elseif child:IsA("BindableFunction") then
             if not seenRemotes[id] then
                 seenRemotes[id] = true
-                if canAddToCategory("Remotes") then
-                    addEntry(child, "BINDABLE", "Remotes")
-                end
+                totalFound = totalFound + 1
+                if canAddToCategory("Bindables")    then addEntry(child, "BIND:F",   "Bindables")    end
+                if canAddToCategory("ALL REMOTES")  then addEntry(child, "BIND:F",   "ALL REMOTES")  end
+                if canAddToCategory("Remotes")      then addEntry(child, "BINDABLE", "Remotes")      end
             end
         end
 
-        -- Keyword utilities (non-remote objects matching keywords)
-        if not child:IsA("RemoteEvent") and not child:IsA("RemoteFunction") then
-            for _, key in pairs(adminKeywords) do
-                if lowName:find(key) then
-                    if child:IsA("ValueBase") then
-                        if canAddToCategory("Admin Remotes") then addEntry(child, "ADMIN DATA", "Admin Remotes") end
-                    elseif child:IsA("LocalScript") or child:IsA("Script") or child:IsA("ModuleScript") then
-                        if canAddToCategory("Scripts") then addEntry(child, "SCRIPT[" .. child.ClassName .. "]", "Scripts") end
-                    else
-                        if canAddToCategory("Utilities") then addEntry(child, "UTILITY", "Utilities") end
+        -- ── OBJECTVALUE POINTING TO A REMOTE ───────────────────────
+        if child:IsA("ObjectValue") then
+            pcall(function()
+                local ref = child.Value
+                if ref and (ref:IsA("RemoteEvent") or ref:IsA("RemoteFunction")) then
+                    local refId = ""
+                    pcall(function() refId = ref:GetFullName() end)
+                    if not seenRemotes[refId] then
+                        registerRemote(ref, refId, "REF:" .. (ref:IsA("RemoteEvent") and "RE" or "RF"))
                     end
-                    break
                 end
-            end
+            end)
         end
 
-        -- All local/module scripts (for intel) — only if category is open
-        if child:IsA("LocalScript") or child:IsA("ModuleScript") then
-            if not collapsedCategories["Scripts"] and canAddToCategory("Scripts") then
+        -- ── SCRIPTS ────────────────────────────────────────────────
+        local isScriptObj = child:IsA("LocalScript") or child:IsA("ModuleScript") or child:IsA("Script")
+        if isScriptObj then
+            local low = child.Name:lower()
+            local matchesKeyword = false
+            for _, k in ipairs(adminKeywords) do if low:find(k,1,true) then matchesKeyword=true break end end
+            if matchesKeyword and canAddToCategory("Scripts") then
+                addEntry(child, "SCRIPT[" .. child.ClassName .. "]", "Scripts")
+            elseif canAddToCategory("Scripts") then
+                -- Add all scripts (open category to see them all)
                 local b = Instance.new("TextButton")
                 b.Size = UDim2.new(1, 0, 0, 32)
                 b.BackgroundColor3 = Color3.fromRGB(20, 10, 30)
@@ -1049,25 +1168,24 @@ local function deepScan(parent)
                 b.TextXAlignment = Enum.TextXAlignment.Left
                 b.Parent = Scroll
                 Instance.new("UICorner", b)
-                -- Store search metadata for this script button
                 local scriptPath = ""
                 pcall(function() scriptPath = child:GetFullName():lower() end)
                 entryMeta[b] = {
-                    name    = child.Name:lower(),
-                    typeTag = child.ClassName:lower(),
-                    path    = scriptPath,
+                    name     = child.Name:lower(),
+                    typeTag  = child.ClassName:lower(),
+                    path     = scriptPath,
                     category = "Scripts",
                 }
                 categoryEntries["Scripts"] = categoryEntries["Scripts"] or {}
                 table.insert(categoryEntries["Scripts"], b)
-
+                b.Visible = not collapsedCategories["Scripts"]
                 b.MouseButton1Click:Connect(function()
                     stopSpam()
                     selectedObj = child
                     selectedTypeTag = child.ClassName:upper()
                     OutputSayer.Text = "Selected: " .. child.Name
                     CommandBox.Text = child.Name
-                    InfoLabel.Text = "NAME: " .. child.Name .. "\nTYPE: " .. child.ClassName .. "\nPATH: " .. child:GetFullName() .. "\n[EXECUTE = require | type fn name to call it]"
+                    InfoLabel.Text = "NAME: " .. child.Name .. "\nTYPE: " .. child.ClassName .. "\nPATH: " .. child:GetFullName()
                     Main.ClipsDescendants = false
                     Side.Visible = true
                     if clickConn then clickConn:Disconnect() end
@@ -1076,51 +1194,146 @@ local function deepScan(parent)
                     end)
                 end)
             end
+            -- Try to mine remote paths from Source text
+            pcall(function()
+                local src = child.Source or ""
+                if src and src ~= "" then
+                    -- Look for :WaitForChild("X") or :FindFirstChild("X") where X sounds like a remote
+                    for quoted in src:gmatch('["\']([A-Za-z0-9_]+)["\']') do
+                        local ql = quoted:lower()
+                        for _, k in ipairs(adminKeywords) do
+                            if ql:find(k,1,true) then
+                                -- Try to find an actual remote with this name in game
+                                pcall(function()
+                                    for _, svcName in ipairs({"ReplicatedStorage","ReplicatedFirst","Workspace"}) do
+                                        local svc = game:GetService(svcName)
+                                        local found = svc:FindFirstChild(quoted, true)
+                                        if found and (found:IsA("RemoteEvent") or found:IsA("RemoteFunction")) then
+                                            local fid = ""
+                                            pcall(function() fid = found:GetFullName() end)
+                                            if not seenRemotes[fid] then
+                                                registerRemote(found, fid, "MINED:RE")
+                                                logOutput("MINED from " .. child.Name .. ": " .. found:GetFullName(),
+                                                    Color3.fromRGB(180, 100, 255))
+                                            end
+                                        end
+                                    end
+                                end)
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
         end
 
-        if not child:IsA("Player") and not child:IsA("Terrain") then
-            pcall(function() deepScan(child) end)
+        -- ── UTILITY NON-REMOTES matching keywords ──────────────────
+        if not child:IsA("RemoteEvent") and not child:IsA("RemoteFunction")
+            and not child:IsA("BindableEvent") and not child:IsA("BindableFunction") then
+            local low = child.Name:lower()
+            for _, key in pairs(adminKeywords) do
+                if low:find(key, 1, true) then
+                    if child:IsA("ValueBase") then
+                        if canAddToCategory("Admin Remotes") then addEntry(child, "ADMIN DATA", "Admin Remotes") end
+                    elseif not isScriptObj then
+                        if canAddToCategory("Utilities") then addEntry(child, "UTILITY[" .. child.ClassName .. "]", "Utilities") end
+                    end
+                    break
+                end
+            end
+        end
+
+        -- ── RECURSE (no depth limit, skip only Terrain) ────────────
+        if not child:IsA("Terrain") then
+            pcall(function() heavyDeepScan(child, depth + 1) end)
         end
     end
 end
 
--- Scan all known services
-local scannedServiceIds = {}
-for _, svcName in pairs(allServices) do
+-- ── PHASE 1: Every known service ───────────────────────────────────────────
+local scannedIds = {}
+for _, svcName in ipairs(allServices) do
     pcall(function()
         local svc = game:GetService(svcName)
-        if svc then
-            scannedServiceIds[tostring(svc)] = true
-            deepScan(svc)
+        if svc and not scannedIds[tostring(svc)] then
+            scannedIds[tostring(svc)] = true
+            heavyDeepScan(svc)
         end
     end)
 end
 
--- Catch-all: scan any root-level game children not already covered above
--- (custom services, root folders, FE/RE containers, etc.)
+-- ── PHASE 2: Every root-level game child not yet covered ───────────────────
 pcall(function()
-    for _, child in pairs(game:GetChildren()) do
-        if not scannedServiceIds[tostring(child)] then
-            scannedServiceIds[tostring(child)] = true
-            pcall(function() deepScan(child) end)
+    for _, child in ipairs(game:GetChildren()) do
+        if not scannedIds[tostring(child)] then
+            scannedIds[tostring(child)] = true
+            pcall(function() heavyDeepScan(child) end)
         end
     end
 end)
 
--- Also scan workspace players' characters for exploitable values
+-- ── PHASE 3: Brute-force game:GetDescendants() catch-all ──────────────────
+-- Catches any remote that nested scans might have missed
 pcall(function()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr.Character then
-            for _, v in pairs(plr.Character:GetDescendants()) do
-                if v:IsA("ValueBase") then addEntry(v, "DATA", "Data") end
+    local desc = game:GetDescendants()
+    for _, child in ipairs(desc) do
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction")
+            or child:IsA("BindableEvent") or child:IsA("BindableFunction") then
+            local id = ""
+            pcall(function() id = child:GetFullName() end)
+            if id ~= "" and not seenRemotes[id] then
+                local baseTag = child:IsA("RemoteEvent") and "RE"
+                    or child:IsA("RemoteFunction") and "RF"
+                    or child:IsA("BindableEvent") and "BIND:E"
+                    or "BIND:F"
+                if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                    registerRemote(child, id, baseTag)
+                else
+                    seenRemotes[id] = true
+                    totalFound = totalFound + 1
+                    if canAddToCategory("Bindables")   then addEntry(child, baseTag, "Bindables")   end
+                    if canAddToCategory("ALL REMOTES") then addEntry(child, baseTag, "ALL REMOTES") end
+                end
+                logOutput("PHASE3 FOUND: " .. child:GetFullName(), Color3.fromRGB(57, 200, 20))
             end
         end
     end
 end)
 
--- LIVE SCAN: watch all scanned services for remotes added AFTER initial scan
+-- ── PHASE 4: All players — deep scan character, backpack, gui, leaderstats ─
 pcall(function()
-    for _, svcName in pairs(allServices) do
+    for _, plr in ipairs(Players:GetPlayers()) do
+        local containers = {}
+        pcall(function()
+            if plr.Character then table.insert(containers, plr.Character) end
+        end)
+        pcall(function()
+            local bp = plr:FindFirstChildOfClass("Backpack")
+            if bp then table.insert(containers, bp) end
+        end)
+        pcall(function()
+            local pg = plr:FindFirstChildOfClass("PlayerGui")
+            if pg then table.insert(containers, pg) end
+        end)
+        pcall(function()
+            local ls = plr:FindFirstChild("leaderstats")
+            if ls then table.insert(containers, ls) end
+        end)
+        for _, c in ipairs(containers) do
+            heavyDeepScan(c)
+        end
+        -- ValueBase data from any player
+        for _, v in ipairs(plr:GetDescendants()) do
+            if v:IsA("ValueBase") then
+                if canAddToCategory("Data") then addEntry(v, "DATA:"..plr.Name, "Data") end
+            end
+        end
+    end
+end)
+
+-- ── LIVE SCAN: DescendantAdded on every service ─────────────────────────
+pcall(function()
+    for _, svcName in ipairs(allServices) do
         pcall(function()
             local svc = game:GetService(svcName)
             if not svc then return end
@@ -1129,22 +1342,25 @@ pcall(function()
                     or child:IsA("BindableEvent") or child:IsA("BindableFunction")) then return end
                 local id = ""
                 pcall(function() id = child:GetFullName() end)
-                if id == "" then id = tostring(child) end
-                if seenRemotes[id] then return end
-                seenRemotes[id] = true
-                local lowName = child.Name:lower()
-                local isAdmin, isMoney = false, false
-                for _, key in pairs(adminKeywords) do if lowName:find(key) then isAdmin = true break end end
-                for _, key in pairs(moneyDepthKeywords) do if lowName:find(key) then isMoney = true break end end
-                local tag = child:IsA("RemoteEvent") and "REMOTE" or child:IsA("RemoteFunction") and "REMOTE" or "BINDABLE"
-                if isMoney and canAddToCategory("Money/Depth Remotes") then addEntry(child, "MONEY REMOTE", "Money/Depth Remotes") end
-                if isAdmin and canAddToCategory("Admin Remotes") then addEntry(child, "ADMIN REMOTE", "Admin Remotes") end
-                if canAddToCategory("Remotes") then addEntry(child, tag, "Remotes") end
-                logOutput("LIVE SCAN: found new remote → " .. child:GetFullName(), Color3.fromRGB(57, 255, 20))
+                if id == "" or seenRemotes[id] then return end
+                local baseTag = child:IsA("RemoteEvent") and "RE"
+                    or child:IsA("RemoteFunction") and "RF"
+                    or child:IsA("BindableEvent")  and "BIND:E" or "BIND:F"
+                if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                    registerRemote(child, id, "LIVE:" .. baseTag)
+                else
+                    seenRemotes[id] = true
+                    if canAddToCategory("Bindables")   then addEntry(child, "LIVE:" .. baseTag, "Bindables")   end
+                    if canAddToCategory("ALL REMOTES") then addEntry(child, "LIVE:" .. baseTag, "ALL REMOTES") end
+                end
+                logOutput("LIVE: new → " .. child:GetFullName(), Color3.fromRGB(57, 255, 20))
             end)
         end)
     end
 end)
+
+logOutput(string.format("HEAVY SCAN DONE — %d objects scanned | %d remotes found",
+    scanStepCount, totalFound), Color3.fromRGB(57,255,20))
 end
 
 -- 8. ADVANCED SEARCH
@@ -1280,7 +1496,7 @@ end)
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -110, 0, 40)
 TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MA99X"
+TitleLabel.Text = "SYSTEM_OMEGA // V21.0 MAX"
 TitleLabel.TextColor3 = Color3.fromRGB(57, 255, 20)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.BackgroundTransparency = 1
