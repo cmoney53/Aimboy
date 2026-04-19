@@ -1194,33 +1194,6 @@ end
 -- 7. HEAVY OMNI-SCAN ENGINE vMAX
 
 -- ── KEYWORD FACTORY: generates 1000+ entries per category via prefix×base×suffix ──
-local function buildKws(bases, prefixes, suffixes, extras)
-    local out = {}
-    local seen = {}
-    local function add(w)
-        w = w:lower()
-        if not seen[w] and #w >= 2 then seen[w]=true; out[#out+1]=w end
-    end
-    -- raw bases
-    for _,b in ipairs(bases) do add(b) end
-    -- prefix + base
-    for _,b in ipairs(bases) do
-        for _,p in ipairs(prefixes) do add(p..b) end
-    end
-    -- base + suffix
-    for _,b in ipairs(bases) do
-        for _,s in ipairs(suffixes) do add(b..s) end
-    end
-    -- prefix + base + suffix
-    for _,b in ipairs(bases) do
-        for _,p in ipairs(prefixes) do
-            for _,s in ipairs(suffixes) do add(p..b..s) end
-        end
-    end
-    -- raw extras
-    if extras then for _,e in ipairs(extras) do add(e) end end
-    return out
-end
 
 
 -- ── KEYWORD LISTS (flat roots — substring matching handles all variants) ──
