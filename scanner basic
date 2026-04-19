@@ -179,36 +179,35 @@ CommandBox.TextSize = 13
 CommandBox.Parent = Side
 Instance.new("UICorner", CommandBox)
 
--- ARG MODE BUTTONS: VAL | PLAYER | NIL | NONE | MULTI | AUTO | FARM
+-- ARG MODE BUTTONS: VAL | PLAYER | NIL | NONE | MULTI | AUTO | FARM | BRUTE
 local argModeColors = {
-VAL    = Color3.fromRGB(57, 255, 20),
-PLAYER = Color3.fromRGB(0, 180, 255),
+VAL    = Color3.fromRGB(57,  255, 20),
+PLAYER = Color3.fromRGB(0,   180, 255),
 NIL    = Color3.fromRGB(255, 180, 0),
-NONE   = Color3.fromRGB(200, 80, 80),
+NONE   = Color3.fromRGB(200, 80,  80),
 MULTI  = Color3.fromRGB(255, 120, 0),
-AUTO   = Color3.fromRGB(220, 60, 220),
-FARM   = Color3.fromRGB(0, 255, 180),
+AUTO   = Color3.fromRGB(220, 60,  220),
+FARM   = Color3.fromRGB(0,   255, 180),
+BRUTE  = Color3.fromRGB(255, 30,  30),
 }
 local argModeBtns = {}
-local modeNames = {"VAL", "PLAYER", "NIL", "NONE", "MULTI", "AUTO", "FARM"}
+local modeNames = {"VAL","PLAYER","NIL","NONE","MULTI","AUTO","FARM","BRUTE"}
 for i, mode in ipairs(modeNames) do
-local bx = 10 + (i-1) * 27
-local mb = makeBtn(Side, mode, bx, 49, 25, 18, Color3.fromRGB(30, 30, 30), argModeColors[mode])
-mb.TextSize = 9
-argModeBtns[mode] = mb
-mb.MouseButton1Click:Connect(function()
-    argMode = mode
-    for _, btn in pairs(argModeBtns) do
-        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    end
-    mb.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-end)
+    local bx = 10 + (i-1) * 24
+    local mb = makeBtn(Side, mode, bx, 49, 22, 18, Color3.fromRGB(30,30,30), argModeColors[mode])
+    mb.TextSize = 8
+    argModeBtns[mode] = mb
+    mb.MouseButton1Click:Connect(function()
+        argMode = mode
+        for _, btn in pairs(argModeBtns) do btn.BackgroundColor3 = Color3.fromRGB(30,30,30) end
+        mb.BackgroundColor3 = Color3.fromRGB(55,55,55)
+    end)
 end
-argModeBtns["VAL"].BackgroundColor3 = Color3.fromRGB(50, 50, 50) -- default selected
+argModeBtns["VAL"].BackgroundColor3 = Color3.fromRGB(55,55,55)
 
 -- EXECUTE button
 local ExecuteBtn = Instance.new("TextButton")
-ExecuteBtn.Size = UDim2.new(0, 195, 0, 32)
+ExecuteBtn.Size = UDim2.new(0, 130, 0, 32)
 ExecuteBtn.Position = UDim2.new(0, 10, 0, 72)
 ExecuteBtn.BackgroundColor3 = Color3.fromRGB(57, 255, 20)
 ExecuteBtn.Text = "EXECUTE / SET"
@@ -216,6 +215,58 @@ ExecuteBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 ExecuteBtn.Font = Enum.Font.SourceSansBold
 ExecuteBtn.Parent = Side
 Instance.new("UICorner", ExecuteBtn)
+
+-- NUKE button — fires ALL found remotes with ALL combos simultaneously
+local NukeBtn = makeBtn(Side, "☢ NUKE ALL", 146, 72, 59, 32, Color3.fromRGB(60, 0, 0), Color3.fromRGB(255, 30, 30))
+NukeBtn.Font = Enum.Font.SourceSansBold
+NukeBtn.TextSize = 9
+NukeBtn.MouseButton1Click:Connect(function()
+    logOutput("☢ NUKE ALL FIRED — hitting every scanned remote", Color3.fromRGB(255,30,30))
+    local nukeCount = 0
+    local nukeCombos = {
+        {Player},
+        {Player, 1},
+        {Player, 1, "strength"},
+        {Player, 1, "wins"},
+        {Player, "wins", 1},
+        {Player, "strength", 1},
+        {Player, true},
+        {},
+        {1},
+        {10},
+    }
+    task.spawn(function()
+        -- Walk every category and fire all remotes
+        local fired = {}
+        for catName, entries in pairs(categoryEntries) do
+            for _, btn in ipairs(entries or {}) do
+                local meta = entryMeta[btn]
+                if meta and meta.obj and not fired[meta.obj] then
+                    local obj = meta.obj
+                    if obj and obj.Parent then
+                        fired[obj] = true
+                        for _, combo in ipairs(nukeCombos) do
+                            pcall(function()
+                                if obj:IsA("RemoteEvent") then
+                                    obj:FireServer(table.unpack(combo, 1, #combo))
+                                elseif obj:IsA("RemoteFunction") then
+                                    obj:InvokeServer(table.unpack(combo, 1, #combo))
+                                elseif obj:IsA("BindableEvent") then
+                                    obj:Fire(table.unpack(combo, 1, #combo))
+                                elseif obj:IsA("BindableFunction") then
+                                    obj:Invoke(table.unpack(combo, 1, #combo))
+                                end
+                            end)
+                            nukeCount = nukeCount + 1
+                        end
+                    end
+                end
+            end
+        end
+        logOutput("☢ NUKE DONE — " .. nukeCount .. " total fires", Color3.fromRGB(255,80,80))
+        OutputSayer.Text = "NUKE: "..nukeCount.." fires"
+    end)
+end)
 
 -- SPAM controls row
 local SpamBtn = makeBtn(Side, "SPAM: OFF", 10, 109, 90, 20, Color3.fromRGB(35, 10, 10), Color3.fromRGB(220, 60, 60))
@@ -399,63 +450,117 @@ elseif typeTag:find("DATA") then
     logOutput("SET " .. obj.Name .. " = " .. tostring(val))
 
 elseif obj:IsA("RemoteEvent") then
-    if argMode == "FARM" then
-        -- FARM: blast the remote repeatedly with every stat-gain combo at high speed
-        OutputSayer.Text = "FARM RUNNING..."
-        local farmCombos = {
-            {{Player}, 1},
-            {{Player, 1}, 2},
-            {{Player, 1, "strength"}, 3},
-            {{Player, 1, "wins"}, 3},
-            {{Player, 1, "speed"}, 3},
-            {{Player, 1, "cash"}, 3},
-            {{Player, 1, "coins"}, 3},
-            {{Player, "strength", 1}, 3},
-            {{Player, "wins", 1}, 3},
-            {{Player, "speed", 1}, 3},
-            {{Player, "walk"}, 2},
-            {{Player, "step"}, 2},
-            {{Player, "stride"}, 2},
-            {{1}, 1},
-            {{10}, 1},
-            {{100}, 1},
-            {{"gain"}, 1},
-            {{"strength"}, 1},
-            {{"wins"}, 1},
-            {{"speed"}, 1},
-            {{"walk"}, 1},
-            {{Player, true}, 2},
-            {{}, 0},
-        }
+    if argMode == "BRUTE" then
+        -- BRUTE: no probing — spam ALL combos endlessly at absolute max speed
+        OutputSayer.Text = "☢ BRUTE RUNNING..."
+        local statNames = {"strength","wins","speed","cash","coins","gems","xp","exp","level","points","kills","score","rank","steps","walk","distance","stamina","power","damage","defense","agility","health","hp","str","atk","def","int","agi","spd","pow","stam","endurance","charisma","luck","crit","vitality","dexterity"}
+        local bruteCombos = {}
+        -- nil/empty
+        bruteCombos[#bruteCombos+1] = {}
+        bruteCombos[#bruteCombos+1] = {1}
+        bruteCombos[#bruteCombos+1] = {10}
+        bruteCombos[#bruteCombos+1] = {100}
+        bruteCombos[#bruteCombos+1] = {true}
+        bruteCombos[#bruteCombos+1] = {false}
+        bruteCombos[#bruteCombos+1] = {Player}
+        bruteCombos[#bruteCombos+1] = {Player, 1}
+        bruteCombos[#bruteCombos+1] = {Player, 10}
+        bruteCombos[#bruteCombos+1] = {Player, 100}
+        bruteCombos[#bruteCombos+1] = {Player, true}
+        bruteCombos[#bruteCombos+1] = {Player, false}
+        bruteCombos[#bruteCombos+1] = {Player.UserId}
+        bruteCombos[#bruteCombos+1] = {Player.UserId, 1}
+        -- stat combos
+        for _, s in ipairs(statNames) do
+            bruteCombos[#bruteCombos+1] = {s}
+            bruteCombos[#bruteCombos+1] = {Player, s}
+            bruteCombos[#bruteCombos+1] = {s, Player}
+            bruteCombos[#bruteCombos+1] = {Player, s, 1}
+            bruteCombos[#bruteCombos+1] = {Player, 1, s}
+            bruteCombos[#bruteCombos+1] = {Player, s, 10}
+            bruteCombos[#bruteCombos+1] = {Player, 10, s}
+            bruteCombos[#bruteCombos+1] = {s, 1, Player}
+            bruteCombos[#bruteCombos+1] = {{stat=s, amount=1}}
+            bruteCombos[#bruteCombos+1] = {{stat=s, value=1, player=Player}}
+        end
+        -- action verbs
+        for _, v in ipairs({"gain","add","give","grant","reward","earn","increment","update","set","sync"}) do
+            bruteCombos[#bruteCombos+1] = {v}
+            bruteCombos[#bruteCombos+1] = {Player, v}
+            bruteCombos[#bruteCombos+1] = {v, Player}
+            bruteCombos[#bruteCombos+1] = {v, 1}
+            bruteCombos[#bruteCombos+1] = {Player, v, 1}
+        end
         task.spawn(function()
-            local farmHits = 0
-            local bestCombo = nil
+            local bruteCount = 0
+            while argMode == "BRUTE" and selectedObj == obj do
+                for _, combo in ipairs(bruteCombos) do
+                    if argMode ~= "BRUTE" or selectedObj ~= obj then break end
+                    pcall(function() obj:FireServer(table.unpack(combo, 1, #combo)) end)
+                    bruteCount = bruteCount + 1
+                end
+                if bruteCount % 200 == 0 then
+                    SpamCountLabel.Text = "Brute: "..bruteCount
+                    task.wait()
+                end
+            end
+            logOutput("BRUTE STOPPED: "..obj.Name.." — "..bruteCount.." total", Color3.fromRGB(255,30,30))
+        end)
+
+    elseif argMode == "FARM" then
+        -- FARM: probe 100+ combos, lock onto winners, spam at max speed
+        OutputSayer.Text = "FARM probing..."
+        local statNames = {"strength","wins","speed","cash","coins","gems","xp","exp","level","points","kills","score","rank","steps","walk","distance","stamina","power","damage","defense","agility","health","hp","str","atk","def","int","agi","spd","pow","stam","vitality"}
+        local farmCombos = {}
+        -- Build 100+ probe combos
+        farmCombos[#farmCombos+1]={{},0}; farmCombos[#farmCombos+1]={{1},1}; farmCombos[#farmCombos+1]={{10},1}; farmCombos[#farmCombos+1]={{100},1}
+        farmCombos[#farmCombos+1]={{true},1}; farmCombos[#farmCombos+1]={{false},1}
+        farmCombos[#farmCombos+1]={{Player},1}; farmCombos[#farmCombos+1]={{Player,1},2}; farmCombos[#farmCombos+1]={{Player,10},2}
+        farmCombos[#farmCombos+1]={{Player,true},2}; farmCombos[#farmCombos+1]={{Player,false},2}
+        farmCombos[#farmCombos+1]={{Player.UserId},1}; farmCombos[#farmCombos+1]={{Player.UserId,1},2}
+        for _, s in ipairs(statNames) do
+            farmCombos[#farmCombos+1]={{s},1}
+            farmCombos[#farmCombos+1]={{Player,s},2}
+            farmCombos[#farmCombos+1]={{s,Player},2}
+            farmCombos[#farmCombos+1]={{Player,s,1},3}
+            farmCombos[#farmCombos+1]={{Player,1,s},3}
+            farmCombos[#farmCombos+1]={{Player,s,10},3}
+            farmCombos[#farmCombos+1]={{s,1,Player},3}
+            farmCombos[#farmCombos+1]={{{stat=s,amount=1}},1}
+        end
+        for _, v in ipairs({"gain","add","give","grant","reward","earn","increment","update","set","sync"}) do
+            farmCombos[#farmCombos+1]={{v},1}
+            farmCombos[#farmCombos+1]={{Player,v},2}
+            farmCombos[#farmCombos+1]={{v,Player},2}
+            farmCombos[#farmCombos+1]={{Player,v,1},3}
+        end
+        task.spawn(function()
+            local workingCombos = {}
             local bestCount = 0
-            -- First pass: find which combos work
+            logOutput("FARM: probing "..#farmCombos.." combos on "..obj.Name, Color3.fromRGB(0,255,180))
             for _, c in ipairs(farmCombos) do
                 local ok = pcall(function() obj:FireServer(table.unpack(c[1], 1, c[2])) end)
-                if ok then
-                    farmHits = farmHits + 1
-                    if not bestCombo then bestCombo = c end
-                end
-                task.wait(0.03)
+                if ok then workingCombos[#workingCombos+1] = c end
+                task.wait(0.02)
             end
-            -- Second pass: spam best combo at max speed
-            if bestCombo then
-                logOutput("FARM: found working combo — spamming " .. obj.Name, Color3.fromRGB(0,255,180))
-                while argMode == "FARM" and selectedObj == obj do
-                    pcall(function() obj:FireServer(table.unpack(bestCombo[1], 1, bestCombo[2])) end)
-                    bestCount = bestCount + 1
-                    if bestCount % 50 == 0 then
-                        SpamCountLabel.Text = "Farm: " .. bestCount
-                        task.wait(0.01)
-                    end
-                end
-                logOutput("FARM STOPPED: " .. obj.Name .. " — total: " .. bestCount, Color3.fromRGB(0,255,180))
-            else
-                OutputSayer.Text = "FARM: no working combo found"
-                logOutput("FARM: 0/" .. #farmCombos .. " combos worked on " .. obj.Name, Color3.fromRGB(255,80,80))
+            if #workingCombos == 0 then
+                OutputSayer.Text = "FARM: no combos worked"
+                logOutput("FARM: 0/"..#farmCombos.." worked on "..obj.Name, Color3.fromRGB(255,80,80))
+                return
             end
+            logOutput("FARM: "..#workingCombos.." combos work — spamming "..obj.Name, Color3.fromRGB(0,255,180))
+            local idx = 1
+            while argMode == "FARM" and selectedObj == obj do
+                local c = workingCombos[idx]
+                pcall(function() obj:FireServer(table.unpack(c[1], 1, c[2])) end)
+                bestCount = bestCount + 1
+                idx = (idx % #workingCombos) + 1
+                if bestCount % 100 == 0 then
+                    SpamCountLabel.Text = "Farm: "..bestCount
+                    task.wait()
+                end
+            end
+            logOutput("FARM STOPPED: "..obj.Name.." — "..bestCount, Color3.fromRGB(0,255,180))
         end)
     elseif argMode == "AUTO" then
         OutputSayer.Text = "AUTO testing..."
@@ -592,30 +697,66 @@ elseif obj:IsA("RemoteFunction") then
                 OutputSayer.Text = "ERR (see log)"
                 logOutput("ERR MULTI INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
             end
-        elseif argMode == "FARM" then
-            -- FARM for RemoteFunction: probe then loop best combo
-            local farmCombos = {
-                {{Player}, 1}, {{Player, 1}, 2}, {{Player, 1, "strength"}, 3},
-                {{Player, 1, "wins"}, 3}, {{Player, 1, "speed"}, 3},
-                {{Player, "wins", 1}, 3}, {{Player, "strength", 1}, 3},
-                {{"gain"}, 1}, {{1}, 1}, {{10}, 1}, {{Player, true}, 2}, {{}, 0},
-            }
-            local bestCombo, bestCount = nil, 0
-            for _, c in ipairs(farmCombos) do
-                local ok = pcall(function() return obj:InvokeServer(table.unpack(c[1], 1, c[2])) end)
-                if ok and not bestCombo then bestCombo = c end
-                task.wait(0.03)
+        elseif argMode == "BRUTE" then
+            -- BRUTE RF: spam all combos at max speed, no probing
+            OutputSayer.Text = "☢ BRUTE RF..."
+            local bStatNames = {"strength","wins","speed","cash","coins","gems","xp","exp","level","points","kills","score","rank","walk","distance","stamina","power","damage","defense","agility","health","hp","str","atk","def","int","agi","spd"}
+            local bCombos = {{},{1},{10},{100},{true},{false},{Player},{Player,1},{Player,10},{Player,true}}
+            for _, s in ipairs(bStatNames) do
+                bCombos[#bCombos+1]={s}; bCombos[#bCombos+1]={Player,s}; bCombos[#bCombos+1]={s,Player}
+                bCombos[#bCombos+1]={Player,s,1}; bCombos[#bCombos+1]={Player,1,s}; bCombos[#bCombos+1]={Player,s,10}
+                bCombos[#bCombos+1]={{stat=s,amount=1}}; bCombos[#bCombos+1]={s,1,Player}
             end
-            if bestCombo then
-                logOutput("FARM RF: spamming " .. obj.Name, Color3.fromRGB(0,255,180))
-                while argMode == "FARM" and selectedObj == obj do
-                    pcall(function() return obj:InvokeServer(table.unpack(bestCombo[1], 1, bestCombo[2])) end)
-                    bestCount = bestCount + 1
-                    if bestCount % 50 == 0 then SpamCountLabel.Text = "Farm: "..bestCount task.wait(0.01) end
+            for _, v in ipairs({"gain","add","give","grant","reward","earn","increment","update","set","sync"}) do
+                bCombos[#bCombos+1]={v}; bCombos[#bCombos+1]={Player,v}; bCombos[#bCombos+1]={v,1}; bCombos[#bCombos+1]={Player,v,1}
+            end
+            task.spawn(function()
+                local bruteCount = 0
+                while argMode == "BRUTE" and selectedObj == obj do
+                    for _, combo in ipairs(bCombos) do
+                        if argMode ~= "BRUTE" or selectedObj ~= obj then break end
+                        pcall(function() return obj:InvokeServer(table.unpack(combo, 1, #combo)) end)
+                        bruteCount = bruteCount + 1
+                    end
+                    if bruteCount % 200 == 0 then SpamCountLabel.Text = "Brute RF: "..bruteCount; task.wait() end
                 end
-            else
-                logOutput("FARM RF: no combo worked on " .. obj.Name, Color3.fromRGB(255,80,80))
+                logOutput("BRUTE RF STOPPED: "..obj.Name.." — "..bruteCount, Color3.fromRGB(255,30,30))
+            end)
+        elseif argMode == "FARM" then
+            -- FARM RF: probe 100+ combos, spam all working ones at max speed
+            local rfStatNames = {"strength","wins","speed","cash","coins","gems","xp","exp","level","points","kills","score","rank","walk","distance","stamina","power","damage","defense","agility","health","hp","str","atk","def","int","agi","spd","pow","stam","vitality"}
+            local rfFarmCombos = {}
+            rfFarmCombos[#rfFarmCombos+1]={{},0}; rfFarmCombos[#rfFarmCombos+1]={{1},1}; rfFarmCombos[#rfFarmCombos+1]={{10},1}; rfFarmCombos[#rfFarmCombos+1]={{100},1}
+            rfFarmCombos[#rfFarmCombos+1]={{true},1}; rfFarmCombos[#rfFarmCombos+1]={{false},1}
+            rfFarmCombos[#rfFarmCombos+1]={{Player},1}; rfFarmCombos[#rfFarmCombos+1]={{Player,1},2}; rfFarmCombos[#rfFarmCombos+1]={{Player,10},2}
+            rfFarmCombos[#rfFarmCombos+1]={{Player,true},2}; rfFarmCombos[#rfFarmCombos+1]={{Player.UserId},1}; rfFarmCombos[#rfFarmCombos+1]={{Player.UserId,1},2}
+            for _, s in ipairs(rfStatNames) do
+                rfFarmCombos[#rfFarmCombos+1]={{s},1}; rfFarmCombos[#rfFarmCombos+1]={{Player,s},2}; rfFarmCombos[#rfFarmCombos+1]={{s,Player},2}
+                rfFarmCombos[#rfFarmCombos+1]={{Player,s,1},3}; rfFarmCombos[#rfFarmCombos+1]={{Player,1,s},3}; rfFarmCombos[#rfFarmCombos+1]={{Player,s,10},3}
+                rfFarmCombos[#rfFarmCombos+1]={{{stat=s,amount=1}},1}
             end
+            for _, v in ipairs({"gain","add","give","grant","reward","earn","increment","update","set","sync"}) do
+                rfFarmCombos[#rfFarmCombos+1]={{v},1}; rfFarmCombos[#rfFarmCombos+1]={{Player,v},2}; rfFarmCombos[#rfFarmCombos+1]={{Player,v,1},3}
+            end
+            local workingCombos, bestCount = {}, 0
+            logOutput("FARM RF: probing "..#rfFarmCombos.." combos on "..obj.Name, Color3.fromRGB(0,255,180))
+            for _, c in ipairs(rfFarmCombos) do
+                local ok = pcall(function() return obj:InvokeServer(table.unpack(c[1], 1, c[2])) end)
+                if ok then workingCombos[#workingCombos+1] = c end
+                task.wait(0.02)
+            end
+            if #workingCombos == 0 then
+                logOutput("FARM RF: no combos worked on "..obj.Name, Color3.fromRGB(255,80,80)); return
+            end
+            logOutput("FARM RF: "..#workingCombos.." work — spamming "..obj.Name, Color3.fromRGB(0,255,180))
+            local idx = 1
+            while argMode == "FARM" and selectedObj == obj do
+                local c = workingCombos[idx]
+                pcall(function() return obj:InvokeServer(table.unpack(c[1], 1, c[2])) end)
+                bestCount = bestCount + 1; idx = (idx % #workingCombos) + 1
+                if bestCount % 100 == 0 then SpamCountLabel.Text = "Farm RF: "..bestCount; task.wait() end
+            end
+            logOutput("FARM RF STOPPED: "..obj.Name.." — "..bestCount, Color3.fromRGB(0,255,180))
         elseif argMode == "AUTO" then
             local autoCombos = {
                 {{}, 0, "<none>"},
@@ -1051,709 +1192,83 @@ end)
 end
 
 -- 7. HEAVY OMNI-SCAN ENGINE vMAX
-local adminKeywords = {
--- ── Core admin identifiers ─────────────────────────────────────────────────
-"admin","administrator","administration","adminpanel","admincommand","adminonly",
-"admincheck","adminverify","adminauth","adminrole","adminrank","adminperm",
-"adminaccess","adminaction","adminrequest","adminhandler","adminfire","adminsend",
-"adminexec","adminrun","admineval","admincmd","adminscript","admintool",
-"adminspawn","admingive","adminset","adminget","adminreset","adminwipe",
-"adminkick","adminban","adminunban","adminmute","adminunmute","adminfreeze",
-"adminunfreeze","adminkill","adminheal","admingod","adminfly","adminteleport",
-"admintp","adminwarp","adminspeed","adminnoclip","admininvisible","adminvis",
--- ── Command / execution ────────────────────────────────────────────────────
-"command","commands","cmd","cmds","cmdhandler","cmdprocessor","commandhandler",
-"commandprocessor","commandparser","commandrequest","commandexec","commandrun",
-"exec","execute","execution","executor","run","runner","running","eval","evaluate",
-"invoke","invoked","invoker","invokeserver","invokeclient","invocation",
-"fire","fired","firer","fireserver","fireclient","fireallclients","fireremote",
-"call","called","caller","calling","callback","callremote","callserver","callclient",
-"send","sent","sender","sending","sendrequest","sendcommand","sendaction",
-"emit","emitted","emitter","emitting","emitevent","emitremote",
-"dispatch","dispatched","dispatcher","dispatching","dispatchcommand",
-"trigger","triggered","triggering","triggerremote","triggerevent","triggercommand",
-"broadcast","broadcasted","broadcaster","broadcastmessage","broadcastevent",
-"relay","relayed","relaying","relayrequest","relaycommand","relayevent",
-"request","requested","requester","requesting","requesthandler","requestserver",
-"action","actions","actionhandler","actionrequest","actionexec","actionrun",
-"process","processed","processor","processing","processcommand","processrequest",
-"handler","handlers","handle","handling","handlecommand","handlerequest",
--- ── Permissions / auth ─────────────────────────────────────────────────────
-"permission","permissions","perm","perms","permcheck","permverify","permgrant",
-"permrevoke","permset","permget","permlist","permhandler",
-"auth","authentication","authenticate","authorized","authorization","authcheck",
-"authverify","authtoken","authkey","authpass","authrequest","authhandler",
-"access","accesscheck","accessgrant","accessrevoke","accessverify","accesscontrol",
-"verify","verified","verifying","verification","verifyrank","verifygroup","verifyuser",
-"trust","trusted","trustcheck","trustverify","trustlevel","trustrank",
-"whitelist","whitelisted","whitelistcheck","whitelistadd","whitelistremove",
-"blacklist","blacklisted","blacklistcheck","blacklistadd","blacklistremove",
-"allowed","allowcheck","allowverify","allowaction","allowcommand",
-"elevated","elevate","elevation","elevaterank","elevateuser","elevatecheck",
-"bypass","bypassed","bypasscheck","bypassverify","bypassauth","bypassperm",
--- ── Ranks / roles / groups ─────────────────────────────────────────────────
-"rank","ranks","ranked","ranking","rankup","rankset","rankget","rankcheck",
-"rankverify","rankgrant","rankrevoke","rankchange","rankupdate","rankhandler",
-"role","roles","roleset","roleget","rolecheck","roleverify","rolegrant","rolechange",
-"group","groups","grouprank","grouprole","groupcheck","groupverify","ingroup",
-"getrankingroup","getroleingroup","isingroup","grouphandler","groupservice",
-"staff","staffcheck","staffverify","staffonly","staffrank","staffrole","staffaccess",
-"mod","moderator","modcheck","modverify","modonly","modrank","modrole","modaccess",
-"operator","op","opcheck","oponly","oprank","oprole","opaccess",
-"owner","co-owner","coowner","ownercheck","owneronly","ownerrank","ownerrole",
-"vip","vipcheck","viponly","viprank","vipaccess","vipmember","vipstatus",
-"developer","dev","devcheck","devonly","devrank","devaccess","devmode",
-"superadmin","supermod","superuser","superstaff","superoperator",
-"headadmin","headadmin","headdeveloper","headmod","headoperator",
--- ── Game modifiers ─────────────────────────────────────────────────────────
-"ban","banned","banning","banplayer","banuser","bancheck","bantimer","tempban",
-"kick","kicked","kicking","kickplayer","kickuser","kickreason","kickall",
-"mute","muted","muting","muteplayer","muteuser","mutecheck","tempmutte",
-"freeze","frozen","freezing","freezeplayer","freezecharacter","freezeall",
-"kill","killed","killing","killplayer","killaura","killall","killself",
-"god","godmode","godcheck","godplayer","invincible","invincibility","immortal",
-"fly","flying","flymode","flycheat","flyspeed","enablefly","disablefly",
-"noclip","noclipping","noclipmode","enablenoclip","disablenoclip","ghostmode",
-"teleport","tp","warp","tpplayer","tpme","tpall","tpto","tppos","tplocation",
-"invisible","visibility","vis","vischeck","hideplayer","showplayer","stealth",
-"speed","speedhack","speedset","speedboost","setspeed","getspeed","speedchange",
-"heal","healed","healing","healplayer","healall","healself","healtoplayer",
-"respawn","respawned","respawning","respawnplayer","respawnall","respawnme",
-"spawn","spawned","spawning","spawnitem","spawntool","spawnweapon","spawnpet",
-"give","given","giving","giveitem","givetool","giveweapon","givepet","givepower",
-"drop","dropped","dropping","dropitem","droptool","dropweapon","dropall",
--- ── Notification / chat ────────────────────────────────────────────────────
-"announce","announcement","announceto","announceall","announcemessage",
-"notify","notification","notifyplayer","notifyall","notifyadmin","notifymessage",
-"alert","alerted","alertplayer","alertall","alertmessage","alertadmin",
-"message","messageplayer","messageall","messageadmin","messageserver","messageself",
-"chat","chatmessage","chatevent","chatcommand","chathandler","chatsend",
-"say","said","saying","saymessage","saycommand","sayall","sayplayer",
-"log","logged","logging","logcommand","logaction","logadmin","logplayer","logserver",
-"report","reported","reporting","reportplayer","reportadmin","reportlog",
-}
 
-local moneyDepthKeywords = {
--- ── Currency names ─────────────────────────────────────────────────────────
-"money","cash","coin","coins","gold","silver","bronze","platinum","crystal",
-"gem","gems","ruby","emerald","sapphire","diamond","diamonds","jewel","jewels",
-"token","tokens","ticket","tickets","chip","chips","credit","credits","buck","bucks",
-"dollar","dollars","euro","euros","note","notes","bill","bills","cent","cents",
-"currency","currencies","balance","wallet","purse","vault","bank","bankaccount",
-"funds","treasury","treasure","wealth","riches","fortune","capital","savings",
--- ── Earning / receiving ───────────────────────────────────────────────────
-"earn","earned","earning","earncoin","earnmoney","earngem","earntoken","earncash",
-"gain","gained","gaining","gainmoney","gaincoin","gaingem","gaintoken","gaincash",
-"collect","collected","collecting","collectcoin","collectgem","collecttoken","collectmoney",
-"pickup","pickedup","picking","pickupcoin","pickupgem","pickupitem","pickupmoney",
-"receive","received","receiving","receivemoney","receivecoin","receivegem","receivetoken",
-"payout","paid","paying","payoutmoney","payoutcoin","payoutgem","paycash","paygold",
-"reward","rewarded","rewarding","rewardmoney","rewardcoin","rewardgem","rewardtoken",
-"grant","granted","granting","grantmoney","grantcoin","grantgem","grantcash",
-"income","incomerate","incomepassive","incomeboost","incomeperminute","incomepersecond",
-"passive","passiveincome","passivegain","passiverate","passivecoin","passivegold",
-"yield","yieldrate","yieldboost","yieldper","yieldcoin","yieldgold","yieldgem",
-"profit","profitrate","profitboost","profitper","profitcoin","profitmoney",
-"produce","produces","producing","producecoin","producemoney","producegem",
-"generate","generated","generating","generatecoin","generatemoney","generatetoken",
-"mint","minted","minting","mintcoin","mintgem","minttoken",
-"harvest","harvested","harvesting","harvestcoin","harvestgem","harvestcrop",
-"loot","looted","looting","lootchest","lootbox","lootdrop","lootmoney","lootcoin",
-"salvage","salvaged","salvaging","salvagecoin","salvageitem","salvagegem",
--- ── Spending / losing ─────────────────────────────────────────────────────
-"spend","spent","spending","spendcoin","spendgem","spendmoney","spendtoken",
-"buy","bought","buying","buycoin","buygem","buyitem","buyupgrade","buytool",
-"purchase","purchased","purchasing","purchasecoin","purchasegem","purchaseitem",
-"sell","sold","selling","sellcoin","sellgem","sellitem","sellupgrade",
-"trade","traded","trading","tradecoin","tradegem","tradeitem","tradeplayer",
-"transfer","transferred","transferring","transfercoin","transfergem","transfermoney",
-"withdraw","withdrew","withdrawing","withdrawmoney","withdrawcoin","withdrawgem",
-"deposit","deposited","depositing","depositmoney","depositcoin","depositgem",
-"pay","paid","paying","paycoin","paygem","paymoney","paytoken","payment",
-"invest","invested","investing","investcoin","investgem","investmoney",
-"cost","costs","costing","costcheck","costcoin","costgem","costmoney","costtoken",
-"price","priced","pricing","pricecheck","pricecoin","pricegem","pricemoney",
-"tax","taxed","taxing","taxrate","taxmoney","taxcoin","taxgem",
--- ── Economy boosts ────────────────────────────────────────────────────────
-"multiplier","mult","multcoin","multgem","multmoney","multgold","multtoken",
-"boost","boosted","boosting","boostcoin","boostgem","boostmoney","boostincome",
-"bonus","bonuscoin","bonusgem","bonusmoney","bonustoken","bonusmultiplier",
-"double","doubled","doubling","doublecoin","doublegem","doublemoney","doublegold",
-"triple","tripled","tripling","triplecoin","triplegem","triplemoney",
-"rate","ratecoin","rategem","ratemoney","ratetoken","incomeperminute",
--- ── Depth / progression economy ───────────────────────────────────────────
-"depth","depthfloor","depthlevel","depthzone","deptharea","depthmine",
-"floor","floors","floorlevel","floorcount","floorzone","floorregion","floordepth",
-"zone","zones","zonelevel","zonecount","zonedepth","zoneregion","zonearea",
-"region","regions","regionlevel","regioncount","regionzone","regiondepth","regionarea",
-"area","areas","arealevel","areacount","areazone","areadepth","arearegion",
-"stage","stages","stagelevel","stagecount","stagezone","stagearea","stageredepth",
-"layer","layers","layerlevel","layercount","layerzone","layerarea","layerdepth",
-"mine","mined","mining","minecoin","minegem","mineore","minegold","minesilver",
-"dig","dug","digging","digcoin","diggem","diggold","digore","digmine","digtunnel",
-"ore","ores","orecount","oremined","oregained","orevalue","oreprice",
-"resource","resources","resourcecount","resourcegained","resourcevalue","resourcemine",
-"material","materials","materialcount","materialgained","materialvalue","materialmined",
-"deep","deeper","deepest","deeplevel","deepfloor","deepmine","deepzone","deepdepth",
-"underground","undergroundlevel","undergrounddepth","undergroundzone","undergroundmine",
--- ── Shops / stores ────────────────────────────────────────────────────────
-"shop","shops","shopitem","shopcoin","shopgem","shopgold","shopopen","shopbuy","shopsell",
-"store","stores","storeitem","storecoin","storegem","storegold","storeopen","storebuy",
-"market","markets","marketitem","marketcoin","marketgem","marketgold","marketbuy","marketsell",
-"auction","auctionitem","auctioncoin","auctiongem","auctionbid","auctionbuy","auctionsell",
-"vending","vendor","vendoritem","vendorcoin","vendorgem","vendorbuy","vendorsell",
-"merchant","merchantitem","merchantcoin","merchantgem","merchantbuy","merchantsell",
--- ── Rebirth / prestige ────────────────────────────────────────────────────
-"rebirth","rebirths","rebirthcount","rebirthcheck","rebirthcost","rebirthreward",
-"prestige","prestiges","prestigecount","prestigecheck","prestigecost","prestigereward",
-"reset","resetstats","resetdata","resetprogress","resetmoney","resetcoin",
-"wipe","wipestats","wipedata","wipeprogress","wipemoney","wipecoin",
-"ascend","ascension","ascended","ascendcount","ascendcheck","ascendcost","ascendreward",
-"farm","farming","farmed","farmcoin","farmgem","farmgold","farmtoken","farmcash",
-"grind","grinding","grinded","grindcoin","grindgem","grindgold","grindtoken",
-"idle","idlegame","idlecoin","idlegem","idlegold","idleincome","idlepassive",
--- ── Promo / codes ────────────────────────────────────────────────────────
-"code","codes","codecheck","coderedeem","promocode","giftcode","redeemcode",
-"redeem","redeemed","redeeming","redeemcoin","redeemgem","redeemtoken","redeemreward",
-"claim","claimed","claiming","claimcoin","claimgem","claimtoken","claimreward","claimchest",
--- ── Misc economy ─────────────────────────────────────────────────────────
-"chest","chests","chestopen","chestloot","chestcoin","chestgem","chestgold","chestitem",
-"crate","crates","crateopen","crateloot","cratecoin","crategem","crateitem",
-"box","boxes","boxopen","boxloot","boxcoin","boxgem","boxitem",
-"drop","drops","droprate","dropcoin","dropgem","dropmoney","dropitem","droploot",
-"point","points","pointgain","pointadd","pointcount","pointmultiplier","pointboost",
-"star","stars","stargain","staradd","starcount","starmultiplier","starboost",
-"trophy","trophies","trophygain","trophyadd","trophycount","trophyreward",
-"medal","medals","medalgain","medaladd","medalcount","medalreward",
-"fragment","fragments","fragmentgain","fragmentadd","fragmentcount","fragmentvalue",
-}
-
--- Stat gain keywords — 300+ covering every category
-local statGainKeywords = {
--- ── Physical movement actions ──────────────────────────────────────────────
-"walk","walked","walking","walks","walkremote","walkevent","walkfunc","walkhandler",
-"step","stepped","stepping","steps","stepremote","stepevent","stepfunc","stephandler",
-"stride","strided","striding","strides","strideremote","strideevent","stridefunc",
-"run","ran","running","runs","runremote","runevent","runfunc","runhandler",
-"sprint","sprinted","sprinting","sprints","sprintremote","sprintevent","sprintfunc",
-"jog","jogged","jogging","jogs","jogremote","jogevent","jogfunc","joghandler",
-"jump","jumped","jumping","jumps","jumpremote","jumpevent","jumpfunc","jumphandler",
-"climb","climbed","climbing","climbs","climbremote","climbevent","climbfunc","climbhandler",
-"crawl","crawled","crawling","crawls","crawlremote","crawlevent","crawlfunc","crawlhandler",
-"swim","swam","swimming","swims","swimremote","swimevent","swimfunc","swimhandler",
-"dash","dashed","dashing","dashes","dashremote","dashevent","dashfunc","dashhandler",
-"dodge","dodged","dodging","dodges","dodgeremote","dodgeevent","dodgefunc","dodgehandler",
-"slide","slid","sliding","slides","slideremote","slideevent","slidefunc","slidehandler",
-"roll","rolled","rolling","rolls","rollremote","rollevent","rollfunc","rollhandler",
-"crouch","crouched","crouching","crouchremote","crouchevent","crouchfunc","crouchhandler",
-"move","moved","moving","moves","moveremote","moveevent","movefunc","movehandler",
-"travel","traveled","traveling","travels","travelremote","travelevent","travelfunc",
-"wander","wandered","wandering","wanderremote","wanderevent","wanderfunc","wanderhandler",
-"explore","explored","exploring","exploreremote","exploreevent","explorefunc","explorehandler",
-"distance","distancetraveled","distancemoved","distancewalked","distanceremote","distanceevent",
-"footstep","footsteps","paces","pace","footstepremote","footstepevent","footstepfunc",
-"patrol","patrolled","patrolling","patrols","patrolremote","patrolevent","patrolfunc",
-"approach","approached","approaching","approachremote","approachevent","approachfunc",
-"flee","fled","fleeing","fleeremote","fleeevent","fleefunc","fleehandler","fleeservice",
-"chase","chased","chasing","chaseremote","chaseevent","chasefunc","chasehandler",
-"navigate","navigated","navigating","navigateremote","navigateevent","navigatefunc",
-"pathfind","pathfinding","pathfound","pathfindremote","pathfindevent","pathfindfunc",
--- ── Core stat names ────────────────────────────────────────────────────────
-"strength","str","power","pow","force",
-"stamina","stam","endurance","end","energy",
-"agility","agi","quickness","nimbleness",
-"speed","spd","velocity","movespeed","walkspeed","runspeed",
-"defense","def","armour","armor","resistance","resist","toughness",
-"vitality","vit","health","hp","maxhp","maxhealth",
-"dexterity","dex","precision","accuracy",
-"intelligence","int","intellect","wisdom","wis","magic","mana","mp",
-"luck","luk","crit","critchance","critrate","critical",
-"attack","atk","damage","dmg","dmgboost","attackpower","atpower",
-"charisma","charm","social",
-"faith","spirit","spi",
-"range","reach",
-"weight","carry","carrycap","carryweight",
-"size","scale","bodysize","modelscale",
-"rebirths","rebirth","ascensions","ascension","prestige","prestiges",
--- ── Win / progression stats ────────────────────────────────────────────────
-"wins","win","wincount","totalwins","winstreak","streak",
-"losses","loss","losscount","lossstreak",
-"kills","kill","killcount","totalkills","killstreak","totalelims","elims","elim",
-"deaths","death","deathcount","totaldeaths",
-"assists","assist","assistcount",
-"kdr","kda","kdratio","killratio",
-"score","scores","totalscore","highscore","bestscore","scoreboard",
-"points","pts","totalpoints","bonuspoints",
-"trophies","trophy","medals","medal","badge","badges",
-"stars","starcount","starcollected","starsgained",
-"gems","gem","crystals","crystal","shards","shard",
--- ── XP / Level ────────────────────────────────────────────────────────────
-"xp","exp","experience","totalxp","totalexp","gainxp","addxp","givexp",
-"level","lvl","levels","currentlevel","levelcount","levelup","addlevel","gainlevel",
-"rank","ranks","ranking","ranked","rankup","addrank","gainrank","tierrank",
-"tier","tiers","tierup","tierprogress","tierpoints",
-"class","classes","classrank","classtier",
-"mastery","masteries","masteryxp","masterylevel","masteryrank","masterypoints",
-"prestige","prestiges","prestigecount","prestigelevel","prestigerank",
-"ascension","ascensions","ascend","ascended",
-"stage","stages","stagecount","stageprogress","stagelevel",
-"floor","floors","floorlevel","floorcount","floorprogress",
-"wave","waves","wavecount","waveprogress","wavesurvived",
-"zone","zones","zonelevel","zonecount","zoneprogress","zoneunlocked",
-"area","areas","arealevel","areacount","areaunlocked",
-"world","worlds","worldlevel","worldcount","worldunlocked",
-"chapter","chapters","chaptercount","chapterprogress",
-"quest","quests","questcount","questcompleted","questdone",
-"mission","missions","missioncount","missioncompleted",
--- ── Increment / mutation verbs ─────────────────────────────────────────────
-"gain","gained","gains","gainstat",
-"add","added","adding","addstat",
-"give","given","giving","givestat","givestats",
-"grant","granted","granting","grantstat",
-"reward","rewarded","rewarding","rewardstat",
-"earn","earned","earning","earnstat",
-"increment","incremented","incrementstat",
-"increase","increased","increasing","increasestat",
-"boost","boosted","boosting","booststat",
-"buff","buffed","buffing","buffstat",
-"multiply","multiplied","multiplying","multiplystat",
-"set","setstat","setstats","setvalue",
-"update","updated","updating","updatestat","updatestats",
-"sync","synced","syncing","statsync","syncstat","syncstats",
-"save","saved","saving","savestat","savestats","savedata",
-"apply","applied","applying","applystat","applystats",
-"assign","assigned","assigning","assignstat",
-"compute","computed","computing","computestat",
-"calc","calculate","calculated","calculating","calcstat",
-"process","processed","processing","processstat",
-"dispatch","dispatched","dispatchstat",
-"commit","committed","commitstat",
-"flush","flushed","flushstat",
-"write","written","writestat","writedata",
-"push","pushed","pushstat","pushdata",
-"load","loaded","loadstat","loaddata",
-"fetch","fetched","fetchstat","fetchdata",
--- ── Stat / attribute nouns ─────────────────────────────────────────────────
-"stat","stats","attribute","attributes","property","properties",
-"value","values","datavalue","intvalue","numbervalue",
-"leaderstats","leaderstat","playerstat","playerstats",
-"serverstat","serverstats","gamestat","gamestats",
-"datasave","datastore","datastorekey","datastorevalue",
-"profile","profiles","profiledata","profilevalue","profilestat",
-"sessiondata","sessionstat","sessionvalue","sessionkey",
-"playerdata","playervalue","playerprofile",
--- ── Event/trigger names (on+action pattern) ───────────────────────────────
-"onwalk","onwalked","onstep","onstepped","onstride","onstrided",
-"onrun","onran","onsprint","onsprinted","onjog","onjogged",
-"onjump","onjumped","onclimb","onclimbed","oncrawl","oncrawled",
-"onswim","onswam","ondash","ondashed","onslide","onslid",
-"onmove","onmoved","ontravel","ontraveled","ondistance",
-"oncollect","oncollected","ontouch","ontouched","oninteract","oninteracted",
-"ontrigger","ontriggered","onactivate","onactivated","onpickup","onpickedup",
-"onkill","onkilled","onwin","onwon","ondeath","ondied","ondie",
-"onlevelup","onlevel","onrank","onrankup","onprestige","onrebirth","onascend",
-"onstat","onstatgain","onstatupdate","onstatchange",
--- ── Compound remote names ──────────────────────────────────────────────────
-"addstrength","gainstrength","givestrength","setstrength","increasestrength","booststrength",
-"addpower","gainpower","givepower","setpower","increasepower",
-"addstamina","gainstamina","givestamina","setstamina","increasestamina",
-"addspeed","gainspeed","givespeed","setspeed","increasespeed","boostspeed",
-"adddefense","gaindefense","givedefense","setdefense","increasedefense",
-"addwins","gainwins","givewins","setwins","increasewins",
-"addkills","gainkills","givekills","setkills","increasekills",
-"addxp","gainxp","givexp","setxp","increasexp",
-"addexp","gainexp","giveexp","setexp","increaseexp",
-"addlevel","gainlevel","givelevel","setlevel","increaselevel",
-"addrank","gainrank","giverank","setrank","increaserank",
-"addpoints","gainpoints","givepoints","setpoints","increasepoints",
-"addgems","gaingems","givegems","setgems","increasegems",
-"addcoins","gaincoins","givecoins","setcoins","increasecoins",
-"addgold","gaingold","givegold","setgold","increasegold",
-"addcash","gaincash","givecash","setcash","increasecash",
-"addkills","gainkills","givekills","setkills","increasekills",
-"addstars","gainstars","givestars","setstars","increasestars",
-"addtrophies","gaintrophies","givetrophies","settrophies",
-"addscore","gainscore","givescore","setscore","increasescore",
-"statupdate","statchange","statgain","statloss","statset","statget",
-"statreward","statboost","statbuff","statmult","statscale",
-"datastoreupdate","datasave","dataload","datawrite","dataread",
-"valuesync","valueupdate","valueset","valueget","valuegain",
-"profilesave","profileload","profileupdate","profilesync",
-}
-
--- EVERY known Roblox service — maximum coverage
-local allServices = {
-    -- Primary replication (remotes almost always here)
-    "ReplicatedStorage","ReplicatedFirst",
-    -- World / workspace
-    "Workspace",
-    -- Player containers
-    "Players",
-    -- Starter containers cloned to client
-    "StarterGui","StarterPack","StarterPlayer",
-    "StarterCharacterScripts","StarterPlayerScripts",
-    -- Lighting & environment
-    "Lighting","SoundService","Atmosphere",
-    -- Chat / communication
-    "Chat","TextChatService","BubbleChatConfiguration",
-    -- Marketplace / social
-    "MarketplaceService","BadgeService","GroupService","FriendService",
-    -- Content
-    "InsertService","ContentProvider","AssetService",
-    -- Physics / tween / run
-    "PhysicsService","TweenService","RunService","PathfindingService",
-    -- Tags / collections
-    "CollectionService",
-    -- Localisation
-    "LocalizationService",
-    -- Input & GUI
-    "UserInputService","ContextActionService","GuiService",
-    "VRService","HapticService","TouchInputService",
-    -- Teleport
-    "TeleportService",
-    -- Policy / analytics
-    "PolicyService","RbxAnalyticsService","AnalyticsService",
-    -- Teams
-    "Teams",
-    -- CoreGui (guarded)
-    "CoreGui",
-    -- Server-side (executor may expose these)
-    "ServerStorage","ServerScriptService",
-    -- Networking internals
-    "NetworkClient","NetworkServer",
-    -- Data / memory stores (sometimes hold folders with remotes)
-    "DataStoreService","MemoryStoreService",
-    -- Messaging
-    "MessagingService",
-    -- HTTP / misc
-    "HttpService","KeyframeSequenceProvider",
-    "GuidRegistryService","JointsService",
-    "TestService","StudioService","Selection",
-    "ScriptContext","ScriptEditorService",
-    "ChangeHistoryService","CorePackages",
-    "RobloxPluginGuiService","PluginGuiService",
-}
-
--- No hard limit on remotes — we want EVERYTHING
-local CAT_MAX_REMOTE = 3000
-local CAT_MAX_OTHER  = 500
-local catCount = {}
-
-local function canAddToCategory(cat)
-    catCount[cat] = (catCount[cat] or 0) + 1
-    local lim = cat:find("Remote") or cat == "Player Remotes" or cat == "Script Remotes"
-        or cat == "Server Remotes" or cat == "Bindables" or cat == "ALL REMOTES"
-    return catCount[cat] <= (lim and CAT_MAX_REMOTE or CAT_MAX_OTHER)
-end
-
-local function runOmniScan()
-for _, v in pairs(Scroll:GetChildren()) do if not v:IsA("UIListLayout") then v:Destroy() end end
-remoteRegistry = {}
-catCount = {}
-categoryEntries = {}
-categoryHeaders = {}
-entryMeta = {}
-
-collapsedCategories = {
-    Guis                    = true,
-    Data                    = true,
-    ["Admin Remotes"]       = true,
-    ["Money/Depth Remotes"] = true,
-    ["Stat Gain Remotes"]   = true,
-    Remotes                 = true,
-    ["Script Remotes"]      = true,
-    ["Player Remotes"]      = true,
-    ["Server Remotes"]      = true,
-    Bindables               = true,
-    ["ALL REMOTES"]         = true,
-    Utilities               = true,
-    Scripts                 = true,
-}
-
--- GUIs
-addCategoryHeader("Guis", Color3.fromRGB(0, 100, 150))
-for _, g in pairs(PlayerGui:GetChildren()) do
-    if g:IsA("ScreenGui") and g ~= ScreenGui then
-        if canAddToCategory("Guis") then addEntry(g, g.Enabled and "GUI" or "HIDDEN GUI", "Guis") end
+-- ── KEYWORD FACTORY: generates 1000+ entries per category via prefix×base×suffix ──
+local function buildKws(bases, prefixes, suffixes, extras)
+    local out = {}
+    local seen = {}
+    local function add(w)
+        w = w:lower()
+        if not seen[w] and #w >= 2 then seen[w]=true; out[#out+1]=w end
     end
-end
-
--- Player Data / Values (LocalPlayer + all players)
-addCategoryHeader("Data", Color3.fromRGB(150, 100, 0))
-pcall(function()
-    for _, v in pairs(Player:GetDescendants()) do
-        if v:IsA("ValueBase") then
-            if canAddToCategory("Data") then addEntry(v, "DATA", "Data") end
+    -- raw bases
+    for _,b in ipairs(bases) do add(b) end
+    -- prefix + base
+    for _,b in ipairs(bases) do
+        for _,p in ipairs(prefixes) do add(p..b) end
+    end
+    -- base + suffix
+    for _,b in ipairs(bases) do
+        for _,s in ipairs(suffixes) do add(b..s) end
+    end
+    -- prefix + base + suffix
+    for _,b in ipairs(bases) do
+        for _,p in ipairs(prefixes) do
+            for _,s in ipairs(suffixes) do add(p..b..s) end
         end
     end
-end)
-pcall(function()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= Player then
-            for _, v in pairs(plr:GetDescendants()) do
-                if v:IsA("ValueBase") then
-                    if canAddToCategory("Data") then addEntry(v, "DATA:" .. plr.Name, "Data") end
-                end
-            end
-        end
-    end
-end)
+    -- raw extras
+    if extras then for _,e in ipairs(extras) do add(e) end end
+    return out
+end
 
--- Category headers — all filled during deepScan
-addCategoryHeader("Admin Remotes",       Color3.fromRGB(180, 0,   0  ))
-addCategoryHeader("Money/Depth Remotes", Color3.fromRGB(200, 160, 0  ))
-addCategoryHeader("Stat Gain Remotes",   Color3.fromRGB(0,   255, 180))
-addCategoryHeader("Script Remotes",      Color3.fromRGB(140, 0,   200))
-addCategoryHeader("Player Remotes",      Color3.fromRGB(0,   120, 200))
-addCategoryHeader("Server Remotes",      Color3.fromRGB(255, 60,  60 ))
-addCategoryHeader("Bindables",           Color3.fromRGB(0,   180, 120))
-addCategoryHeader("Remotes",             Color3.fromRGB(0,   150, 50 ))
-addCategoryHeader("ALL REMOTES",         Color3.fromRGB(57,  255, 20 ))
-addCategoryHeader("Utilities",           Color3.fromRGB(150, 50,  50 ))
-addCategoryHeader("Scripts",             Color3.fromRGB(80,  0,   150))
+-- Shared suffix/prefix pools
+local EXEC_SUFFIXES = {"handler","event","func","function","remote","service","module","core","system","manager","controller","command","request","action","call","callback","trigger","signal","dispatch","process","fire","send","emit","relay","run","exec","check","verify","update","set","get","list","all","server","client","player","plr","data","stat","value","key","type","id","count","index","flag","bool","mode","config","info","log","result","status","response","notify","alert","msg","broadcast","queue","task","job","loop","timer","tick","step","frame","rate","hook","patch","wrap","inject","load","boot","init","start","setup","launch","import","require","eval","spawn","destroy","create","delete","remove","add","insert","clear","wipe","reset","save","push","fetch","write","read","sync","async","validate","guard","protect","secure","auth","perm","access","grant","revoke"}
+local EXEC_PREFIXES = {"on","do","get","set","has","is","can","try","run","fire","send","emit","call","do","handle","process","exec","invoke","request","update","sync","validate","check","verify","notify","give","grant","add","remove","create","destroy","fetch","load","save","push","pull","write","read","dispatch","broadcast","relay","trigger","hook","post","pre","after","before","during","queue","schedule","task","register","unregister","enable","disable","toggle","force","override","allow","deny","block","bypass"}
 
-local seenRemotes    = {}
-local scanStepCount  = 0
-local totalFound     = 0
+local adminKeywords = buildKws(
+    -- bases: every admin/moderation/auth/command concept
+    {"admin","administrator","command","cmd","exec","execute","run","eval","invoke","fire","call","send","emit","dispatch","trigger","broadcast","relay","request","process","handler","action","permission","perm","auth","access","verify","trust","whitelist","blacklist","bypass","rank","role","group","staff","mod","operator","owner","vip","dev","ban","kick","mute","freeze","kill","god","fly","noclip","teleport","warp","speed","invisible","heal","respawn","spawn","give","drop","upgrade","purchase","buy","item","tool","weapon","pet","announce","notify","alert","message","log","report","enable","disable","toggle","override","force","delete","destroy","clear","wipe","reset","save","load","data","stat","value","config","mode","flag","key","index","id","count","type","list","all","remote","event","func","service","module","core","system","manager","controller","framework","network","server","client","player","user","character","inventory","backpack","leaderstats","profile","hook","patch","wrap","inject","import","require","boot","init","start","setup","launch","async","sync","queue","task","timer","loop","tick","step","frame","validate","guard","protect","secure","grant","revoke","allow","deny","block","register","unregister","superadmin","headadmin","headmod","headdev","coowner","co","owner","elevated","trusted","allowed","ingroup","getrank","getrole","isin","getrankingroup","getroleingroup","isingroup","permcheck","authcheck","rankcheck","rolecheck","groupcheck","staffcheck","modcheck","devcheck","vipcheck","ownercheck","admincheck","adminpanel","adminboard","admindashboard","adminui","admingui","adminscreen","admintool","adminkit","adminscript"},
+    EXEC_PREFIXES,
+    EXEC_SUFFIXES,
+    {"adonis","kohls","kohl","hd","hdadmin","cmdr","commander","infinity","nsa","ae","arctic","ae","namecall","namecallmethod","remotecall","functioncall","eventfire","serverhop","exploitdetect","anticheat","antiexploit","kick","ban","ipban","uuidban","fingerprint","deviceban","platformban","gameban","permban","tempban","softban","globalban","moderationlog","moderationaction","moderationevent","moderationfunc","moderationhandler","moderationservice","adminsystem","commandsystem","chatcommand","chatcmd","chatevent","chatfire","chathandler","chatservice","chatremote","chatmodule","consolecmd","consolelog","consoleprint","debugcmd","debugexec","debugrun","debugeval","debugfire","debugsend","debughandler","globalexec","globalrun","globalfire","globalcmd","globalhandler","globaladmin","globalmod","globalstaff","globalaction","permissionlevel","permissionrank","permissionrole","permissiongroup","permissioncheck","permissionverify","permissiongrant","permissionrevoke","permissionhandler","permissionservice","permissionmodule","permissionsystem","permissioncore","rankvalue","rolevalue","groupvalue","staffvalue","modvalue","devvalue","vipvalue","ownervalue","rankset","rankget","roleset","roleget","groupset","groupget","staffset","staffget","modset","modget","devset","devget","vipset","vipget","ownerset","ownerget"}
+)
 
--- Keywords for script-related remotes
-local scriptRemoteKws = {
--- ── Script type identifiers ────────────────────────────────────────────────
-"script","scripts","scriptremote","scripthandler","scriptevent","scriptfunc",
-"localscript","localscripts","localscriptremote","localscripthandler","localscriptevent",
-"modulescript","modulescripts","moduleremote","modulehandler","moduleevent","modulefunc",
-"serverscript","serverscripts","serverscriptremote","serverscripthandler","serverscriptevent",
--- ── Execution / loading ───────────────────────────────────────────────────
-"exec","execute","execution","executor","executing","execscript","execcode","execcommand",
-"run","running","runner","runscript","runcode","runcommand","runfunction","runmodule",
-"eval","evaluate","evaluation","evalscript","evalcode","evalcommand","evalexpression",
-"loadstring","loadscript","loadcode","loadmodule","loadfile","loadfunction","loadchunk",
-"require","requires","requiring","requiremodule","requirescript","requirelib","requirecore",
-"load","loaded","loading","loadhandler","loadservice","loadcore","loadsystem","loadlib",
-"boot","booted","booting","bootscript","bootsystem","bootcore","bootservice","bootmodule",
-"init","initialize","initialized","initializing","initscript","initsystem","initcore","initservice",
-"start","started","starting","startscript","startsystem","startcore","startservice",
-"setup","setups","setupscript","setupsystem","setupcore","setupservice","setupmodule",
-"launch","launched","launching","launchscript","launchsystem","launchcore","launchservice",
-"import","imported","importing","importmodule","importscript","importlib","importcore",
-"inject","injected","injecting","injectscript","injectcode","injectmodule","injectfunction",
-"hook","hooked","hooking","hookscript","hookfunction","hookevent","hookremote","hookhandler",
-"patch","patched","patching","patchscript","patchfunction","patchremote","patchhandler",
-"wrap","wrapped","wrapping","wrapscript","wrapfunction","wrapremote","wraphandler",
--- ── Framework / system names ──────────────────────────────────────────────
-"framework","frameworks","frameworkcore","frameworkhandler","frameworkservice","frameworkmodule",
-"system","systems","systemcore","systemhandler","systemservice","systemmodule","systemscript",
-"core","cores","corehandler","coreservice","coremodule","corescript","coresystem","corefunction",
-"service","services","servicecore","servicehandler","servicemodule","servicescript","servicefunc",
-"manager","managers","managercore","managerhandler","managermodule","managerfunc","managerservice",
-"controller","controllers","controllercore","controllerhandler","controllermodule","controllerfunc",
-"handler","handlers","handlercore","handlerservice","handlermodule","handlerfunc","handlerscript",
-"module","modules","modulecore","moduleservice","modulehandler","modulefunc","moduleloader",
-"library","libraries","libcore","libservice","libhandler","libmodule","libfunc","libloader",
-"lib","libs","libhandler","libservice","libmodule","libcore","libscript","libloader",
-"util","utils","utility","utilities","utilhandler","utilservice","utilmodule","utilfunc",
-"helper","helpers","helperhandler","helperservice","helpermodule","helperfunc","helperscript",
-"api","apis","apihandler","apiservice","apimodule","apifunc","apiscript","apicore",
--- ── Callback / signal / event infra ──────────────────────────────────────
-"callback","callbacks","callbackhandler","callbackservice","callbackfunc","callbackevent",
-"signal","signals","signalhandler","signalservice","signalfunc","signalfired","signalevent",
-"event","events","eventhandler","eventservice","eventfunc","eventfired","eventremote",
-"bindable","bindables","bindableevent","bindablefunction","bindablehandler","bindableservice",
-"remote","remotes","remoteevent","remotefunction","remotehandler","remoteservice","remotefunc",
-"connection","connections","connectionhandler","connectionservice","connectionfunc","connectionevent",
-"listener","listeners","listenerhandler","listenerservice","listenerfunc","listenerevent",
-"subscriber","subscribers","subscribehandler","subscribeservice","subscribefunc","subscribeevent",
-"observer","observers","observehandler","observeservice","observefunc","observeevent",
-"emitter","emitters","emithandler","emitservice","emitfunc","emitevent","emitremote",
-"dispatcher","dispatchers","dispatchhandler","dispatchservice","dispatchfunc","dispatchevent",
-"trigger","triggers","triggerhandler","triggerservice","triggerfunc","triggerevent","triggerremote",
-"hook","hooks","hookhandler","hookservice","hookfunc","hookevent","hookremote",
-"filter","filters","filterhandler","filterservice","filterfunc","filterevent","filterremote",
-"middleware","middlewares","middlewarehandler","middlewareservice","middlewarefunc",
-"interceptor","interceptors","intercepthandler","interceptservice","interceptfunc",
-"pipe","pipes","pipehandler","pipeservice","pipefunc","pipeevent","pipemodule",
-"pipeline","pipelines","pipelinehandler","pipelineservice","pipelinefunc","pipelineevent",
--- ── Code execution patterns ────────────────────────────────────────────────
-"chunk","chunks","chunkhandler","chunkloader","chunkexec","chunkrun","chunkeval",
-"bytecode","bytecodehandler","bytecodeloader","bytecodeexec","bytecoderun",
-"compile","compiled","compiling","compilehandler","compilerun","compilescript",
-"interpret","interpreted","interpreting","interprethandler","interpretrun","interpretscript",
-"sandbox","sandboxhandler","sandboxexec","sandboxrun","sandboxeval","sandboxscript",
-"environment","environmenthandler","environmentexec","environmentrun","environmentscript",
-"context","contexthandler","contextexec","contextrun","contextscript","contextmodule",
-"scope","scopehandler","scopeexec","scoperun","scopescript","scopemodule",
-"closure","closurehandler","closureexec","closurerun","closurescript","closuremodule",
-"coroutine","coroutinehandler","coroutineexec","coroutinerun","coroutinescript",
-"thread","threads","threadhandler","threadexec","threadrun","threadscript","threadmodule",
-"task","tasks","taskhandler","taskexec","taskrun","taskscript","taskmodule","taskschedule",
-"schedule","scheduled","scheduling","schedulehandler","schedulerun","schedulescript",
-"defer","deferred","deferring","deferhandler","deferrun","deferscript","defermodule",
-"async","asynchandler","asyncexec","asyncrun","asyncscript","asyncmodule","asynctask",
-"await","awaithandler","awaitexec","awaitrun","awaitscript","awaitmodule","awaittask",
-}
+local moneyDepthKeywords = buildKws(
+    {"money","cash","coin","gem","gold","silver","bronze","platinum","crystal","ruby","emerald","sapphire","diamond","jewel","token","ticket","chip","credit","buck","dollar","euro","note","bill","cent","currency","balance","wallet","purse","vault","bank","fund","treasury","treasure","wealth","rich","fortune","capital","saving","earn","gain","collect","pickup","receive","payout","pay","reward","grant","income","passive","yield","profit","produce","generate","mint","harvest","loot","salvage","spend","buy","purchase","sell","trade","transfer","withdraw","deposit","invest","cost","price","tax","multiply","mult","bonus","double","triple","rate","depth","floor","zone","region","area","stage","layer","mine","dig","ore","resource","material","underground","deep","shop","store","market","auction","vending","vendor","merchant","rebirth","prestige","reset","wipe","ascend","farm","grind","idle","code","redeem","claim","chest","crate","box","drop","point","star","trophy","medal","fragment","shard","boost","multiplier"},
+    EXEC_PREFIXES,
+    EXEC_SUFFIXES,
+    {"coinflip","coinmult","goldmult","gemshard","tokenmint","creditboost","walletmax","vaultopen","treasureopen","lootbox","crateopen","chestspin","rebirthcost","rebirthreward","rebirthcheck","prestigecost","prestigereward","prestigecheck","ascendcost","ascendreward","ascendcheck","farmcoin","farmgem","farmgold","farmtoken","farmcash","grindcoin","grindgem","grindgold","idlecoin","idlegem","idlegold","idleincome","idlepassive","passiverate","passivecoin","passivegem","passivegold","yieldrate","yieldcoin","yieldgem","earncoin","earngem","earngold","earntoken","earncash","gainmoney","gaincoin","gaingem","gaingold","gaintoken","gaincash","collectcoin","collectgem","collectgold","collecttoken","collectmoney","receivecoin","receivegem","receivegold","receivetoken","receivemoney","spendcoin","spendgem","spendgold","spendtoken","spendmoney","buycoin","buygem","buygold","buytoken","buycash","purchasecoin","purchasegem","purchasegold","purchasetoken","sellcoin","sellgem","sellgold","selltoken","tradecoin","tradegem","tradegold","tradetoken","investcoin","investgem","investgold","investtoken","withdrawcoin","withdrawgem","withdrawgold","depositcoin","depositgem","depositgold","moneymult","cashmult","coincount","gemcount","goldcount","tokencount","creditcount","pointcount","starcount","trophycount","medalcount","fragmentcount","shardcount","boostcoin","boostgem","boostgold","boosttoken","doublecoin","doublegem","doublegold","doubletoken","triplecoin","triplegem","triplegold","tripletoken","bonuscoin","bonusgem","bonusgold","bonustoken"}
+)
 
--- Keywords that suggest server-side origin
-local serverRemoteKws = {
--- ── Server identifiers ────────────────────────────────────────────────────
-"server","servers","serverside","serveronly","serversided","serverscript","serverservice",
-"serverhandler","serverevent","serverfunction","serverfunc","serverremote","servermodule",
-"servercore","serversystem","servercontroller","servermanager","serverframework",
-"serverrequest","serverresponse","serveraction","servercommand","serverprocess",
-"ss","sss","serversided","serverscripted","serversideservice","serversidehandler",
--- ── Network / replication ─────────────────────────────────────────────────
-"network","networks","networkhandler","networkservice","networkevent","networkfunc",
-"networkremote","networkmodule","networkcore","networksystem","networkcontroller",
-"replication","replicate","replicated","replicating","replicationhandler","replicationservice",
-"replicationstorage","replicatedfirst","replicationmodule","replicationcore","replicationevent",
-"sync","synced","syncing","synchandler","syncservice","syncevent","syncfunc","syncmodule",
-"async","asynchandler","asyncservice","asyncevent","asyncfunc","asyncmodule","asynccore",
-"remote","remotes","remoteevent","remotefunction","remotehandler","remoteservice","remotefunc",
-"rpc","rpcs","rpchandler","rpcservice","rpcevent","rpcfunc","rpcmodule","rpccore","rpccall",
--- ── API / endpoint ────────────────────────────────────────────────────────
-"api","apis","apihandler","apiservice","apievent","apifunc","apimodule","apicore","apicall",
-"endpoint","endpoints","endpointhandler","endpointservice","endpointevent","endpointfunc",
-"route","routes","routehandler","routeservice","routeevent","routefunc","routemodule",
-"request","requests","requesthandler","requestservice","requestevent","requestfunc","requestmodule",
-"response","responses","responsehandler","responseservice","responseevent","responsefunc",
-"call","calls","callhandler","callservice","callevent","callfunc","callmodule","callcore","callremote",
--- ── Backend / infrastructure ──────────────────────────────────────────────
-"backend","backends","backendhandler","backendservice","backendevent","backendfunc","backendmodule",
-"database","databases","databasehandler","databaseservice","databaseevent","databasefunc",
-"datastore","datastores","datastorehandler","datastoreservice","datastoreevent","datastorefunc",
-"dataservice","dataservices","dataservicehandler","dataserviceevent","dataservicefunc",
-"datasync","datasynced","datasyncing","datasynchandler","datasyncevent","datasyncfunc",
-"gameserver","gameservers","gameserverhandler","gameserverservice","gameserverevent",
-"worldserver","worldservers","worldserverhandler","worldserverservice","worldserverevent",
-"hostserver","hostservers","hostserverhandler","hostserverservice","hostserverevent",
-"masterserver","masterservers","masterserverhandler","masterserverservice",
-"jobserver","jobservers","jobserverhandler","jobserverservice","jobserverevent",
-"gameservice","gameservices","gameservicehandler","gameserviceevent","gameservicefunc",
-"runservice","runservicehandler","runserviceevent","runservicefunc","runservicemodule",
--- ── Session / job / tick ─────────────────────────────────────────────────
-"session","sessions","sessionhandler","sessionservice","sessionevent","sessionfunc","sessionmodule",
-"heartbeat","heartbeats","heartbeathandler","heartbeatevent","heartbeatfunc","heartbeatmodule",
-"tick","ticks","tickhandler","tickevent","tickfunc","tickmodule","tickrate","tickserver",
-"frame","frames","framehandler","frameevent","framefunc","framemodule","framerate","frameserver",
-"step","steps","stephandler","stepevent","stepfunc","stepmodule","stepserver","steprate",
-"update","updates","updatehandler","updateservice","updateevent","updatefunc","updatemodule",
-"loop","loops","loophandler","loopservice","loopevent","loopfunc","loopmodule","looptimer",
-"timer","timers","timerhandler","timerservice","timerevent","timerfunc","timermodule",
-"interval","intervals","intervalhandler","intervalservice","intervalevent","intervalfunc",
-"clock","clocks","clockhandler","clockservice","clockevent","clockfunc","clockmodule",
--- ── Spawn / destroy ───────────────────────────────────────────────────────
-"spawn","spawned","spawning","spawnhandler","spawnservice","spawnevent","spawnfunc",
-"destroy","destroyed","destroying","destroyhandler","destroyservice","destroyevent",
-"create","created","creating","createhandler","createservice","createevent","createfunc",
-"delete","deleted","deleting","deletehandler","deleteservice","deleteevent","deletefunc",
-"remove","removed","removing","removehandler","removeservice","removeevent","removefunc",
-"add","added","adding","addhandler","addservice","addevent","addfunc","addmodule",
-"insert","inserted","inserting","inserthandler","insertservice","insertevent","insertfunc",
--- ── Security / validation ─────────────────────────────────────────────────
-"validate","validated","validating","validatehandler","validateservice","validateevent",
-"verify","verified","verifying","verifyhandler","verifyservice","verifyevent","verifyfunc",
-"sanity","sanitycheck","sanitychecked","sanitycheckhandler","sanitycheckevent",
-"sanitize","sanitized","sanitizing","sanitizehandler","sanitizeservice","sanitizeevent",
-"check","checked","checking","checkhandler","checkservice","checkevent","checkfunc",
-"guard","guards","guardhandler","guardservice","guardevent","guardfunc","guardmodule",
-"protect","protected","protecting","protecthandler","protectservice","protectevent",
-"secure","secured","securing","securehandler","secureservice","secureevent","securefunc",
-"auth","authhandler","authservice","authevent","authfunc","authmodule","authcheck",
-"authorize","authorized","authorizing","authorizehandler","authorizeservice","authorizeevent",
-}
+local statGainKeywords = buildKws(
+    {"walk","step","stride","run","sprint","jog","jump","climb","crawl","swim","dash","dodge","slide","roll","crouch","move","travel","wander","explore","distance","footstep","pace","patrol","approach","flee","chase","navigate","pathfind","strength","str","power","pow","force","stamina","stam","endurance","energy","agility","agi","speed","spd","velocity","defense","def","armor","resist","toughness","vitality","vit","health","hp","maxhp","dexterity","dex","precision","intelligence","int","wisdom","magic","mana","mp","luck","crit","attack","atk","damage","dmg","range","weight","carry","size","scale","wins","kill","death","assist","score","point","xp","exp","experience","level","lvl","rank","tier","class","mastery","prestige","stage","floor","wave","zone","area","world","chapter","quest","mission","gain","add","give","grant","reward","earn","increment","increase","boost","buff","multiply","set","update","sync","save","apply","assign","compute","calc","process","dispatch","flush","write","push","load","fetch","stat","attribute","value","leaderstats","profile","data","session","playerdata","onwalk","onstep","onrun","onjump","onclimb","onswim","ondash","onmove","oncollect","ontouch","onkill","onwin","ondeath","onlevel","onrank","onprestige"},
+    EXEC_PREFIXES,
+    EXEC_SUFFIXES,
+    {"addstrength","gainstrength","givestrength","setstrength","increasestrength","booststrength","addpower","gainpower","givepower","setpower","addstamina","gainstamina","givestamina","setstamina","addspeed","gainspeed","givespeed","setspeed","adddefense","gaindefense","givedefense","setdefense","addwins","gainwins","givewins","setwins","addkills","gainkills","givekills","setkills","addxp","gainxp","givexp","setxp","addexp","gainexp","giveexp","setexp","addlevel","gainlevel","givelevel","setlevel","addrank","gainrank","giverank","setrank","addpoints","gainpoints","givepoints","setpoints","addgems","gaingems","givegems","setgems","addscore","gainscore","givescore","setscore","statupdate","statchange","statgain","statset","statget","statreward","statboost","statbuff","datasave","dataload","datawrite","dataread","valuesync","valueupdate","valueset","valuegain","profilesave","profileload","profileupdate","profilesync","leaderstatsupdate","leaderstatssave","leaderstatsgain","leaderstatssync","walkxp","stepxp","stridexp","runxp","sprintxp","jumpxp","climbxp","swimxp","dashxp","movexp","distancexp","footstepxp","pacestat","patrolstat","fleestat","chasestat","navigatestat","pathfindstat","walkstrength","stepstrength","stridestrength","runstrength","sprintstrength","jumpstrength","climbstrength","swimstrength","dashstrength","movestrength","walkstamina","stepstamina","runstamina","sprintstamina","jumpstamina","climbstamina","swimstamina","dashstamina","movestamina","walkspeed","stepspeed","runspeed","sprintspeed","dashspeed","movespeed","distancespeed","walkwins","stepwins","runwins","sprintwins","jumpwins","walkkills","runkills","sprintkills","walkscore","runscore","sprintscore","jumpscore"}
+)
 
--- Keywords for player-specific remotes
-local playerRemoteKws = {
--- ── Player / client identifiers ───────────────────────────────────────────
-"player","players","playerremote","playerevent","playerfunc","playerhandler","playerservice",
-"playermodule","playercore","playercontroller","playermanager","playerframework",
-"localplayer","localplayerremote","localplayerevent","localplayerfunc","localplayerhandler",
-"plr","plrs","plrremote","plrevent","plrfunc","plrhandler","plrservice","plrmodule",
-"user","users","userremote","userevent","userfunc","userhandler","userservice","usermodule",
-"usr","usrs","usrremote","usrevent","usrfunc","usrhandler","usrservice","usrmodule",
-"client","clients","clientremote","clientevent","clientfunc","clienthandler","clientservice",
-"clientmodule","clientcore","clientcontroller","clientmanager","clientframework","clientside",
--- ── Character / rig ───────────────────────────────────────────────────────
-"character","characters","characterremote","characterevent","characterfunc","characterhandler",
-"characterservice","charactermodule","charactercore","charactercontroller","charactermanager",
-"char","chars","charremote","charevent","charfunc","charhandler","charservice","charmodule",
-"rig","rigs","rigremote","rigevent","rigfunc","righandler","rigservice","rigmodule",
-"avatar","avatars","avatarremote","avatarevent","avatarfunc","avatarhandler","avatarservice",
-"humanoid","humanoids","humanoidremote","humanoidfunc","humanoidhandler","humanoidservice",
-"humanoidrootpart","hrp","hrpremote","hrpfunc","hrphandler","hrpservice","hrpmodule",
-"rootpart","rootparts","rootpartremote","rootpartfunc","rootparthandler","rootpartservice",
-"torso","torsors","torsoremote","torsofunc","torsohandler","torsoservice","torsomodule",
-"head","heads","headremote","headfunc","headhandler","headservice","headmodule",
-"limb","limbs","limbremote","limbfunc","limbhandler","limbservice","limbmodule",
-"body","bodies","bodyremote","bodyfunc","bodyhandler","bodyservice","bodymodule",
--- ── Health / status ───────────────────────────────────────────────────────
-"health","healths","healthremote","healthevent","healthfunc","healthhandler","healthservice",
-"maxhealth","maxhealths","maxhealthremote","maxhealthevent","maxhealthfunc","maxhealthhandler",
-"hp","hpremote","hpevent","hpfunc","hphandler","hpservice","hpmodule","hpchange","hpupdate",
-"heal","healed","healing","healremote","healevent","healfunc","healhandler","healservice",
-"damage","damages","damageremote","damageevent","damagefunc","damagehandler","damageservice",
-"hurt","hurted","hurting","hurtremote","hurtevent","hurtfunc","hurthandler","hurtservice",
-"die","died","dying","dieremote","dieevent","diefunc","diehandler","dieservice","diemodule",
-"death","deaths","deathremote","deathevent","deathfunc","deathhandler","deathservice",
-"respawn","respawns","respawnremote","respawnevent","respawnfunc","respawnhandler","respawnservice",
-"alive","alivecheck","alivefunc","alivehandler","aliveservice","aliveremote","aliveevent",
-"dead","deadcheck","deadfunc","deadhandler","deadservice","deadremote","deadevent",
-"status","statuses","statusremote","statusevent","statusfunc","statushandler","statusservice",
-"effect","effects","effectremote","effectevent","effectfunc","effecthandler","effectservice",
-"buff","buffs","buffremote","buffevent","bufffunc","buffhandler","buffservice","buffmodule",
-"debuff","debuffs","debuffremote","debuffevent","debuffhandler","debuffservice","debuffmodule",
--- ── Inventory / equipment ─────────────────────────────────────────────────
-"inventory","inventories","inventoryremote","inventoryevent","inventoryfunc","inventoryhandler",
-"inventoryservice","inventorymodule","inventorycore","inventorycontroller","inventorymanager",
-"backpack","backpacks","backpackremote","backpackevent","backpackfunc","backpackhandler",
-"equipment","equipments","equipmentremote","equipmentevent","equipmentfunc","equipmenthandler",
-"item","items","itemremote","itemevent","itemfunc","itemhandler","itemservice","itemmodule",
-"tool","tools","toolremote","toolevent","toolfunc","toolhandler","toolservice","toolmodule",
-"weapon","weapons","weaponremote","weaponevent","weaponfunc","weaponhandler","weaponservice",
-"armor","armors","armorremote","armorevent","armorfunc","armorhandler","armorservice",
-"gear","gears","gearremote","gearevent","gearfunc","gearhandler","gearservice","gearmodule",
-"pet","pets","petremote","petevent","petfunc","pethandler","petservice","petmodule","petequip",
-"mount","mounts","mountremote","mountevent","mountfunc","mounthandler","mountservice",
-"skin","skins","skinremote","skinevent","skinfunc","skinhandler","skinservice","skinmodule",
-"cosmetic","cosmetics","cosmeticremote","cosmeticevent","cosmeticfunc","cosmetichandler",
-"hat","hats","hatremote","hatevent","hatfunc","hathandler","hatservice","hatmodule",
-"accessory","accessories","accessoryremote","accessoryevent","accessoryfunc","accessoryhandler",
-"outfit","outfits","outfitremote","outfitevent","outfitfunc","outfithandler","outfitservice",
--- ── Stats / data ─────────────────────────────────────────────────────────
-"leaderstats","leaderstat","leaderstatremote","leaderstatsevent","leaderstatsfunc",
-"leaderstatshandler","leaderstatsservice","leaderstatsmodule","leaderstatscore",
-"stats","stat","statremote","statevent","statfunc","stathandler","statservice","statmodule",
-"playerdata","playerdataremote","playerdataevent","playerdatafunc","playerdatahandler",
-"playerdataservice","playerdatamodule","playerdatacore","playerdatacontroller",
-"profile","profiles","profileremote","profileevent","profilefunc","profilehandler",
-"profileservice","profilemodule","profilecore","profilecontroller","profilemanager",
-"data","datas","dataremote","dataevent","datafunc","datahandler","dataservice","datamodule",
-"save","saves","saveremote","saveevent","savefunc","savehandler","saveservice","savemodule",
-"load","loads","loadremote","loadevent","loadfunc","loadhandler","loadservice","loadmodule",
--- ── Movement / input ─────────────────────────────────────────────────────
-"move","moves","moveremote","moveevent","movefunc","movehandler","moveservice","movemodule",
-"movement","movements","movementremote","movementevent","movementfunc","movementhandler",
-"jump","jumps","jumpremote","jumpevent","jumpfunc","jumphandler","jumpservice","jumpmodule",
-"walk","walks","walkremote","walkevent","walkfunc","walkhandler","walkservice","walkmodule",
-"run","runs","runremote","runevent","runfunc","runhandler","runservice","runmodule",
-"sprint","sprints","sprintremote","sprintevent","sprintfunc","sprinthandler","sprintservice",
-"speed","speeds","speedremote","speededit","speedevent","speedfunc","speedhandler","speedservice",
-"input","inputs","inputremote","inputevent","inputfunc","inputhandler","inputservice",
-"action","actions","actionremote","actionevent","actionfunc","actionhandler","actionservice",
-"interact","interacts","interactremote","interactevent","interactfunc","interacthandler",
-"touch","touches","touchremote","touchevent","touchfunc","touchhandler","touchservice",
-"click","clicks","clickremote","clickevent","clickfunc","clickhandler","clickservice",
-"press","presses","pressremote","pressevent","pressfunc","presshandler","pressservice",
-"key","keys","keyremote","keyevent","keyfunc","keyhandler","keyservice","keymodule","keyinput",
--- ── Chat / social ────────────────────────────────────────────────────────
-"chat","chats","chatremote","chatevent","chatfunc","chathandler","chatservice","chatmodule",
-"message","messages","messageremote","messageevent","messagefunc","messagehandler","messageservice",
-"whisper","whispers","whisperremote","whisperevent","whisperfunc","whisperhandler","whisperservice",
-"friend","friends","friendremote","friendevent","friendfunc","friendhandler","friendservice",
-"party","parties","partyremote","partyevent","partyfunc","partyhandler","partyservice",
-"team","teams","teamremote","teamevent","teamfunc","teamhandler","teamservice","teammodule",
-"guild","guilds","guildremote","guildevent","guildfunc","guildhandler","guildservice",
-"clan","clans","clanremote","clanevent","clanfunc","clanhandler","clanservice","clanmodule",
-}
+local scriptRemoteKws = buildKws(
+    {"script","localscript","modulescript","serverscript","exec","execute","run","eval","loadstring","require","load","boot","init","start","setup","launch","import","inject","hook","patch","wrap","framework","system","core","service","manager","controller","handler","module","library","lib","util","helper","api","callback","signal","event","bindable","remote","connection","listener","subscriber","observer","emitter","dispatcher","trigger","filter","middleware","interceptor","pipe","pipeline","chunk","bytecode","compile","interpret","sandbox","environment","context","scope","closure","coroutine","thread","task","schedule","defer","async","await","code","function","method","routine","procedure","subroutine","process","compute","calculate","evaluate","parse","tokenize","serialize","deserialize","encode","decode","compress","decompress","encrypt","decrypt","hash","sign","verify","validate","sanitize","transform","map","reduce","filter","collect","iterate","enumerate","format","render","display","print","output","input","read","write","stream","buffer","cache","pool","queue","stack","heap","tree","graph","node","edge","link","chain","list","array","table","dict","set","map","tuple","struct","class","object","instance","prototype","interface","mixin","trait","namespace","package","bundle","chunk","segment","block","region","zone","area","scope","environment"},
+    EXEC_PREFIXES,
+    EXEC_SUFFIXES,
+    {"execcode","execscript","execcommand","execfunction","execmodule","execservice","execremote","exechandler","execevent","execfunc","runcode","runscript","runcommand","runfunction","runmodule","runservice","runremote","runhandler","runevent","evalcode","evalscript","evalexpression","evalcommand","loadcode","loadscript","loadmodule","loadfile","loadfunction","loadchunk","requiremodule","requirescript","requirelib","requirecore","bootscript","bootsystem","bootcore","bootservice","bootmodule","initscript","initsystem","initcore","initservice","startscript","startsystem","startcore","startservice","hookscript","hookfunction","hookevent","hookremote","hookhandler","patchscript","patchfunction","patchremote","patchhandler","wrapscript","wrapfunction","wrapremote","wraphandler","injectscript","injectcode","injectmodule","injectfunction","frameworkcore","frameworkhandler","frameworkservice","frameworkmodule","systemcore","systemhandler","systemservice","systemmodule","corehandler","coreservice","coremodule","corescript","servicecore","servicehandler","servicemodule","servicescript","managercore","managerhandler","managermodule","managerfunc","controllercore","controllerhandler","controllermodule","controllerfunc","handlercore","handlerservice","handlermodule","handlerfunc","modulecore","moduleservice","modulehandler","modulefunc","libcore","libservice","libhandler","libmodule","utilhandler","utilservice","utilmodule","helperhandler","helperservice","helpermodule","apihandler","apiservice","apievent","apifunc"}
+)
+
+local serverRemoteKws = buildKws(
+    {"server","serverside","ss","remote","network","replication","replicated","rpc","api","endpoint","route","request","response","call","backend","database","datastore","dataservice","datasync","gameserver","worldserver","hostserver","masterserver","jobserver","session","heartbeat","tick","frame","step","update","loop","timer","interval","clock","spawn","destroy","create","delete","remove","add","insert","validate","verify","sanity","sanitize","check","guard","protect","secure","auth","authorize","middleware","pipeline","queue","broadcast","publish","subscribe","consume","produce","relay","proxy","gateway","loadbalancer","cluster","shard","partition","replica","mirror","backup","restore","snapshot","checkpoint","rollback","migrate","deploy","provision","scale","monitor","health","ping","latency","bandwidth","throughput","packet","message","payload","header","body","param","query","path","url","uri","method","status","code","error","exception","fault","trace","log","debug","info","warn","critical","alert","notify","report","metric","counter","gauge","histogram","timer","span","trace","context","correlation","transaction","saga","event","command","aggregate","projection","snapshot","readmodel","writemodel","cqrs","eventsourcing","domain","bounded","context","service","microservice","monolith","serverless","function","lambda","trigger","webhook","callback","endpoint","healthcheck","liveness","readiness","startup","shutdown","lifecycle","hook","interceptor","filter","transformer","validator","authenticator","authorizer"},
+    EXEC_PREFIXES,
+    EXEC_SUFFIXES,
+    {"serverhandler","serverevent","serverfunction","serverfunc","serverremote","servermodule","servercore","serversystem","servercontroller","servermanager","serverframework","serverrequest","serverresponse","serveraction","servercommand","serverprocess","networkhandler","networkevent","networkfunc","networkremote","networkmodule","networkcore","networksystem","replicationhandler","replicationevent","replicationstorage","replicatedfirst","replicationmodule","synchandler","syncevent","syncfunc","syncmodule","asynchandler","asyncevent","asyncfunc","asyncmodule","rpchandler","rpcevent","rpccall","rpcservice","apihandler","apievent","apifunc","apimodule","endpointhandler","endpointevent","endpointfunc","routehandler","routeevent","routefunc","requesthandler","requestevent","requestfunc","responsehandler","responseevent","responsefunc","callhandler","callevent","callfunc","backendhandler","backendevent","backendfunc","databasehandler","databaseevent","databasefunc","datastorehandler","datastoreevent","datastorefunc","dataservicehandler","dataserviceevent","dataservicefunc","datasynchandler","datasyncevent","datasyncfunc","sessionhandler","sessionevent","sessionfunc","heartbeathandler","heartbeatevent","heartbeatfunc","tickhandler","tickevent","tickfunc","framehandler","frameevent","framefunc","stephandler","stepevent","stepfunc","updatehandler","updateevent","updatefunc","loophandler","loopevent","loopfunc","timerhandler","timerevent","timerfunc","spawnhandler","spawnevent","spawnfunc","destroyhandler","destroyevent","destroyfunc","createhandler","createevent","createfunc","validatehandler","validateevent","validatefunc","verifyhandler","verifyevent","verifyfunc","checkhandler","checkevent","checkfunc","guardhandler","guardevent","guardfunc","authhandler","authevent","authfunc"}
+)
+
+local playerRemoteKws = buildKws(
+    {"player","players","localplayer","plr","user","usr","client","character","char","rig","avatar","humanoid","hrp","rootpart","torso","head","limb","body","health","maxhealth","hp","heal","damage","hurt","die","death","respawn","alive","dead","status","effect","buff","debuff","inventory","backpack","equipment","item","tool","weapon","armor","gear","pet","mount","skin","cosmetic","hat","accessory","outfit","leaderstats","stat","data","save","load","profile","session","playerdata","move","movement","jump","walk","run","sprint","speed","input","action","interact","touch","click","press","key","chat","message","whisper","friend","party","team","guild","clan","rank","level","xp","score","kill","win","loss","death","assist","streak","combo","achievement","badge","award","title","tag","role","group","permission","auth","access","verify","trust","ban","kick","mute","freeze","god","fly","noclip","teleport","warp","invisible","spawn","give","drop","upgrade","purchase","buy","sell","trade","collect","pickup","receive","reward","earn","gain","boost","buff","multiply","set","get","update","sync","notify","alert","announce","log","report","info","config","mode","flag","value","key","index","id","count","type","list","event","func","remote","handler","service","module","core","system","manager","controller","framework"},
+    EXEC_PREFIXES,
+    EXEC_SUFFIXES,
+    {"playerhandler","playerevent","playerfunc","playerremote","playerservice","playermodule","playercore","playercontroller","playermanager","playerframework","localplayerhandler","localplayerevent","localplayerfunc","localplayerremote","charhandler","charevent","charfunc","charremote","charservice","charmodule","righandler","rigevent","rigfunc","rigremote","avatarhandler","avatarevent","avatarfunc","avatarremote","humanoidhandler","humanoidfunc","humanoidremote","healthhandler","healthevent","healthfunc","healthremote","hphandler","hpevent","hpfunc","hpremote","healhandler","healevent","healfunc","healremote","damagehandler","damageevent","damagefunc","damageremote","deathhandler","deathevent","deathfunc","deathremote","respawnhandler","respawnevent","respawnfunc","respawnremote","inventoryhandler","inventoryevent","inventoryfunc","inventoryremote","inventoryservice","inventorymodule","backpackhandler","backpackevent","backpackfunc","backpackremote","itemhandler","itemevent","itemfunc","itemremote","toolhandler","toolevent","toolfunc","toolremote","weaponhandler","weaponevent","weaponfunc","weaponremote","pethandler","petevent","petfunc","petremote","skinhandler","skinevent","skinfunc","skinremote","cosmetichandler","cosmeticevent","cosmeticfunc","cosmeticremote","outfithandler","outfitevent","outfitfunc","outfitremote","leaderstathandler","leaderstatevent","leaderstatfunc","leaderstatremote","profilehandler","profileevent","profilefunc","profileremote","profileservice","profilemodule","playerdatahandler","playerdataevent","playerdatafunc","playerdataremote","movehandler","moveevent","movefunc","moveremote","jumphandler","jumpevent","jumpfunc","jumpremote","walkhandler","walkevent","walkfunc","walkremote","sprinthandler","sprintevent","sprintfunc","sprintremote","inputhandler","inputevent","inputfunc","inputremote","chathandler","chatevent","chatfunc","chatremote","friendhandler","friendevent","friendfunc","friendremote","teamhandler","teamevent","teamfunc","teamremote","guildhandler","guildevent","guildfunc","guildremote","clanhandler","clanevent","clanfunc","clanremote"}
+)
+
 
 local function classifyRemote(name, fullPath)
     local low  = name:lower()
@@ -1808,8 +1323,8 @@ local function heavyDeepScan(parent, depth)
         if id == "" then id = tostring(child) end
 
         scanStepCount = scanStepCount + 1
-        -- Yield every 15 objects for smooth operation
-        if scanStepCount % 15 == 0 then task.wait() end
+        -- Yield every 5 objects — ultra-smooth, catches dynamic remotes mid-scan
+        if scanStepCount % 5 == 0 then task.wait() end
 
         -- ── REMOTE EVENTS ──────────────────────────────────────────
         if child:IsA("RemoteEvent") then
@@ -1896,33 +1411,59 @@ local function heavyDeepScan(parent, depth)
                     end)
                 end)
             end
-            -- Try to mine remote paths from Source text
+            -- ── ULTRA SOURCE MINING: mine ALL keyword lists from script source ──
             pcall(function()
                 local src = child.Source or ""
                 if src and src ~= "" then
-                    -- Look for :WaitForChild("X") or :FindFirstChild("X") where X sounds like a remote
-                    for quoted in src:gmatch('["\']([A-Za-z0-9_]+)["\']') do
+                    local allKwLists = {adminKeywords, moneyDepthKeywords, statGainKeywords, scriptRemoteKws, serverRemoteKws, playerRemoteKws}
+                    local mineSvcs = {"ReplicatedStorage","ReplicatedFirst","Workspace","ServerStorage","ServerScriptService","StarterGui","StarterPack","StarterPlayer","Players","Lighting","SoundService","Teams","Chat","LocalizationService","TestService"}
+                    for quoted in src:gmatch('["\']([A-Za-z0-9_%.]+)["\']') do
                         local ql = quoted:lower()
-                        for _, k in ipairs(adminKeywords) do
-                            if ql:find(k,1,true) then
-                                -- Try to find an actual remote with this name in game
-                                pcall(function()
-                                    for _, svcName in ipairs({"ReplicatedStorage","ReplicatedFirst","Workspace"}) do
+                        local matched = false
+                        for _, kwList in ipairs(allKwLists) do
+                            if matched then break end
+                            for _, k in ipairs(kwList) do
+                                if ql:find(k,1,true) then matched = true break end
+                            end
+                        end
+                        if matched then
+                            pcall(function()
+                                for _, svcName in ipairs(mineSvcs) do
+                                    pcall(function()
                                         local svc = game:GetService(svcName)
-                                        local found = svc:FindFirstChild(quoted, true)
+                                        local found = svc and svc:FindFirstChild(quoted, true)
                                         if found and (found:IsA("RemoteEvent") or found:IsA("RemoteFunction")) then
                                             local fid = ""
                                             pcall(function() fid = found:GetFullName() end)
                                             if not seenRemotes[fid] then
-                                                registerRemote(found, fid, "MINED:RE")
-                                                logOutput("MINED from " .. child.Name .. ": " .. found:GetFullName(),
-                                                    Color3.fromRGB(180, 100, 255))
+                                                registerRemote(found, fid, "MINED")
+                                                logOutput("MINED from " .. child.Name .. ": " .. found:GetFullName(), Color3.fromRGB(200, 100, 255))
                                             end
                                         end
-                                    end
-                                end)
-                                break
-                            end
+                                    end)
+                                end
+                            end)
+                        end
+                    end
+                    -- Also mine :WaitForChild, :FindFirstChild, :FindFirstChildOfClass patterns
+                    for _, pat in ipairs({'WaitForChild%("([^"]+)"', "WaitForChild%('([^']+)'", 'FindFirstChild%("([^"]+)"', "FindFirstChild%('([^']+)'", 'FindFirstChildWhichIsA%("([^"]+)"', "FindFirstChildOfClass%('([^']+)'"}) do
+                        for name in src:gmatch(pat) do
+                            pcall(function()
+                                for _, svcName in ipairs(mineSvcs) do
+                                    pcall(function()
+                                        local svc = game:GetService(svcName)
+                                        local found = svc and svc:FindFirstChild(name, true)
+                                        if found and (found:IsA("RemoteEvent") or found:IsA("RemoteFunction")) then
+                                            local fid = ""
+                                            pcall(function() fid = found:GetFullName() end)
+                                            if not seenRemotes[fid] then
+                                                registerRemote(found, fid, "PATTERN")
+                                                logOutput("PATTERN MINED: " .. found:GetFullName(), Color3.fromRGB(200, 150, 255))
+                                            end
+                                        end
+                                    end)
+                                end
+                            end)
                         end
                     end
                 end
@@ -1952,7 +1493,28 @@ local function heavyDeepScan(parent, depth)
     end
 end
 
--- ── PHASE 1: Every known service ───────────────────────────────────────────
+-- helper: register any remote/bindable found in a catch-all pass
+local function catchRemote(child, phaseLabel)
+    if not (child:IsA("RemoteEvent") or child:IsA("RemoteFunction")
+        or child:IsA("BindableEvent") or child:IsA("BindableFunction")) then return end
+    local id = ""
+    pcall(function() id = child:GetFullName() end)
+    if id == "" or seenRemotes[id] then return end
+    local baseTag = child:IsA("RemoteEvent") and "RE"
+        or child:IsA("RemoteFunction")  and "RF"
+        or child:IsA("BindableEvent")   and "BIND:E" or "BIND:F"
+    if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+        registerRemote(child, id, phaseLabel..":"..baseTag)
+    else
+        seenRemotes[id] = true; totalFound = totalFound + 1
+        if canAddToCategory("Bindables")   then addEntry(child, phaseLabel..":"..baseTag, "Bindables")   end
+        if canAddToCategory("ALL REMOTES") then addEntry(child, phaseLabel..":"..baseTag, "ALL REMOTES") end
+    end
+    logOutput(phaseLabel.." FOUND: "..id, Color3.fromRGB(57,200,20))
+end
+
+-- ── PHASE 1: Every known service (deep recursive) ──────────────────────────
+logOutput("PHASE 1: scanning all services...", Color3.fromRGB(57,200,20))
 local scannedIds = {}
 for _, svcName in ipairs(allServices) do
     pcall(function()
@@ -1963,8 +1525,10 @@ for _, svcName in ipairs(allServices) do
         end
     end)
 end
+task.wait()
 
--- ── PHASE 2: Every root-level game child not yet covered ───────────────────
+-- ── PHASE 2: Every root-level game child not yet scanned ───────────────────
+logOutput("PHASE 2: scanning root children...", Color3.fromRGB(57,200,20))
 pcall(function()
     for _, child in ipairs(game:GetChildren()) do
         if not scannedIds[tostring(child)] then
@@ -1973,95 +1537,135 @@ pcall(function()
         end
     end
 end)
+task.wait()
 
--- ── PHASE 3: Brute-force game:GetDescendants() catch-all ──────────────────
--- Catches any remote that nested scans might have missed
+-- ── PHASE 3: game:GetDescendants() brute-force catch-all ──────────────────
+logOutput("PHASE 3: brute-force GetDescendants()...", Color3.fromRGB(57,200,20))
 pcall(function()
-    local desc = game:GetDescendants()
-    for _, child in ipairs(desc) do
-        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction")
-            or child:IsA("BindableEvent") or child:IsA("BindableFunction") then
-            local id = ""
-            pcall(function() id = child:GetFullName() end)
-            if id ~= "" and not seenRemotes[id] then
-                local baseTag = child:IsA("RemoteEvent") and "RE"
-                    or child:IsA("RemoteFunction") and "RF"
-                    or child:IsA("BindableEvent") and "BIND:E"
-                    or "BIND:F"
-                if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                    registerRemote(child, id, baseTag)
-                else
-                    seenRemotes[id] = true
-                    totalFound = totalFound + 1
-                    if canAddToCategory("Bindables")   then addEntry(child, baseTag, "Bindables")   end
-                    if canAddToCategory("ALL REMOTES") then addEntry(child, baseTag, "ALL REMOTES") end
-                end
-                logOutput("PHASE3 FOUND: " .. child:GetFullName(), Color3.fromRGB(57, 200, 20))
-            end
-        end
+    for _, child in ipairs(game:GetDescendants()) do
+        catchRemote(child, "P3")
     end
 end)
+task.wait()
 
--- ── PHASE 4: All players — deep scan character, backpack, gui, leaderstats ─
+-- ── PHASE 4: All players — full deep scan of every container ──────────────
+logOutput("PHASE 4: scanning all players...", Color3.fromRGB(57,200,20))
 pcall(function()
     for _, plr in ipairs(Players:GetPlayers()) do
-        local containers = {}
+        -- Scan every single child of the player object
         pcall(function()
-            if plr.Character then table.insert(containers, plr.Character) end
-        end)
-        pcall(function()
-            local bp = plr:FindFirstChildOfClass("Backpack")
-            if bp then table.insert(containers, bp) end
-        end)
-        pcall(function()
-            local pg = plr:FindFirstChildOfClass("PlayerGui")
-            if pg then table.insert(containers, pg) end
-        end)
-        pcall(function()
-            local ls = plr:FindFirstChild("leaderstats")
-            if ls then table.insert(containers, ls) end
-        end)
-        for _, c in ipairs(containers) do
-            heavyDeepScan(c)
-        end
-        -- ValueBase data from any player
-        for _, v in ipairs(plr:GetDescendants()) do
-            if v:IsA("ValueBase") then
-                if canAddToCategory("Data") then addEntry(v, "DATA:"..plr.Name, "Data") end
+            for _, c in ipairs(plr:GetChildren()) do
+                pcall(function() heavyDeepScan(c) end)
             end
-        end
+        end)
+        -- Full GetDescendants on every player
+        pcall(function()
+            for _, v in ipairs(plr:GetDescendants()) do
+                catchRemote(v, "P4:PLR")
+                if v:IsA("ValueBase") then
+                    if canAddToCategory("Data") then addEntry(v, "DATA:"..plr.Name, "Data") end
+                end
+            end
+        end)
+        -- Character full scan
+        pcall(function()
+            if plr.Character then
+                for _, v in ipairs(plr.Character:GetDescendants()) do
+                    catchRemote(v, "P4:CHAR")
+                end
+            end
+        end)
     end
 end)
+task.wait()
 
--- ── LIVE SCAN: DescendantAdded on every service ─────────────────────────
+-- ── PHASE 5: Workspace — full recursive deep scan ─────────────────────────
+logOutput("PHASE 5: deep-scanning Workspace...", Color3.fromRGB(57,200,20))
+pcall(function()
+    local ws = game:GetService("Workspace")
+    for _, v in ipairs(ws:GetDescendants()) do
+        catchRemote(v, "P5:WS")
+    end
+end)
+task.wait()
+
+-- ── PHASE 6: StarterGui, StarterPlayerScripts, StarterCharacterScripts ─────
+logOutput("PHASE 6: scanning Starter containers...", Color3.fromRGB(57,200,20))
+pcall(function()
+    local starterContainers = {"StarterGui","StarterPack","StarterPlayer","StarterCharacterScripts","StarterPlayerScripts"}
+    for _, cname in ipairs(starterContainers) do
+        pcall(function()
+            local svc = game:GetService(cname)
+            if svc then
+                for _, v in ipairs(svc:GetDescendants()) do catchRemote(v, "P6:"..cname) end
+            end
+        end)
+    end
+end)
+task.wait()
+
+-- ── PHASE 7: Keyword-driven FindFirstChild sweep across all services ───────
+logOutput("PHASE 7: keyword sweep FindFirstChild...", Color3.fromRGB(57,200,20))
+pcall(function()
+    local allKws = {}
+    for _, kwList in ipairs({adminKeywords, moneyDepthKeywords, statGainKeywords, scriptRemoteKws, serverRemoteKws, playerRemoteKws}) do
+        for _, k in ipairs(kwList) do
+            if #k >= 4 then allKws[#allKws+1] = k end -- only length>=4 to avoid noise
+        end
+    end
+    for _, svcName in ipairs(allServices) do
+        pcall(function()
+            local svc = game:GetService(svcName)
+            if not svc then return end
+            for _, kw in ipairs(allKws) do
+                pcall(function()
+                    local found = svc:FindFirstChild(kw, true)
+                    if found and (found:IsA("RemoteEvent") or found:IsA("RemoteFunction")) then
+                        local id = "" pcall(function() id = found:GetFullName() end)
+                        if id ~= "" and not seenRemotes[id] then registerRemote(found, id, "P7:KW") end
+                    end
+                end)
+            end
+        end)
+    end
+end)
+task.wait()
+
+-- ── PHASE 8: Retry game:GetDescendants() after all phases (catches late-loaded remotes) ──
+logOutput("PHASE 8: final retry pass...", Color3.fromRGB(57,200,20))
+task.delay(2, function()
+    pcall(function()
+        for _, child in ipairs(game:GetDescendants()) do catchRemote(child, "P8") end
+    end)
+    logOutput(string.format("PHASE 8 DONE — total: %d remotes", totalFound), Color3.fromRGB(57,255,20))
+end)
+
+-- ── LIVE SCAN: DescendantAdded on game + every service ────────────────────
+logOutput("LIVE SCAN: hooking DescendantAdded...", Color3.fromRGB(57,200,20))
+pcall(function()
+    game.DescendantAdded:Connect(function(child) catchRemote(child, "LIVE") end)
+end)
 pcall(function()
     for _, svcName in ipairs(allServices) do
         pcall(function()
             local svc = game:GetService(svcName)
             if not svc then return end
-            svc.DescendantAdded:Connect(function(child)
-                if not (child:IsA("RemoteEvent") or child:IsA("RemoteFunction")
-                    or child:IsA("BindableEvent") or child:IsA("BindableFunction")) then return end
-                local id = ""
-                pcall(function() id = child:GetFullName() end)
-                if id == "" or seenRemotes[id] then return end
-                local baseTag = child:IsA("RemoteEvent") and "RE"
-                    or child:IsA("RemoteFunction") and "RF"
-                    or child:IsA("BindableEvent")  and "BIND:E" or "BIND:F"
-                if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                    registerRemote(child, id, "LIVE:" .. baseTag)
-                else
-                    seenRemotes[id] = true
-                    if canAddToCategory("Bindables")   then addEntry(child, "LIVE:" .. baseTag, "Bindables")   end
-                    if canAddToCategory("ALL REMOTES") then addEntry(child, "LIVE:" .. baseTag, "ALL REMOTES") end
-                end
-                logOutput("LIVE: new → " .. child:GetFullName(), Color3.fromRGB(57, 255, 20))
-            end)
+            svc.DescendantAdded:Connect(function(child) catchRemote(child, "LIVE:"..svcName) end)
         end)
     end
 end)
+-- Also hook Players.PlayerAdded to scan new players immediately
+pcall(function()
+    Players.PlayerAdded:Connect(function(plr)
+        task.wait(1) -- wait for character to load
+        pcall(function()
+            for _, v in ipairs(plr:GetDescendants()) do catchRemote(v, "LIVE:PLR") end
+        end)
+        plr.DescendantAdded:Connect(function(child) catchRemote(child, "LIVE:PLR") end)
+    end)
+end)
 
-logOutput(string.format("HEAVY SCAN DONE — %d objects scanned | %d remotes found",
+logOutput(string.format("OMEGA SCAN COMPLETE — %d objects scanned | %d remotes found",
     scanStepCount, totalFound), Color3.fromRGB(57,255,20))
 end
 
