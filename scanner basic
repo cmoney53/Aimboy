@@ -1194,80 +1194,155 @@ end
 -- 7. HEAVY OMNI-SCAN ENGINE vMAX
 
 -- ── KEYWORD FACTORY: generates 1000+ entries per category via prefix×base×suffix ──
-local function buildKws(bases, prefixes, suffixes, extras)
-    local out = {}
-    local seen = {}
-    local function add(w)
-        w = w:lower()
-        if not seen[w] and #w >= 2 then seen[w]=true; out[#out+1]=w end
-    end
-    -- raw bases
-    for _,b in ipairs(bases) do add(b) end
-    -- prefix + base
-    for _,b in ipairs(bases) do
-        for _,p in ipairs(prefixes) do add(p..b) end
-    end
-    -- base + suffix
-    for _,b in ipairs(bases) do
-        for _,s in ipairs(suffixes) do add(b..s) end
-    end
-    -- prefix + base + suffix
-    for _,b in ipairs(bases) do
-        for _,p in ipairs(prefixes) do
-            for _,s in ipairs(suffixes) do add(p..b..s) end
-        end
-    end
-    -- raw extras
-    if extras then for _,e in ipairs(extras) do add(e) end end
-    return out
-end
 
--- Shared suffix/prefix pools
-local EXEC_SUFFIXES = {"handler","event","func","function","remote","service","module","core","system","manager","controller","command","request","action","call","callback","trigger","signal","dispatch","process","fire","send","emit","relay","run","exec","check","verify","update","set","get","list","all","server","client","player","plr","data","stat","value","key","type","id","count","index","flag","bool","mode","config","info","log","result","status","response","notify","alert","msg","broadcast","queue","task","job","loop","timer","tick","step","frame","rate","hook","patch","wrap","inject","load","boot","init","start","setup","launch","import","require","eval","spawn","destroy","create","delete","remove","add","insert","clear","wipe","reset","save","push","fetch","write","read","sync","async","validate","guard","protect","secure","auth","perm","access","grant","revoke"}
-local EXEC_PREFIXES = {"on","do","get","set","has","is","can","try","run","fire","send","emit","call","do","handle","process","exec","invoke","request","update","sync","validate","check","verify","notify","give","grant","add","remove","create","destroy","fetch","load","save","push","pull","write","read","dispatch","broadcast","relay","trigger","hook","post","pre","after","before","during","queue","schedule","task","register","unregister","enable","disable","toggle","force","override","allow","deny","block","bypass"}
 
-local adminKeywords = buildKws(
-    -- bases: every admin/moderation/auth/command concept
-    {"admin","administrator","command","cmd","exec","execute","run","eval","invoke","fire","call","send","emit","dispatch","trigger","broadcast","relay","request","process","handler","action","permission","perm","auth","access","verify","trust","whitelist","blacklist","bypass","rank","role","group","staff","mod","operator","owner","vip","dev","ban","kick","mute","freeze","kill","god","fly","noclip","teleport","warp","speed","invisible","heal","respawn","spawn","give","drop","upgrade","purchase","buy","item","tool","weapon","pet","announce","notify","alert","message","log","report","enable","disable","toggle","override","force","delete","destroy","clear","wipe","reset","save","load","data","stat","value","config","mode","flag","key","index","id","count","type","list","all","remote","event","func","service","module","core","system","manager","controller","framework","network","server","client","player","user","character","inventory","backpack","leaderstats","profile","hook","patch","wrap","inject","import","require","boot","init","start","setup","launch","async","sync","queue","task","timer","loop","tick","step","frame","validate","guard","protect","secure","grant","revoke","allow","deny","block","register","unregister","superadmin","headadmin","headmod","headdev","coowner","co","owner","elevated","trusted","allowed","ingroup","getrank","getrole","isin","getrankingroup","getroleingroup","isingroup","permcheck","authcheck","rankcheck","rolecheck","groupcheck","staffcheck","modcheck","devcheck","vipcheck","ownercheck","admincheck","adminpanel","adminboard","admindashboard","adminui","admingui","adminscreen","admintool","adminkit","adminscript"},
-    EXEC_PREFIXES,
-    EXEC_SUFFIXES,
-    {"adonis","kohls","kohl","hd","hdadmin","cmdr","commander","infinity","nsa","ae","arctic","ae","namecall","namecallmethod","remotecall","functioncall","eventfire","serverhop","exploitdetect","anticheat","antiexploit","kick","ban","ipban","uuidban","fingerprint","deviceban","platformban","gameban","permban","tempban","softban","globalban","moderationlog","moderationaction","moderationevent","moderationfunc","moderationhandler","moderationservice","adminsystem","commandsystem","chatcommand","chatcmd","chatevent","chatfire","chathandler","chatservice","chatremote","chatmodule","consolecmd","consolelog","consoleprint","debugcmd","debugexec","debugrun","debugeval","debugfire","debugsend","debughandler","globalexec","globalrun","globalfire","globalcmd","globalhandler","globaladmin","globalmod","globalstaff","globalaction","permissionlevel","permissionrank","permissionrole","permissiongroup","permissioncheck","permissionverify","permissiongrant","permissionrevoke","permissionhandler","permissionservice","permissionmodule","permissionsystem","permissioncore","rankvalue","rolevalue","groupvalue","staffvalue","modvalue","devvalue","vipvalue","ownervalue","rankset","rankget","roleset","roleget","groupset","groupget","staffset","staffget","modset","modget","devset","devget","vipset","vipget","ownerset","ownerget"}
-)
+-- ── KEYWORD LISTS (flat roots — substring matching handles all variants) ──
+-- Each list has ~100-150 unique roots. ctx:find(k,1,true) means "admin" matches
+-- "adminhandler", "adminservice", "onAdmin", "getAdminRank" etc automatically.
 
-local moneyDepthKeywords = buildKws(
-    {"money","cash","coin","gem","gold","silver","bronze","platinum","crystal","ruby","emerald","sapphire","diamond","jewel","token","ticket","chip","credit","buck","dollar","euro","note","bill","cent","currency","balance","wallet","purse","vault","bank","fund","treasury","treasure","wealth","rich","fortune","capital","saving","earn","gain","collect","pickup","receive","payout","pay","reward","grant","income","passive","yield","profit","produce","generate","mint","harvest","loot","salvage","spend","buy","purchase","sell","trade","transfer","withdraw","deposit","invest","cost","price","tax","multiply","mult","bonus","double","triple","rate","depth","floor","zone","region","area","stage","layer","mine","dig","ore","resource","material","underground","deep","shop","store","market","auction","vending","vendor","merchant","rebirth","prestige","reset","wipe","ascend","farm","grind","idle","code","redeem","claim","chest","crate","box","drop","point","star","trophy","medal","fragment","shard","boost","multiplier"},
-    EXEC_PREFIXES,
-    EXEC_SUFFIXES,
-    {"coinflip","coinmult","goldmult","gemshard","tokenmint","creditboost","walletmax","vaultopen","treasureopen","lootbox","crateopen","chestspin","rebirthcost","rebirthreward","rebirthcheck","prestigecost","prestigereward","prestigecheck","ascendcost","ascendreward","ascendcheck","farmcoin","farmgem","farmgold","farmtoken","farmcash","grindcoin","grindgem","grindgold","idlecoin","idlegem","idlegold","idleincome","idlepassive","passiverate","passivecoin","passivegem","passivegold","yieldrate","yieldcoin","yieldgem","earncoin","earngem","earngold","earntoken","earncash","gainmoney","gaincoin","gaingem","gaingold","gaintoken","gaincash","collectcoin","collectgem","collectgold","collecttoken","collectmoney","receivecoin","receivegem","receivegold","receivetoken","receivemoney","spendcoin","spendgem","spendgold","spendtoken","spendmoney","buycoin","buygem","buygold","buytoken","buycash","purchasecoin","purchasegem","purchasegold","purchasetoken","sellcoin","sellgem","sellgold","selltoken","tradecoin","tradegem","tradegold","tradetoken","investcoin","investgem","investgold","investtoken","withdrawcoin","withdrawgem","withdrawgold","depositcoin","depositgem","depositgold","moneymult","cashmult","coincount","gemcount","goldcount","tokencount","creditcount","pointcount","starcount","trophycount","medalcount","fragmentcount","shardcount","boostcoin","boostgem","boostgold","boosttoken","doublecoin","doublegem","doublegold","doubletoken","triplecoin","triplegem","triplegold","tripletoken","bonuscoin","bonusgem","bonusgold","bonustoken"}
-)
+local adminKeywords = {
+    -- identity
+    "admin","administrator","adminpanel","admindashboard","adminboard","adminui",
+    -- frameworks
+    "adonis","kohls","kohl","hdadmin","cmdr","commander","ae","nsa","arctic","infinity",
+    -- command/exec
+    "command","cmd","exec","execute","run","eval","invoke","fire","call","send","emit",
+    "dispatch","trigger","broadcast","relay","request","action","process","handler",
+    -- permissions/auth
+    "permission","perm","auth","authenticate","authorize","access","verify","trust",
+    "whitelist","blacklist","bypass","allowed","elevated","override","force",
+    -- ranks/roles
+    "rank","role","group","staff","mod","moderator","operator","owner","vip","developer",
+    "superadmin","headadmin","headmod","headdev","coowner","ingroup","getrank","getrole",
+    "isingroup","getrankingroup","getroleingroup","permcheck","authcheck","rankcheck",
+    -- game modifiers
+    "ban","kick","mute","freeze","kill","god","fly","noclip","teleport","warp","invisible",
+    "heal","respawn","spawn","give","drop","upgrade","purchase","item","tool","weapon","pet",
+    -- announce
+    "announce","notify","alert","message","report","log","chat","say",
+    -- data
+    "save","load","reset","wipe","data","stat","value","config","mode","flag",
+    -- misc
+    "enable","disable","toggle","set","get","change","update","delete","destroy","clear",
+    "move","push","pull","attack","shoot","hit","touch","interact","use","activate",
+}
 
-local statGainKeywords = buildKws(
-    {"walk","step","stride","run","sprint","jog","jump","climb","crawl","swim","dash","dodge","slide","roll","crouch","move","travel","wander","explore","distance","footstep","pace","patrol","approach","flee","chase","navigate","pathfind","strength","str","power","pow","force","stamina","stam","endurance","energy","agility","agi","speed","spd","velocity","defense","def","armor","resist","toughness","vitality","vit","health","hp","maxhp","dexterity","dex","precision","intelligence","int","wisdom","magic","mana","mp","luck","crit","attack","atk","damage","dmg","range","weight","carry","size","scale","wins","kill","death","assist","score","point","xp","exp","experience","level","lvl","rank","tier","class","mastery","prestige","stage","floor","wave","zone","area","world","chapter","quest","mission","gain","add","give","grant","reward","earn","increment","increase","boost","buff","multiply","set","update","sync","save","apply","assign","compute","calc","process","dispatch","flush","write","push","load","fetch","stat","attribute","value","leaderstats","profile","data","session","playerdata","onwalk","onstep","onrun","onjump","onclimb","onswim","ondash","onmove","oncollect","ontouch","onkill","onwin","ondeath","onlevel","onrank","onprestige"},
-    EXEC_PREFIXES,
-    EXEC_SUFFIXES,
-    {"addstrength","gainstrength","givestrength","setstrength","increasestrength","booststrength","addpower","gainpower","givepower","setpower","addstamina","gainstamina","givestamina","setstamina","addspeed","gainspeed","givespeed","setspeed","adddefense","gaindefense","givedefense","setdefense","addwins","gainwins","givewins","setwins","addkills","gainkills","givekills","setkills","addxp","gainxp","givexp","setxp","addexp","gainexp","giveexp","setexp","addlevel","gainlevel","givelevel","setlevel","addrank","gainrank","giverank","setrank","addpoints","gainpoints","givepoints","setpoints","addgems","gaingems","givegems","setgems","addscore","gainscore","givescore","setscore","statupdate","statchange","statgain","statset","statget","statreward","statboost","statbuff","datasave","dataload","datawrite","dataread","valuesync","valueupdate","valueset","valuegain","profilesave","profileload","profileupdate","profilesync","leaderstatsupdate","leaderstatssave","leaderstatsgain","leaderstatssync","walkxp","stepxp","stridexp","runxp","sprintxp","jumpxp","climbxp","swimxp","dashxp","movexp","distancexp","footstepxp","pacestat","patrolstat","fleestat","chasestat","navigatestat","pathfindstat","walkstrength","stepstrength","stridestrength","runstrength","sprintstrength","jumpstrength","climbstrength","swimstrength","dashstrength","movestrength","walkstamina","stepstamina","runstamina","sprintstamina","jumpstamina","climbstamina","swimstamina","dashstamina","movestamina","walkspeed","stepspeed","runspeed","sprintspeed","dashspeed","movespeed","distancespeed","walkwins","stepwins","runwins","sprintwins","jumpwins","walkkills","runkills","sprintkills","walkscore","runscore","sprintscore","jumpscore"}
-)
+local moneyDepthKeywords = {
+    -- currency names
+    "money","cash","coin","gold","silver","bronze","platinum","crystal","gem","ruby",
+    "emerald","sapphire","diamond","jewel","token","ticket","chip","credit","buck","dollar",
+    "euro","currency","balance","wallet","purse","vault","bank","fund","treasury","treasure",
+    "wealth","fortune","capital","saving","resource","material","ore","fragment","shard",
+    -- earning
+    "earn","gain","collect","pickup","receive","payout","reward","grant","income","passive",
+    "yield","profit","produce","generate","mint","harvest","loot","salvage","farm","grind",
+    "idle","rebirth","prestige","ascend",
+    -- spending
+    "spend","buy","purchase","sell","trade","transfer","withdraw","deposit","invest",
+    "cost","price","tax",
+    -- boosts
+    "multiplier","mult","bonus","double","triple","rate","boost",
+    -- depth/progression
+    "depth","floor","zone","region","area","stage","layer","mine","dig","underground","deep",
+    -- shops
+    "shop","store","market","auction","vendor","merchant",
+    -- promo
+    "code","redeem","claim","chest","crate","box","drop","point","star","trophy","medal",
+}
 
-local scriptRemoteKws = buildKws(
-    {"script","localscript","modulescript","serverscript","exec","execute","run","eval","loadstring","require","load","boot","init","start","setup","launch","import","inject","hook","patch","wrap","framework","system","core","service","manager","controller","handler","module","library","lib","util","helper","api","callback","signal","event","bindable","remote","connection","listener","subscriber","observer","emitter","dispatcher","trigger","filter","middleware","interceptor","pipe","pipeline","chunk","bytecode","compile","interpret","sandbox","environment","context","scope","closure","coroutine","thread","task","schedule","defer","async","await","code","function","method","routine","procedure","subroutine","process","compute","calculate","evaluate","parse","tokenize","serialize","deserialize","encode","decode","compress","decompress","encrypt","decrypt","hash","sign","verify","validate","sanitize","transform","map","reduce","filter","collect","iterate","enumerate","format","render","display","print","output","input","read","write","stream","buffer","cache","pool","queue","stack","heap","tree","graph","node","edge","link","chain","list","array","table","dict","set","map","tuple","struct","class","object","instance","prototype","interface","mixin","trait","namespace","package","bundle","chunk","segment","block","region","zone","area","scope","environment"},
-    EXEC_PREFIXES,
-    EXEC_SUFFIXES,
-    {"execcode","execscript","execcommand","execfunction","execmodule","execservice","execremote","exechandler","execevent","execfunc","runcode","runscript","runcommand","runfunction","runmodule","runservice","runremote","runhandler","runevent","evalcode","evalscript","evalexpression","evalcommand","loadcode","loadscript","loadmodule","loadfile","loadfunction","loadchunk","requiremodule","requirescript","requirelib","requirecore","bootscript","bootsystem","bootcore","bootservice","bootmodule","initscript","initsystem","initcore","initservice","startscript","startsystem","startcore","startservice","hookscript","hookfunction","hookevent","hookremote","hookhandler","patchscript","patchfunction","patchremote","patchhandler","wrapscript","wrapfunction","wrapremote","wraphandler","injectscript","injectcode","injectmodule","injectfunction","frameworkcore","frameworkhandler","frameworkservice","frameworkmodule","systemcore","systemhandler","systemservice","systemmodule","corehandler","coreservice","coremodule","corescript","servicecore","servicehandler","servicemodule","servicescript","managercore","managerhandler","managermodule","managerfunc","controllercore","controllerhandler","controllermodule","controllerfunc","handlercore","handlerservice","handlermodule","handlerfunc","modulecore","moduleservice","modulehandler","modulefunc","libcore","libservice","libhandler","libmodule","utilhandler","utilservice","utilmodule","helperhandler","helperservice","helpermodule","apihandler","apiservice","apievent","apifunc"}
-)
+local statGainKeywords = {
+    -- physical actions
+    "walk","step","stride","run","sprint","jog","jump","climb","crawl","swim","dash","dodge",
+    "slide","roll","crouch","move","travel","wander","explore","distance","footstep","pace",
+    "patrol","approach","flee","chase","navigate","pathfind",
+    -- stat names
+    "strength","str","power","pow","force","stamina","stam","endurance","energy","agility",
+    "agi","speed","spd","velocity","defense","def","armor","resist","toughness","vitality",
+    "vit","health","hp","dexterity","dex","intelligence","int","wisdom","magic","mana","mp",
+    "luck","crit","attack","atk","damage","dmg","range","weight","carry","size","scale",
+    -- win/progression
+    "wins","kill","death","assist","score","point","xp","exp","experience","level","lvl",
+    "rank","tier","class","mastery","prestige","stage","floor","wave","zone","quest","mission",
+    -- increment verbs
+    "gain","add","give","grant","reward","earn","increment","increase","boost","buff",
+    "multiply","set","update","sync","save","apply","assign","compute","calc","process",
+    -- stat nouns
+    "stat","attribute","value","leaderstats","profile","playerdata","datasave","datastore",
+    -- event patterns
+    "onwalk","onstep","onrun","onjump","onclimb","onswim","ondash","onmove","oncollect",
+    "ontouch","onkill","onwin","ondeath","onlevel","onrank","onprestige",
+    -- compound names
+    "addstrength","gainstrength","addwins","gainwins","addxp","gainxp","addspeed","gainspeed",
+    "addkills","gainkills","addscore","gainscore","addlevel","gainlevel","statupdate",
+    "statgain","statchange","valuesync","valueupdate","profilesave","profilesync",
+    "walkxp","stepxp","runxp","walkstrength","stepstrength","runstrength","walkstamina",
+    "movestamina","walkwins","walkkills","walkscore",
+}
 
-local serverRemoteKws = buildKws(
-    {"server","serverside","ss","remote","network","replication","replicated","rpc","api","endpoint","route","request","response","call","backend","database","datastore","dataservice","datasync","gameserver","worldserver","hostserver","masterserver","jobserver","session","heartbeat","tick","frame","step","update","loop","timer","interval","clock","spawn","destroy","create","delete","remove","add","insert","validate","verify","sanity","sanitize","check","guard","protect","secure","auth","authorize","middleware","pipeline","queue","broadcast","publish","subscribe","consume","produce","relay","proxy","gateway","loadbalancer","cluster","shard","partition","replica","mirror","backup","restore","snapshot","checkpoint","rollback","migrate","deploy","provision","scale","monitor","health","ping","latency","bandwidth","throughput","packet","message","payload","header","body","param","query","path","url","uri","method","status","code","error","exception","fault","trace","log","debug","info","warn","critical","alert","notify","report","metric","counter","gauge","histogram","timer","span","trace","context","correlation","transaction","saga","event","command","aggregate","projection","snapshot","readmodel","writemodel","cqrs","eventsourcing","domain","bounded","context","service","microservice","monolith","serverless","function","lambda","trigger","webhook","callback","endpoint","healthcheck","liveness","readiness","startup","shutdown","lifecycle","hook","interceptor","filter","transformer","validator","authenticator","authorizer"},
-    EXEC_PREFIXES,
-    EXEC_SUFFIXES,
-    {"serverhandler","serverevent","serverfunction","serverfunc","serverremote","servermodule","servercore","serversystem","servercontroller","servermanager","serverframework","serverrequest","serverresponse","serveraction","servercommand","serverprocess","networkhandler","networkevent","networkfunc","networkremote","networkmodule","networkcore","networksystem","replicationhandler","replicationevent","replicationstorage","replicatedfirst","replicationmodule","synchandler","syncevent","syncfunc","syncmodule","asynchandler","asyncevent","asyncfunc","asyncmodule","rpchandler","rpcevent","rpccall","rpcservice","apihandler","apievent","apifunc","apimodule","endpointhandler","endpointevent","endpointfunc","routehandler","routeevent","routefunc","requesthandler","requestevent","requestfunc","responsehandler","responseevent","responsefunc","callhandler","callevent","callfunc","backendhandler","backendevent","backendfunc","databasehandler","databaseevent","databasefunc","datastorehandler","datastoreevent","datastorefunc","dataservicehandler","dataserviceevent","dataservicefunc","datasynchandler","datasyncevent","datasyncfunc","sessionhandler","sessionevent","sessionfunc","heartbeathandler","heartbeatevent","heartbeatfunc","tickhandler","tickevent","tickfunc","framehandler","frameevent","framefunc","stephandler","stepevent","stepfunc","updatehandler","updateevent","updatefunc","loophandler","loopevent","loopfunc","timerhandler","timerevent","timerfunc","spawnhandler","spawnevent","spawnfunc","destroyhandler","destroyevent","destroyfunc","createhandler","createevent","createfunc","validatehandler","validateevent","validatefunc","verifyhandler","verifyevent","verifyfunc","checkhandler","checkevent","checkfunc","guardhandler","guardevent","guardfunc","authhandler","authevent","authfunc"}
-)
+local scriptRemoteKws = {
+    -- script types
+    "script","localscript","modulescript","serverscript",
+    -- execution
+    "exec","execute","run","eval","loadstring","require","load","boot","init","start",
+    "setup","launch","import","inject","hook","patch","wrap",
+    -- framework/infra
+    "framework","system","core","service","manager","controller","handler","module",
+    "library","lib","util","helper","api",
+    -- signals
+    "callback","signal","event","bindable","remote","connection","listener","subscriber",
+    "observer","emitter","dispatcher","trigger","filter","middleware","interceptor","pipe",
+    "pipeline",
+    -- code concepts
+    "chunk","bytecode","compile","interpret","sandbox","environment","context","scope",
+    "closure","coroutine","thread","task","schedule","defer","async","await",
+    "function","method","routine","procedure","subroutine",
+}
 
-local playerRemoteKws = buildKws(
-    {"player","players","localplayer","plr","user","usr","client","character","char","rig","avatar","humanoid","hrp","rootpart","torso","head","limb","body","health","maxhealth","hp","heal","damage","hurt","die","death","respawn","alive","dead","status","effect","buff","debuff","inventory","backpack","equipment","item","tool","weapon","armor","gear","pet","mount","skin","cosmetic","hat","accessory","outfit","leaderstats","stat","data","save","load","profile","session","playerdata","move","movement","jump","walk","run","sprint","speed","input","action","interact","touch","click","press","key","chat","message","whisper","friend","party","team","guild","clan","rank","level","xp","score","kill","win","loss","death","assist","streak","combo","achievement","badge","award","title","tag","role","group","permission","auth","access","verify","trust","ban","kick","mute","freeze","god","fly","noclip","teleport","warp","invisible","spawn","give","drop","upgrade","purchase","buy","sell","trade","collect","pickup","receive","reward","earn","gain","boost","buff","multiply","set","get","update","sync","notify","alert","announce","log","report","info","config","mode","flag","value","key","index","id","count","type","list","event","func","remote","handler","service","module","core","system","manager","controller","framework"},
-    EXEC_PREFIXES,
-    EXEC_SUFFIXES,
-    {"playerhandler","playerevent","playerfunc","playerremote","playerservice","playermodule","playercore","playercontroller","playermanager","playerframework","localplayerhandler","localplayerevent","localplayerfunc","localplayerremote","charhandler","charevent","charfunc","charremote","charservice","charmodule","righandler","rigevent","rigfunc","rigremote","avatarhandler","avatarevent","avatarfunc","avatarremote","humanoidhandler","humanoidfunc","humanoidremote","healthhandler","healthevent","healthfunc","healthremote","hphandler","hpevent","hpfunc","hpremote","healhandler","healevent","healfunc","healremote","damagehandler","damageevent","damagefunc","damageremote","deathhandler","deathevent","deathfunc","deathremote","respawnhandler","respawnevent","respawnfunc","respawnremote","inventoryhandler","inventoryevent","inventoryfunc","inventoryremote","inventoryservice","inventorymodule","backpackhandler","backpackevent","backpackfunc","backpackremote","itemhandler","itemevent","itemfunc","itemremote","toolhandler","toolevent","toolfunc","toolremote","weaponhandler","weaponevent","weaponfunc","weaponremote","pethandler","petevent","petfunc","petremote","skinhandler","skinevent","skinfunc","skinremote","cosmetichandler","cosmeticevent","cosmeticfunc","cosmeticremote","outfithandler","outfitevent","outfitfunc","outfitremote","leaderstathandler","leaderstatevent","leaderstatfunc","leaderstatremote","profilehandler","profileevent","profilefunc","profileremote","profileservice","profilemodule","playerdatahandler","playerdataevent","playerdatafunc","playerdataremote","movehandler","moveevent","movefunc","moveremote","jumphandler","jumpevent","jumpfunc","jumpremote","walkhandler","walkevent","walkfunc","walkremote","sprinthandler","sprintevent","sprintfunc","sprintremote","inputhandler","inputevent","inputfunc","inputremote","chathandler","chatevent","chatfunc","chatremote","friendhandler","friendevent","friendfunc","friendremote","teamhandler","teamevent","teamfunc","teamremote","guildhandler","guildevent","guildfunc","guildremote","clanhandler","clanevent","clanfunc","clanremote"}
-)
+local serverRemoteKws = {
+    -- server identity
+    "server","serverside","ss","gameserver","worldserver","hostserver","masterserver",
+    "jobserver",
+    -- network
+    "network","replication","replicated","rpc","sync","async",
+    -- api
+    "api","endpoint","route","request","response","call","backend",
+    -- data
+    "database","datastore","dataservice","datasync",
+    -- session/tick
+    "session","heartbeat","tick","frame","step","update","loop","timer","interval","clock",
+    -- lifecycle
+    "spawn","destroy","create","delete","remove","add","insert",
+    -- security
+    "validate","verify","sanity","sanitize","check","guard","protect","secure","auth",
+    "authorize","middleware","pipeline","queue","broadcast","publish","subscribe","relay",
+    "proxy","gateway","loadbalancer","cluster","shard","replica",
+    -- health
+    "ping","latency","bandwidth","packet","payload","healthcheck","liveness","readiness",
+    "startup","shutdown","lifecycle","webhook","hook","interceptor","transformer",
+}
+
+local playerRemoteKws = {
+    -- identity
+    "player","players","localplayer","plr","user","usr","client",
+    -- character
+    "character","char","rig","avatar","humanoid","hrp","rootpart","torso","head","limb","body",
+    -- health
+    "health","maxhealth","hp","heal","damage","hurt","die","death","respawn","alive","dead",
+    "status","effect","buff","debuff",
+    -- inventory
+    "inventory","backpack","equipment","item","tool","weapon","armor","gear","pet","mount",
+    "skin","cosmetic","hat","accessory","outfit",
+    -- stats/data
+    "leaderstats","stat","data","save","load","profile","session","playerdata",
+    -- movement
+    "move","movement","jump","walk","run","sprint","speed","input","action","interact",
+    "touch","click","press","key",
+    -- social
+    "chat","message","whisper","friend","party","team","guild","clan",
+    -- progression
+    "rank","level","xp","score","kill","win","loss","death","assist","streak","combo",
+    "achievement","badge","award","title","tag","role","group","permission",
+}
 
 
 local function classifyRemote(name, fullPath)
