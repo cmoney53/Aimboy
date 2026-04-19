@@ -179,7 +179,7 @@ CommandBox.TextSize = 13
 CommandBox.Parent = Side
 Instance.new("UICorner", CommandBox)
 
--- ARG MODE BUTTONS: VAL | PLAYER | NIL | NONE
+-- ARG MODE BUTTONS: VAL | PLAYER | NIL | NONE | MULTI | AUTO | FARM
 local argModeColors = {
 VAL    = Color3.fromRGB(57, 255, 20),
 PLAYER = Color3.fromRGB(0, 180, 255),
@@ -187,13 +187,14 @@ NIL    = Color3.fromRGB(255, 180, 0),
 NONE   = Color3.fromRGB(200, 80, 80),
 MULTI  = Color3.fromRGB(255, 120, 0),
 AUTO   = Color3.fromRGB(220, 60, 220),
+FARM   = Color3.fromRGB(0, 255, 180),
 }
 local argModeBtns = {}
-local modeNames = {"VAL", "PLAYER", "NIL", "NONE", "MULTI", "AUTO"}
+local modeNames = {"VAL", "PLAYER", "NIL", "NONE", "MULTI", "AUTO", "FARM"}
 for i, mode in ipairs(modeNames) do
-local bx = 10 + (i-1) * 32
-local mb = makeBtn(Side, mode, bx, 49, 30, 18, Color3.fromRGB(30, 30, 30), argModeColors[mode])
-mb.TextSize = 10
+local bx = 10 + (i-1) * 27
+local mb = makeBtn(Side, mode, bx, 49, 25, 18, Color3.fromRGB(30, 30, 30), argModeColors[mode])
+mb.TextSize = 9
 argModeBtns[mode] = mb
 mb.MouseButton1Click:Connect(function()
     argMode = mode
@@ -398,35 +399,157 @@ elseif typeTag:find("DATA") then
     logOutput("SET " .. obj.Name .. " = " .. tostring(val))
 
 elseif obj:IsA("RemoteEvent") then
-    if argMode == "AUTO" then
+    if argMode == "FARM" then
+        -- FARM: blast the remote repeatedly with every stat-gain combo at high speed
+        OutputSayer.Text = "FARM RUNNING..."
+        local farmCombos = {
+            {{Player}, 1},
+            {{Player, 1}, 2},
+            {{Player, 1, "strength"}, 3},
+            {{Player, 1, "wins"}, 3},
+            {{Player, 1, "speed"}, 3},
+            {{Player, 1, "cash"}, 3},
+            {{Player, 1, "coins"}, 3},
+            {{Player, "strength", 1}, 3},
+            {{Player, "wins", 1}, 3},
+            {{Player, "speed", 1}, 3},
+            {{Player, "walk"}, 2},
+            {{Player, "step"}, 2},
+            {{Player, "stride"}, 2},
+            {{1}, 1},
+            {{10}, 1},
+            {{100}, 1},
+            {{"gain"}, 1},
+            {{"strength"}, 1},
+            {{"wins"}, 1},
+            {{"speed"}, 1},
+            {{"walk"}, 1},
+            {{Player, true}, 2},
+            {{}, 0},
+        }
+        task.spawn(function()
+            local farmHits = 0
+            local bestCombo = nil
+            local bestCount = 0
+            -- First pass: find which combos work
+            for _, c in ipairs(farmCombos) do
+                local ok = pcall(function() obj:FireServer(table.unpack(c[1], 1, c[2])) end)
+                if ok then
+                    farmHits = farmHits + 1
+                    if not bestCombo then bestCombo = c end
+                end
+                task.wait(0.03)
+            end
+            -- Second pass: spam best combo at max speed
+            if bestCombo then
+                logOutput("FARM: found working combo — spamming " .. obj.Name, Color3.fromRGB(0,255,180))
+                while argMode == "FARM" and selectedObj == obj do
+                    pcall(function() obj:FireServer(table.unpack(bestCombo[1], 1, bestCombo[2])) end)
+                    bestCount = bestCount + 1
+                    if bestCount % 50 == 0 then
+                        SpamCountLabel.Text = "Farm: " .. bestCount
+                        task.wait(0.01)
+                    end
+                end
+                logOutput("FARM STOPPED: " .. obj.Name .. " — total: " .. bestCount, Color3.fromRGB(0,255,180))
+            else
+                OutputSayer.Text = "FARM: no working combo found"
+                logOutput("FARM: 0/" .. #farmCombos .. " combos worked on " .. obj.Name, Color3.fromRGB(255,80,80))
+            end
+        end)
+    elseif argMode == "AUTO" then
         OutputSayer.Text = "AUTO testing..."
+        -- Mega stat-gain focused combo list
+        local statNames = {"strength","wins","speed","cash","coins","gems","xp","exp",
+            "level","points","kills","score","rank","steps","walk","distance",
+            "stamina","power","damage","defense","agility"}
         local autoCombos = {
+            -- No-arg
             {{}, 0, "<none>"},
-            {{nil}, 1, "nil"},
+            -- Single player
             {{Player}, 1, "player"},
+            -- Single values
             {{1}, 1, "1"},
             {{true}, 1, "true"},
             {{false}, 1, "false"},
+            {{nil}, 1, "nil"},
+            {{10}, 1, "10"},
+            {{100}, 1, "100"},
+            -- Stat action strings
+            {{"gain"}, 1, '"gain"'},
             {{"give"}, 1, '"give"'},
+            {{"add"}, 1, '"add"'},
+            {{"increment"}, 1, '"increment"'},
+            {{"walk"}, 1, '"walk"'},
+            {{"step"}, 1, '"step"'},
+            {{"collect"}, 1, '"collect"'},
+            -- Player + number
             {{Player, 1}, 2, "player,1"},
+            {{Player, 10}, 2, "player,10"},
+            {{Player, 100}, 2, "player,100"},
             {{Player, true}, 2, "player,true"},
-            {{Player, ""}, 2, 'player,""'},
+            {{Player, false}, 2, "player,false"},
             {{1, Player}, 2, "1,player"},
+            -- Player + stat name
+            {{Player, "strength"}, 2, "player,strength"},
+            {{Player, "wins"}, 2, "player,wins"},
+            {{Player, "speed"}, 2, "player,speed"},
+            {{Player, "walk"}, 2, "player,walk"},
+            {{Player, "step"}, 2, "player,step"},
+            {{Player, "gain"}, 2, "player,gain"},
+            {{Player, "add"}, 2, "player,add"},
+            -- Stat name + player
+            {{"strength", Player}, 2, "strength,player"},
+            {{"wins", Player}, 2, "wins,player"},
+            {{"speed", Player}, 2, "speed,player"},
+            -- Player + stat name + amount
+            {{Player, "strength", 1}, 3, "player,strength,1"},
+            {{Player, "wins", 1}, 3, "player,wins,1"},
+            {{Player, "speed", 1}, 3, "player,speed,1"},
+            {{Player, "coins", 1}, 3, "player,coins,1"},
+            {{Player, "xp", 1}, 3, "player,xp,1"},
+            -- Stat name + amount + player
+            {{"strength", 1, Player}, 3, "strength,1,player"},
+            {{"wins", 1, Player}, 3, "wins,1,player"},
+            -- Player + amount + stat name
+            {{Player, 1, "strength"}, 3, "player,1,strength"},
+            {{Player, 1, "wins"}, 3, "player,1,wins"},
+            {{Player, 1, "speed"}, 3, "player,1,speed"},
+            -- Table payloads
+            {{{stat="strength", amount=1}}, 1, "{stat=strength,amt=1}"},
+            {{{stat="wins", amount=1}}, 1, "{stat=wins,amt=1}"},
+            {{{player=Player, amount=1}}, 1, "{player,amt=1}"},
+            {{{action="gain", stat="strength"}}, 1, "{action=gain,stat=strength}"},
+            {{{player=Player, stat="wins", value=1}}, 1, "{player,stat=wins,val=1}"},
+            -- UserId based
+            {{Player.UserId}, 1, "userid"},
+            {{Player.UserId, 1}, 2, "userid,1"},
+            {{Player, Player.UserId}, 2, "player,userid"},
+            -- Misc 
+            {{Player, ""}, 2, 'player,""'},
+            {{Player, 1, true}, 3, "player,1,true"},
+            {{1, 1}, 2, "1,1"},
+            {{Player, 0}, 2, "player,0"},
         }
         task.spawn(function()
             local ok_count = 0
+            local workingCombos = {}
             for _, combo in ipairs(autoCombos) do
                 local cargs, ccount, clabel = combo[1], combo[2], combo[3]
                 local ok, err = pcall(function() obj:FireServer(table.unpack(cargs, 1, ccount)) end)
                 if ok then
                     ok_count = ok_count + 1
+                    table.insert(workingCombos, clabel)
                     logOutput("AUTO OK  (" .. clabel .. ") → " .. obj.Name, Color3.fromRGB(57, 255, 20))
                 else
-                    logOutput("AUTO ERR (" .. clabel .. ") " .. tostring(err):sub(1, 60), Color3.fromRGB(80, 80, 80))
+                    logOutput("AUTO ERR (" .. clabel .. ") " .. tostring(err):sub(1, 55), Color3.fromRGB(80, 80, 80))
                 end
-                task.wait(0.05)
+                task.wait(0.04)
             end
             OutputSayer.Text = "AUTO: " .. ok_count .. "/" .. #autoCombos .. " OK"
+            if #workingCombos > 0 then
+                logOutput("AUTO WORKING COMBOS:\n  " .. table.concat(workingCombos, "\n  "), Color3.fromRGB(0,255,180))
+            end
         end)
     elseif argMode == "MULTI" then
         local margs, mcount = parseMultiArgs(CommandBox.Text)
@@ -469,34 +592,94 @@ elseif obj:IsA("RemoteFunction") then
                 OutputSayer.Text = "ERR (see log)"
                 logOutput("ERR MULTI INVOKE " .. obj.Name .. "\n  " .. tostring(result), Color3.fromRGB(255, 80, 80))
             end
+        elseif argMode == "FARM" then
+            -- FARM for RemoteFunction: probe then loop best combo
+            local farmCombos = {
+                {{Player}, 1}, {{Player, 1}, 2}, {{Player, 1, "strength"}, 3},
+                {{Player, 1, "wins"}, 3}, {{Player, 1, "speed"}, 3},
+                {{Player, "wins", 1}, 3}, {{Player, "strength", 1}, 3},
+                {{"gain"}, 1}, {{1}, 1}, {{10}, 1}, {{Player, true}, 2}, {{}, 0},
+            }
+            local bestCombo, bestCount = nil, 0
+            for _, c in ipairs(farmCombos) do
+                local ok = pcall(function() return obj:InvokeServer(table.unpack(c[1], 1, c[2])) end)
+                if ok and not bestCombo then bestCombo = c end
+                task.wait(0.03)
+            end
+            if bestCombo then
+                logOutput("FARM RF: spamming " .. obj.Name, Color3.fromRGB(0,255,180))
+                while argMode == "FARM" and selectedObj == obj do
+                    pcall(function() return obj:InvokeServer(table.unpack(bestCombo[1], 1, bestCombo[2])) end)
+                    bestCount = bestCount + 1
+                    if bestCount % 50 == 0 then SpamCountLabel.Text = "Farm: "..bestCount task.wait(0.01) end
+                end
+            else
+                logOutput("FARM RF: no combo worked on " .. obj.Name, Color3.fromRGB(255,80,80))
+            end
         elseif argMode == "AUTO" then
             local autoCombos = {
                 {{}, 0, "<none>"},
                 {{Player}, 1, "player"},
                 {{nil}, 1, "nil"},
                 {{1}, 1, "1"},
+                {{10}, 1, "10"},
+                {{100}, 1, "100"},
                 {{true}, 1, "true"},
+                {{false}, 1, "false"},
+                {{"gain"}, 1, '"gain"'},
+                {{"strength"}, 1, '"strength"'},
+                {{"wins"}, 1, '"wins"'},
+                {{"speed"}, 1, '"speed"'},
+                {{"walk"}, 1, '"walk"'},
+                {{"step"}, 1, '"step"'},
                 {{Player, 1}, 2, "player,1"},
+                {{Player, 10}, 2, "player,10"},
                 {{Player, true}, 2, "player,true"},
+                {{Player, false}, 2, "player,false"},
+                {{Player, "strength"}, 2, "player,strength"},
+                {{Player, "wins"}, 2, "player,wins"},
+                {{Player, "speed"}, 2, "player,speed"},
+                {{Player, "gain"}, 2, "player,gain"},
+                {{Player, "walk"}, 2, "player,walk"},
+                {{"strength", Player}, 2, "strength,player"},
+                {{"wins", Player}, 2, "wins,player"},
+                {{1, Player}, 2, "1,player"},
+                {{Player, 1, "strength"}, 3, "player,1,strength"},
+                {{Player, 1, "wins"}, 3, "player,1,wins"},
+                {{Player, "strength", 1}, 3, "player,strength,1"},
+                {{Player, "wins", 1}, 3, "player,wins,1"},
+                {{Player, 1, true}, 3, "player,1,true"},
+                {{{stat="strength", amount=1}}, 1, "{stat=strength}"},
+                {{{stat="wins", amount=1}}, 1, "{stat=wins}"},
+                {{{player=Player, amount=1}}, 1, "{player,amt=1}"},
+                {{Player.UserId}, 1, "userid"},
+                {{Player.UserId, 1}, 2, "userid,1"},
             }
+            local okCount = 0
+            local working = {}
             for _, combo in ipairs(autoCombos) do
                 local cargs, ccount, clabel = combo[1], combo[2], combo[3]
                 local ok, result = pcall(function() return obj:InvokeServer(table.unpack(cargs, 1, ccount)) end)
                 if ok then
+                    okCount = okCount + 1
+                    table.insert(working, clabel)
                     logOutput("AUTO INVOKE OK (" .. clabel .. ") => " .. tostring(result), Color3.fromRGB(57, 255, 20))
                 else
                     logOutput("AUTO INVOKE ERR (" .. clabel .. ")", Color3.fromRGB(80, 80, 80))
                 end
-                task.wait(0.05)
+                task.wait(0.04)
             end
-            OutputSayer.Text = "AUTO done"
+            OutputSayer.Text = "AUTO: " .. okCount .. "/" .. #autoCombos .. " OK"
+            if #working > 0 then
+                logOutput("WORKING RF COMBOS:\n  " .. table.concat(working, "\n  "), Color3.fromRGB(0,255,180))
+            end
         else
             logOutput("INVOKE " .. obj:GetFullName() .. "\n  MODE=" .. argMode .. "  ARG=" .. tostring(val))
             local ok, result = pcall(function()
-                if argMode == "VAL" then return obj:InvokeServer(val)
+                if argMode == "VAL"    then return obj:InvokeServer(val)
                 elseif argMode == "PLAYER" then return obj:InvokeServer(Player)
-                elseif argMode == "NIL" then return obj:InvokeServer(nil)
-                elseif argMode == "NONE" then return obj:InvokeServer()
+                elseif argMode == "NIL"    then return obj:InvokeServer(nil)
+                elseif argMode == "NONE"   then return obj:InvokeServer()
                 end
             end)
             if ok then
@@ -869,36 +1052,333 @@ end
 
 -- 7. HEAVY OMNI-SCAN ENGINE vMAX
 local adminKeywords = {
-"admin","command","server","drop","spawn","give","money","cash","rank",
-"ban","kick","god","fly","speed","noclip","teleport","invisible","freeze",
-"kill","damage","heal","respawn","item","weapon","tool","pet","data","save",
-"load","reset","unlock","upgrade","purchase","buy","sell","trade","transfer",
-"claim","redeem","code","promo","quest","mission","level","exp","xp","vip","owner",
-"earn","coin","coins","gem","gems","currency","balance","wallet","income",
-"passive","multiplier","boost","reward","collect","loot","chest","treasure",
-"depth","floor","zone","region","area","stage","layer","mine","dig","ore",
-"farm","grind","rebirth","prestige","token","tokens","point","points",
-"credit","credits","dollar","dollars","cash","bank","distance","deep","deeper",
-"underground","pickup","gain","receive","payout","pay","profit","rate","yield",
-"exec","execute","run","eval","cmd","handler","action","request","invoke",
-"fire","send","emit","broadcast","relay","trigger","process","dispatch",
-"permission","perm","auth","access","verify","staff","mod","operator","trusted",
-"whitelist","allowed","elevated","bypass","role","group","ingroup","tier",
-"enable","disable","toggle","set","get","change","update","override","force",
-"delete","destroy","clear","wipe","warp","move","push","pull",
-"attack","shoot","hit","touch","interact","use","activate","open","close",
-"chat","say","announce","notify","alert","message","print","log","report",
+-- ── Core admin identifiers ─────────────────────────────────────────────────
+"admin","administrator","administration","adminpanel","admincommand","adminonly",
+"admincheck","adminverify","adminauth","adminrole","adminrank","adminperm",
+"adminaccess","adminaction","adminrequest","adminhandler","adminfire","adminsend",
+"adminexec","adminrun","admineval","admincmd","adminscript","admintool",
+"adminspawn","admingive","adminset","adminget","adminreset","adminwipe",
+"adminkick","adminban","adminunban","adminmute","adminunmute","adminfreeze",
+"adminunfreeze","adminkill","adminheal","admingod","adminfly","adminteleport",
+"admintp","adminwarp","adminspeed","adminnoclip","admininvisible","adminvis",
+-- ── Command / execution ────────────────────────────────────────────────────
+"command","commands","cmd","cmds","cmdhandler","cmdprocessor","commandhandler",
+"commandprocessor","commandparser","commandrequest","commandexec","commandrun",
+"exec","execute","execution","executor","run","runner","running","eval","evaluate",
+"invoke","invoked","invoker","invokeserver","invokeclient","invocation",
+"fire","fired","firer","fireserver","fireclient","fireallclients","fireremote",
+"call","called","caller","calling","callback","callremote","callserver","callclient",
+"send","sent","sender","sending","sendrequest","sendcommand","sendaction",
+"emit","emitted","emitter","emitting","emitevent","emitremote",
+"dispatch","dispatched","dispatcher","dispatching","dispatchcommand",
+"trigger","triggered","triggering","triggerremote","triggerevent","triggercommand",
+"broadcast","broadcasted","broadcaster","broadcastmessage","broadcastevent",
+"relay","relayed","relaying","relayrequest","relaycommand","relayevent",
+"request","requested","requester","requesting","requesthandler","requestserver",
+"action","actions","actionhandler","actionrequest","actionexec","actionrun",
+"process","processed","processor","processing","processcommand","processrequest",
+"handler","handlers","handle","handling","handlecommand","handlerequest",
+-- ── Permissions / auth ─────────────────────────────────────────────────────
+"permission","permissions","perm","perms","permcheck","permverify","permgrant",
+"permrevoke","permset","permget","permlist","permhandler",
+"auth","authentication","authenticate","authorized","authorization","authcheck",
+"authverify","authtoken","authkey","authpass","authrequest","authhandler",
+"access","accesscheck","accessgrant","accessrevoke","accessverify","accesscontrol",
+"verify","verified","verifying","verification","verifyrank","verifygroup","verifyuser",
+"trust","trusted","trustcheck","trustverify","trustlevel","trustrank",
+"whitelist","whitelisted","whitelistcheck","whitelistadd","whitelistremove",
+"blacklist","blacklisted","blacklistcheck","blacklistadd","blacklistremove",
+"allowed","allowcheck","allowverify","allowaction","allowcommand",
+"elevated","elevate","elevation","elevaterank","elevateuser","elevatecheck",
+"bypass","bypassed","bypasscheck","bypassverify","bypassauth","bypassperm",
+-- ── Ranks / roles / groups ─────────────────────────────────────────────────
+"rank","ranks","ranked","ranking","rankup","rankset","rankget","rankcheck",
+"rankverify","rankgrant","rankrevoke","rankchange","rankupdate","rankhandler",
+"role","roles","roleset","roleget","rolecheck","roleverify","rolegrant","rolechange",
+"group","groups","grouprank","grouprole","groupcheck","groupverify","ingroup",
+"getrankingroup","getroleingroup","isingroup","grouphandler","groupservice",
+"staff","staffcheck","staffverify","staffonly","staffrank","staffrole","staffaccess",
+"mod","moderator","modcheck","modverify","modonly","modrank","modrole","modaccess",
+"operator","op","opcheck","oponly","oprank","oprole","opaccess",
+"owner","co-owner","coowner","ownercheck","owneronly","ownerrank","ownerrole",
+"vip","vipcheck","viponly","viprank","vipaccess","vipmember","vipstatus",
+"developer","dev","devcheck","devonly","devrank","devaccess","devmode",
+"superadmin","supermod","superuser","superstaff","superoperator",
+"headadmin","headadmin","headdeveloper","headmod","headoperator",
+-- ── Game modifiers ─────────────────────────────────────────────────────────
+"ban","banned","banning","banplayer","banuser","bancheck","bantimer","tempban",
+"kick","kicked","kicking","kickplayer","kickuser","kickreason","kickall",
+"mute","muted","muting","muteplayer","muteuser","mutecheck","tempmutte",
+"freeze","frozen","freezing","freezeplayer","freezecharacter","freezeall",
+"kill","killed","killing","killplayer","killaura","killall","killself",
+"god","godmode","godcheck","godplayer","invincible","invincibility","immortal",
+"fly","flying","flymode","flycheat","flyspeed","enablefly","disablefly",
+"noclip","noclipping","noclipmode","enablenoclip","disablenoclip","ghostmode",
+"teleport","tp","warp","tpplayer","tpme","tpall","tpto","tppos","tplocation",
+"invisible","visibility","vis","vischeck","hideplayer","showplayer","stealth",
+"speed","speedhack","speedset","speedboost","setspeed","getspeed","speedchange",
+"heal","healed","healing","healplayer","healall","healself","healtoplayer",
+"respawn","respawned","respawning","respawnplayer","respawnall","respawnme",
+"spawn","spawned","spawning","spawnitem","spawntool","spawnweapon","spawnpet",
+"give","given","giving","giveitem","givetool","giveweapon","givepet","givepower",
+"drop","dropped","dropping","dropitem","droptool","dropweapon","dropall",
+-- ── Notification / chat ────────────────────────────────────────────────────
+"announce","announcement","announceto","announceall","announcemessage",
+"notify","notification","notifyplayer","notifyall","notifyadmin","notifymessage",
+"alert","alerted","alertplayer","alertall","alertmessage","alertadmin",
+"message","messageplayer","messageall","messageadmin","messageserver","messageself",
+"chat","chatmessage","chatevent","chatcommand","chathandler","chatsend",
+"say","said","saying","saymessage","saycommand","sayall","sayplayer",
+"log","logged","logging","logcommand","logaction","logadmin","logplayer","logserver",
+"report","reported","reporting","reportplayer","reportadmin","reportlog",
 }
 
 local moneyDepthKeywords = {
-"earn","coin","coins","gem","gems","currency","balance","wallet","income",
-"passive","multiplier","boost","reward","collect","loot","chest","treasure",
-"depth","floor","zone","region","area","stage","layer","mine","dig","ore",
-"farm","grind","rebirth","prestige","token","tokens","point","points",
-"credit","credits","dollar","dollars","bank","distance","deep","deeper",
-"underground","pickup","gain","receive","payout","profit","rate","yield","money","cash",
-"resource","resources","material","materials","gold","silver","bronze","ruby","diamond",
-"star","stars","shop","store","market","auction","invest","price","cost","value",
+-- ── Currency names ─────────────────────────────────────────────────────────
+"money","cash","coin","coins","gold","silver","bronze","platinum","crystal",
+"gem","gems","ruby","emerald","sapphire","diamond","diamonds","jewel","jewels",
+"token","tokens","ticket","tickets","chip","chips","credit","credits","buck","bucks",
+"dollar","dollars","euro","euros","note","notes","bill","bills","cent","cents",
+"currency","currencies","balance","wallet","purse","vault","bank","bankaccount",
+"funds","treasury","treasure","wealth","riches","fortune","capital","savings",
+-- ── Earning / receiving ───────────────────────────────────────────────────
+"earn","earned","earning","earncoin","earnmoney","earngem","earntoken","earncash",
+"gain","gained","gaining","gainmoney","gaincoin","gaingem","gaintoken","gaincash",
+"collect","collected","collecting","collectcoin","collectgem","collecttoken","collectmoney",
+"pickup","pickedup","picking","pickupcoin","pickupgem","pickupitem","pickupmoney",
+"receive","received","receiving","receivemoney","receivecoin","receivegem","receivetoken",
+"payout","paid","paying","payoutmoney","payoutcoin","payoutgem","paycash","paygold",
+"reward","rewarded","rewarding","rewardmoney","rewardcoin","rewardgem","rewardtoken",
+"grant","granted","granting","grantmoney","grantcoin","grantgem","grantcash",
+"income","incomerate","incomepassive","incomeboost","incomeperminute","incomepersecond",
+"passive","passiveincome","passivegain","passiverate","passivecoin","passivegold",
+"yield","yieldrate","yieldboost","yieldper","yieldcoin","yieldgold","yieldgem",
+"profit","profitrate","profitboost","profitper","profitcoin","profitmoney",
+"produce","produces","producing","producecoin","producemoney","producegem",
+"generate","generated","generating","generatecoin","generatemoney","generatetoken",
+"mint","minted","minting","mintcoin","mintgem","minttoken",
+"harvest","harvested","harvesting","harvestcoin","harvestgem","harvestcrop",
+"loot","looted","looting","lootchest","lootbox","lootdrop","lootmoney","lootcoin",
+"salvage","salvaged","salvaging","salvagecoin","salvageitem","salvagegem",
+-- ── Spending / losing ─────────────────────────────────────────────────────
+"spend","spent","spending","spendcoin","spendgem","spendmoney","spendtoken",
+"buy","bought","buying","buycoin","buygem","buyitem","buyupgrade","buytool",
+"purchase","purchased","purchasing","purchasecoin","purchasegem","purchaseitem",
+"sell","sold","selling","sellcoin","sellgem","sellitem","sellupgrade",
+"trade","traded","trading","tradecoin","tradegem","tradeitem","tradeplayer",
+"transfer","transferred","transferring","transfercoin","transfergem","transfermoney",
+"withdraw","withdrew","withdrawing","withdrawmoney","withdrawcoin","withdrawgem",
+"deposit","deposited","depositing","depositmoney","depositcoin","depositgem",
+"pay","paid","paying","paycoin","paygem","paymoney","paytoken","payment",
+"invest","invested","investing","investcoin","investgem","investmoney",
+"cost","costs","costing","costcheck","costcoin","costgem","costmoney","costtoken",
+"price","priced","pricing","pricecheck","pricecoin","pricegem","pricemoney",
+"tax","taxed","taxing","taxrate","taxmoney","taxcoin","taxgem",
+-- ── Economy boosts ────────────────────────────────────────────────────────
+"multiplier","mult","multcoin","multgem","multmoney","multgold","multtoken",
+"boost","boosted","boosting","boostcoin","boostgem","boostmoney","boostincome",
+"bonus","bonuscoin","bonusgem","bonusmoney","bonustoken","bonusmultiplier",
+"double","doubled","doubling","doublecoin","doublegem","doublemoney","doublegold",
+"triple","tripled","tripling","triplecoin","triplegem","triplemoney",
+"rate","ratecoin","rategem","ratemoney","ratetoken","incomeperminute",
+-- ── Depth / progression economy ───────────────────────────────────────────
+"depth","depthfloor","depthlevel","depthzone","deptharea","depthmine",
+"floor","floors","floorlevel","floorcount","floorzone","floorregion","floordepth",
+"zone","zones","zonelevel","zonecount","zonedepth","zoneregion","zonearea",
+"region","regions","regionlevel","regioncount","regionzone","regiondepth","regionarea",
+"area","areas","arealevel","areacount","areazone","areadepth","arearegion",
+"stage","stages","stagelevel","stagecount","stagezone","stagearea","stageredepth",
+"layer","layers","layerlevel","layercount","layerzone","layerarea","layerdepth",
+"mine","mined","mining","minecoin","minegem","mineore","minegold","minesilver",
+"dig","dug","digging","digcoin","diggem","diggold","digore","digmine","digtunnel",
+"ore","ores","orecount","oremined","oregained","orevalue","oreprice",
+"resource","resources","resourcecount","resourcegained","resourcevalue","resourcemine",
+"material","materials","materialcount","materialgained","materialvalue","materialmined",
+"deep","deeper","deepest","deeplevel","deepfloor","deepmine","deepzone","deepdepth",
+"underground","undergroundlevel","undergrounddepth","undergroundzone","undergroundmine",
+-- ── Shops / stores ────────────────────────────────────────────────────────
+"shop","shops","shopitem","shopcoin","shopgem","shopgold","shopopen","shopbuy","shopsell",
+"store","stores","storeitem","storecoin","storegem","storegold","storeopen","storebuy",
+"market","markets","marketitem","marketcoin","marketgem","marketgold","marketbuy","marketsell",
+"auction","auctionitem","auctioncoin","auctiongem","auctionbid","auctionbuy","auctionsell",
+"vending","vendor","vendoritem","vendorcoin","vendorgem","vendorbuy","vendorsell",
+"merchant","merchantitem","merchantcoin","merchantgem","merchantbuy","merchantsell",
+-- ── Rebirth / prestige ────────────────────────────────────────────────────
+"rebirth","rebirths","rebirthcount","rebirthcheck","rebirthcost","rebirthreward",
+"prestige","prestiges","prestigecount","prestigecheck","prestigecost","prestigereward",
+"reset","resetstats","resetdata","resetprogress","resetmoney","resetcoin",
+"wipe","wipestats","wipedata","wipeprogress","wipemoney","wipecoin",
+"ascend","ascension","ascended","ascendcount","ascendcheck","ascendcost","ascendreward",
+"farm","farming","farmed","farmcoin","farmgem","farmgold","farmtoken","farmcash",
+"grind","grinding","grinded","grindcoin","grindgem","grindgold","grindtoken",
+"idle","idlegame","idlecoin","idlegem","idlegold","idleincome","idlepassive",
+-- ── Promo / codes ────────────────────────────────────────────────────────
+"code","codes","codecheck","coderedeem","promocode","giftcode","redeemcode",
+"redeem","redeemed","redeeming","redeemcoin","redeemgem","redeemtoken","redeemreward",
+"claim","claimed","claiming","claimcoin","claimgem","claimtoken","claimreward","claimchest",
+-- ── Misc economy ─────────────────────────────────────────────────────────
+"chest","chests","chestopen","chestloot","chestcoin","chestgem","chestgold","chestitem",
+"crate","crates","crateopen","crateloot","cratecoin","crategem","crateitem",
+"box","boxes","boxopen","boxloot","boxcoin","boxgem","boxitem",
+"drop","drops","droprate","dropcoin","dropgem","dropmoney","dropitem","droploot",
+"point","points","pointgain","pointadd","pointcount","pointmultiplier","pointboost",
+"star","stars","stargain","staradd","starcount","starmultiplier","starboost",
+"trophy","trophies","trophygain","trophyadd","trophycount","trophyreward",
+"medal","medals","medalgain","medaladd","medalcount","medalreward",
+"fragment","fragments","fragmentgain","fragmentadd","fragmentcount","fragmentvalue",
+}
+
+-- Stat gain keywords — 300+ covering every category
+local statGainKeywords = {
+-- ── Physical movement actions ──────────────────────────────────────────────
+"walk","walked","walking","walks","walkremote","walkevent","walkfunc","walkhandler",
+"step","stepped","stepping","steps","stepremote","stepevent","stepfunc","stephandler",
+"stride","strided","striding","strides","strideremote","strideevent","stridefunc",
+"run","ran","running","runs","runremote","runevent","runfunc","runhandler",
+"sprint","sprinted","sprinting","sprints","sprintremote","sprintevent","sprintfunc",
+"jog","jogged","jogging","jogs","jogremote","jogevent","jogfunc","joghandler",
+"jump","jumped","jumping","jumps","jumpremote","jumpevent","jumpfunc","jumphandler",
+"climb","climbed","climbing","climbs","climbremote","climbevent","climbfunc","climbhandler",
+"crawl","crawled","crawling","crawls","crawlremote","crawlevent","crawlfunc","crawlhandler",
+"swim","swam","swimming","swims","swimremote","swimevent","swimfunc","swimhandler",
+"dash","dashed","dashing","dashes","dashremote","dashevent","dashfunc","dashhandler",
+"dodge","dodged","dodging","dodges","dodgeremote","dodgeevent","dodgefunc","dodgehandler",
+"slide","slid","sliding","slides","slideremote","slideevent","slidefunc","slidehandler",
+"roll","rolled","rolling","rolls","rollremote","rollevent","rollfunc","rollhandler",
+"crouch","crouched","crouching","crouchremote","crouchevent","crouchfunc","crouchhandler",
+"move","moved","moving","moves","moveremote","moveevent","movefunc","movehandler",
+"travel","traveled","traveling","travels","travelremote","travelevent","travelfunc",
+"wander","wandered","wandering","wanderremote","wanderevent","wanderfunc","wanderhandler",
+"explore","explored","exploring","exploreremote","exploreevent","explorefunc","explorehandler",
+"distance","distancetraveled","distancemoved","distancewalked","distanceremote","distanceevent",
+"footstep","footsteps","paces","pace","footstepremote","footstepevent","footstepfunc",
+"patrol","patrolled","patrolling","patrols","patrolremote","patrolevent","patrolfunc",
+"approach","approached","approaching","approachremote","approachevent","approachfunc",
+"flee","fled","fleeing","fleeremote","fleeevent","fleefunc","fleehandler","fleeservice",
+"chase","chased","chasing","chaseremote","chaseevent","chasefunc","chasehandler",
+"navigate","navigated","navigating","navigateremote","navigateevent","navigatefunc",
+"pathfind","pathfinding","pathfound","pathfindremote","pathfindevent","pathfindfunc",
+-- ── Core stat names ────────────────────────────────────────────────────────
+"strength","str","power","pow","force",
+"stamina","stam","endurance","end","energy",
+"agility","agi","quickness","nimbleness",
+"speed","spd","velocity","movespeed","walkspeed","runspeed",
+"defense","def","armour","armor","resistance","resist","toughness",
+"vitality","vit","health","hp","maxhp","maxhealth",
+"dexterity","dex","precision","accuracy",
+"intelligence","int","intellect","wisdom","wis","magic","mana","mp",
+"luck","luk","crit","critchance","critrate","critical",
+"attack","atk","damage","dmg","dmgboost","attackpower","atpower",
+"charisma","charm","social",
+"faith","spirit","spi",
+"range","reach",
+"weight","carry","carrycap","carryweight",
+"size","scale","bodysize","modelscale",
+"rebirths","rebirth","ascensions","ascension","prestige","prestiges",
+-- ── Win / progression stats ────────────────────────────────────────────────
+"wins","win","wincount","totalwins","winstreak","streak",
+"losses","loss","losscount","lossstreak",
+"kills","kill","killcount","totalkills","killstreak","totalelims","elims","elim",
+"deaths","death","deathcount","totaldeaths",
+"assists","assist","assistcount",
+"kdr","kda","kdratio","killratio",
+"score","scores","totalscore","highscore","bestscore","scoreboard",
+"points","pts","totalpoints","bonuspoints",
+"trophies","trophy","medals","medal","badge","badges",
+"stars","starcount","starcollected","starsgained",
+"gems","gem","crystals","crystal","shards","shard",
+-- ── XP / Level ────────────────────────────────────────────────────────────
+"xp","exp","experience","totalxp","totalexp","gainxp","addxp","givexp",
+"level","lvl","levels","currentlevel","levelcount","levelup","addlevel","gainlevel",
+"rank","ranks","ranking","ranked","rankup","addrank","gainrank","tierrank",
+"tier","tiers","tierup","tierprogress","tierpoints",
+"class","classes","classrank","classtier",
+"mastery","masteries","masteryxp","masterylevel","masteryrank","masterypoints",
+"prestige","prestiges","prestigecount","prestigelevel","prestigerank",
+"ascension","ascensions","ascend","ascended",
+"stage","stages","stagecount","stageprogress","stagelevel",
+"floor","floors","floorlevel","floorcount","floorprogress",
+"wave","waves","wavecount","waveprogress","wavesurvived",
+"zone","zones","zonelevel","zonecount","zoneprogress","zoneunlocked",
+"area","areas","arealevel","areacount","areaunlocked",
+"world","worlds","worldlevel","worldcount","worldunlocked",
+"chapter","chapters","chaptercount","chapterprogress",
+"quest","quests","questcount","questcompleted","questdone",
+"mission","missions","missioncount","missioncompleted",
+-- ── Increment / mutation verbs ─────────────────────────────────────────────
+"gain","gained","gains","gainstat",
+"add","added","adding","addstat",
+"give","given","giving","givestat","givestats",
+"grant","granted","granting","grantstat",
+"reward","rewarded","rewarding","rewardstat",
+"earn","earned","earning","earnstat",
+"increment","incremented","incrementstat",
+"increase","increased","increasing","increasestat",
+"boost","boosted","boosting","booststat",
+"buff","buffed","buffing","buffstat",
+"multiply","multiplied","multiplying","multiplystat",
+"set","setstat","setstats","setvalue",
+"update","updated","updating","updatestat","updatestats",
+"sync","synced","syncing","statsync","syncstat","syncstats",
+"save","saved","saving","savestat","savestats","savedata",
+"apply","applied","applying","applystat","applystats",
+"assign","assigned","assigning","assignstat",
+"compute","computed","computing","computestat",
+"calc","calculate","calculated","calculating","calcstat",
+"process","processed","processing","processstat",
+"dispatch","dispatched","dispatchstat",
+"commit","committed","commitstat",
+"flush","flushed","flushstat",
+"write","written","writestat","writedata",
+"push","pushed","pushstat","pushdata",
+"load","loaded","loadstat","loaddata",
+"fetch","fetched","fetchstat","fetchdata",
+-- ── Stat / attribute nouns ─────────────────────────────────────────────────
+"stat","stats","attribute","attributes","property","properties",
+"value","values","datavalue","intvalue","numbervalue",
+"leaderstats","leaderstat","playerstat","playerstats",
+"serverstat","serverstats","gamestat","gamestats",
+"datasave","datastore","datastorekey","datastorevalue",
+"profile","profiles","profiledata","profilevalue","profilestat",
+"sessiondata","sessionstat","sessionvalue","sessionkey",
+"playerdata","playervalue","playerprofile",
+-- ── Event/trigger names (on+action pattern) ───────────────────────────────
+"onwalk","onwalked","onstep","onstepped","onstride","onstrided",
+"onrun","onran","onsprint","onsprinted","onjog","onjogged",
+"onjump","onjumped","onclimb","onclimbed","oncrawl","oncrawled",
+"onswim","onswam","ondash","ondashed","onslide","onslid",
+"onmove","onmoved","ontravel","ontraveled","ondistance",
+"oncollect","oncollected","ontouch","ontouched","oninteract","oninteracted",
+"ontrigger","ontriggered","onactivate","onactivated","onpickup","onpickedup",
+"onkill","onkilled","onwin","onwon","ondeath","ondied","ondie",
+"onlevelup","onlevel","onrank","onrankup","onprestige","onrebirth","onascend",
+"onstat","onstatgain","onstatupdate","onstatchange",
+-- ── Compound remote names ──────────────────────────────────────────────────
+"addstrength","gainstrength","givestrength","setstrength","increasestrength","booststrength",
+"addpower","gainpower","givepower","setpower","increasepower",
+"addstamina","gainstamina","givestamina","setstamina","increasestamina",
+"addspeed","gainspeed","givespeed","setspeed","increasespeed","boostspeed",
+"adddefense","gaindefense","givedefense","setdefense","increasedefense",
+"addwins","gainwins","givewins","setwins","increasewins",
+"addkills","gainkills","givekills","setkills","increasekills",
+"addxp","gainxp","givexp","setxp","increasexp",
+"addexp","gainexp","giveexp","setexp","increaseexp",
+"addlevel","gainlevel","givelevel","setlevel","increaselevel",
+"addrank","gainrank","giverank","setrank","increaserank",
+"addpoints","gainpoints","givepoints","setpoints","increasepoints",
+"addgems","gaingems","givegems","setgems","increasegems",
+"addcoins","gaincoins","givecoins","setcoins","increasecoins",
+"addgold","gaingold","givegold","setgold","increasegold",
+"addcash","gaincash","givecash","setcash","increasecash",
+"addkills","gainkills","givekills","setkills","increasekills",
+"addstars","gainstars","givestars","setstars","increasestars",
+"addtrophies","gaintrophies","givetrophies","settrophies",
+"addscore","gainscore","givescore","setscore","increasescore",
+"statupdate","statchange","statgain","statloss","statset","statget",
+"statreward","statboost","statbuff","statmult","statscale",
+"datastoreupdate","datasave","dataload","datawrite","dataread",
+"valuesync","valueupdate","valueset","valueget","valuegain",
+"profilesave","profileload","profileupdate","profilesync",
 }
 
 -- EVERY known Roblox service — maximum coverage
@@ -975,18 +1455,19 @@ categoryHeaders = {}
 entryMeta = {}
 
 collapsedCategories = {
-    Guis              = true,
-    Data              = true,
-    ["Admin Remotes"] = true,
+    Guis                    = true,
+    Data                    = true,
+    ["Admin Remotes"]       = true,
     ["Money/Depth Remotes"] = true,
-    Remotes           = true,
-    ["Script Remotes"]  = true,
-    ["Player Remotes"]  = true,
-    ["Server Remotes"]  = true,
-    Bindables           = true,
-    ["ALL REMOTES"]     = true,
-    Utilities           = true,
-    Scripts             = true,
+    ["Stat Gain Remotes"]   = true,
+    Remotes                 = true,
+    ["Script Remotes"]      = true,
+    ["Player Remotes"]      = true,
+    ["Server Remotes"]      = true,
+    Bindables               = true,
+    ["ALL REMOTES"]         = true,
+    Utilities               = true,
+    Scripts                 = true,
 }
 
 -- GUIs
@@ -1021,6 +1502,7 @@ end)
 -- Category headers — all filled during deepScan
 addCategoryHeader("Admin Remotes",       Color3.fromRGB(180, 0,   0  ))
 addCategoryHeader("Money/Depth Remotes", Color3.fromRGB(200, 160, 0  ))
+addCategoryHeader("Stat Gain Remotes",   Color3.fromRGB(0,   255, 180))
 addCategoryHeader("Script Remotes",      Color3.fromRGB(140, 0,   200))
 addCategoryHeader("Player Remotes",      Color3.fromRGB(0,   120, 200))
 addCategoryHeader("Server Remotes",      Color3.fromRGB(255, 60,  60 ))
@@ -1036,23 +1518,241 @@ local totalFound     = 0
 
 -- Keywords for script-related remotes
 local scriptRemoteKws = {
-    "script","localscript","modulescript","serverscript","exec","execute","run",
-    "eval","loadstring","require","handler","module","loader","boot","init","main",
-    "core","system","framework","manager","controller","service","util","lib","library",
-    "callback","hook","event","signal","trigger","dispatch","process","compute",
+-- ── Script type identifiers ────────────────────────────────────────────────
+"script","scripts","scriptremote","scripthandler","scriptevent","scriptfunc",
+"localscript","localscripts","localscriptremote","localscripthandler","localscriptevent",
+"modulescript","modulescripts","moduleremote","modulehandler","moduleevent","modulefunc",
+"serverscript","serverscripts","serverscriptremote","serverscripthandler","serverscriptevent",
+-- ── Execution / loading ───────────────────────────────────────────────────
+"exec","execute","execution","executor","executing","execscript","execcode","execcommand",
+"run","running","runner","runscript","runcode","runcommand","runfunction","runmodule",
+"eval","evaluate","evaluation","evalscript","evalcode","evalcommand","evalexpression",
+"loadstring","loadscript","loadcode","loadmodule","loadfile","loadfunction","loadchunk",
+"require","requires","requiring","requiremodule","requirescript","requirelib","requirecore",
+"load","loaded","loading","loadhandler","loadservice","loadcore","loadsystem","loadlib",
+"boot","booted","booting","bootscript","bootsystem","bootcore","bootservice","bootmodule",
+"init","initialize","initialized","initializing","initscript","initsystem","initcore","initservice",
+"start","started","starting","startscript","startsystem","startcore","startservice",
+"setup","setups","setupscript","setupsystem","setupcore","setupservice","setupmodule",
+"launch","launched","launching","launchscript","launchsystem","launchcore","launchservice",
+"import","imported","importing","importmodule","importscript","importlib","importcore",
+"inject","injected","injecting","injectscript","injectcode","injectmodule","injectfunction",
+"hook","hooked","hooking","hookscript","hookfunction","hookevent","hookremote","hookhandler",
+"patch","patched","patching","patchscript","patchfunction","patchremote","patchhandler",
+"wrap","wrapped","wrapping","wrapscript","wrapfunction","wrapremote","wraphandler",
+-- ── Framework / system names ──────────────────────────────────────────────
+"framework","frameworks","frameworkcore","frameworkhandler","frameworkservice","frameworkmodule",
+"system","systems","systemcore","systemhandler","systemservice","systemmodule","systemscript",
+"core","cores","corehandler","coreservice","coremodule","corescript","coresystem","corefunction",
+"service","services","servicecore","servicehandler","servicemodule","servicescript","servicefunc",
+"manager","managers","managercore","managerhandler","managermodule","managerfunc","managerservice",
+"controller","controllers","controllercore","controllerhandler","controllermodule","controllerfunc",
+"handler","handlers","handlercore","handlerservice","handlermodule","handlerfunc","handlerscript",
+"module","modules","modulecore","moduleservice","modulehandler","modulefunc","moduleloader",
+"library","libraries","libcore","libservice","libhandler","libmodule","libfunc","libloader",
+"lib","libs","libhandler","libservice","libmodule","libcore","libscript","libloader",
+"util","utils","utility","utilities","utilhandler","utilservice","utilmodule","utilfunc",
+"helper","helpers","helperhandler","helperservice","helpermodule","helperfunc","helperscript",
+"api","apis","apihandler","apiservice","apimodule","apifunc","apiscript","apicore",
+-- ── Callback / signal / event infra ──────────────────────────────────────
+"callback","callbacks","callbackhandler","callbackservice","callbackfunc","callbackevent",
+"signal","signals","signalhandler","signalservice","signalfunc","signalfired","signalevent",
+"event","events","eventhandler","eventservice","eventfunc","eventfired","eventremote",
+"bindable","bindables","bindableevent","bindablefunction","bindablehandler","bindableservice",
+"remote","remotes","remoteevent","remotefunction","remotehandler","remoteservice","remotefunc",
+"connection","connections","connectionhandler","connectionservice","connectionfunc","connectionevent",
+"listener","listeners","listenerhandler","listenerservice","listenerfunc","listenerevent",
+"subscriber","subscribers","subscribehandler","subscribeservice","subscribefunc","subscribeevent",
+"observer","observers","observehandler","observeservice","observefunc","observeevent",
+"emitter","emitters","emithandler","emitservice","emitfunc","emitevent","emitremote",
+"dispatcher","dispatchers","dispatchhandler","dispatchservice","dispatchfunc","dispatchevent",
+"trigger","triggers","triggerhandler","triggerservice","triggerfunc","triggerevent","triggerremote",
+"hook","hooks","hookhandler","hookservice","hookfunc","hookevent","hookremote",
+"filter","filters","filterhandler","filterservice","filterfunc","filterevent","filterremote",
+"middleware","middlewares","middlewarehandler","middlewareservice","middlewarefunc",
+"interceptor","interceptors","intercepthandler","interceptservice","interceptfunc",
+"pipe","pipes","pipehandler","pipeservice","pipefunc","pipeevent","pipemodule",
+"pipeline","pipelines","pipelinehandler","pipelineservice","pipelinefunc","pipelineevent",
+-- ── Code execution patterns ────────────────────────────────────────────────
+"chunk","chunks","chunkhandler","chunkloader","chunkexec","chunkrun","chunkeval",
+"bytecode","bytecodehandler","bytecodeloader","bytecodeexec","bytecoderun",
+"compile","compiled","compiling","compilehandler","compilerun","compilescript",
+"interpret","interpreted","interpreting","interprethandler","interpretrun","interpretscript",
+"sandbox","sandboxhandler","sandboxexec","sandboxrun","sandboxeval","sandboxscript",
+"environment","environmenthandler","environmentexec","environmentrun","environmentscript",
+"context","contexthandler","contextexec","contextrun","contextscript","contextmodule",
+"scope","scopehandler","scopeexec","scoperun","scopescript","scopemodule",
+"closure","closurehandler","closureexec","closurerun","closurescript","closuremodule",
+"coroutine","coroutinehandler","coroutineexec","coroutinerun","coroutinescript",
+"thread","threads","threadhandler","threadexec","threadrun","threadscript","threadmodule",
+"task","tasks","taskhandler","taskexec","taskrun","taskscript","taskmodule","taskschedule",
+"schedule","scheduled","scheduling","schedulehandler","schedulerun","schedulescript",
+"defer","deferred","deferring","deferhandler","deferrun","deferscript","defermodule",
+"async","asynchandler","asyncexec","asyncrun","asyncscript","asyncmodule","asynctask",
+"await","awaithandler","awaitexec","awaitrun","awaitscript","awaitmodule","awaittask",
 }
+
 -- Keywords that suggest server-side origin
 local serverRemoteKws = {
-    "server","serverside","ss","remote","network","replication","replicated",
-    "serverrequest","serversignal","serverevent","serverfunc","serverfunction",
-    "rpc","call","api","endpoint","route","request","response","sync","async",
-    "backend","datasync","dataservice","gameserver","worldserver","hostserver",
+-- ── Server identifiers ────────────────────────────────────────────────────
+"server","servers","serverside","serveronly","serversided","serverscript","serverservice",
+"serverhandler","serverevent","serverfunction","serverfunc","serverremote","servermodule",
+"servercore","serversystem","servercontroller","servermanager","serverframework",
+"serverrequest","serverresponse","serveraction","servercommand","serverprocess",
+"ss","sss","serversided","serverscripted","serversideservice","serversidehandler",
+-- ── Network / replication ─────────────────────────────────────────────────
+"network","networks","networkhandler","networkservice","networkevent","networkfunc",
+"networkremote","networkmodule","networkcore","networksystem","networkcontroller",
+"replication","replicate","replicated","replicating","replicationhandler","replicationservice",
+"replicationstorage","replicatedfirst","replicationmodule","replicationcore","replicationevent",
+"sync","synced","syncing","synchandler","syncservice","syncevent","syncfunc","syncmodule",
+"async","asynchandler","asyncservice","asyncevent","asyncfunc","asyncmodule","asynccore",
+"remote","remotes","remoteevent","remotefunction","remotehandler","remoteservice","remotefunc",
+"rpc","rpcs","rpchandler","rpcservice","rpcevent","rpcfunc","rpcmodule","rpccore","rpccall",
+-- ── API / endpoint ────────────────────────────────────────────────────────
+"api","apis","apihandler","apiservice","apievent","apifunc","apimodule","apicore","apicall",
+"endpoint","endpoints","endpointhandler","endpointservice","endpointevent","endpointfunc",
+"route","routes","routehandler","routeservice","routeevent","routefunc","routemodule",
+"request","requests","requesthandler","requestservice","requestevent","requestfunc","requestmodule",
+"response","responses","responsehandler","responseservice","responseevent","responsefunc",
+"call","calls","callhandler","callservice","callevent","callfunc","callmodule","callcore","callremote",
+-- ── Backend / infrastructure ──────────────────────────────────────────────
+"backend","backends","backendhandler","backendservice","backendevent","backendfunc","backendmodule",
+"database","databases","databasehandler","databaseservice","databaseevent","databasefunc",
+"datastore","datastores","datastorehandler","datastoreservice","datastoreevent","datastorefunc",
+"dataservice","dataservices","dataservicehandler","dataserviceevent","dataservicefunc",
+"datasync","datasynced","datasyncing","datasynchandler","datasyncevent","datasyncfunc",
+"gameserver","gameservers","gameserverhandler","gameserverservice","gameserverevent",
+"worldserver","worldservers","worldserverhandler","worldserverservice","worldserverevent",
+"hostserver","hostservers","hostserverhandler","hostserverservice","hostserverevent",
+"masterserver","masterservers","masterserverhandler","masterserverservice",
+"jobserver","jobservers","jobserverhandler","jobserverservice","jobserverevent",
+"gameservice","gameservices","gameservicehandler","gameserviceevent","gameservicefunc",
+"runservice","runservicehandler","runserviceevent","runservicefunc","runservicemodule",
+-- ── Session / job / tick ─────────────────────────────────────────────────
+"session","sessions","sessionhandler","sessionservice","sessionevent","sessionfunc","sessionmodule",
+"heartbeat","heartbeats","heartbeathandler","heartbeatevent","heartbeatfunc","heartbeatmodule",
+"tick","ticks","tickhandler","tickevent","tickfunc","tickmodule","tickrate","tickserver",
+"frame","frames","framehandler","frameevent","framefunc","framemodule","framerate","frameserver",
+"step","steps","stephandler","stepevent","stepfunc","stepmodule","stepserver","steprate",
+"update","updates","updatehandler","updateservice","updateevent","updatefunc","updatemodule",
+"loop","loops","loophandler","loopservice","loopevent","loopfunc","loopmodule","looptimer",
+"timer","timers","timerhandler","timerservice","timerevent","timerfunc","timermodule",
+"interval","intervals","intervalhandler","intervalservice","intervalevent","intervalfunc",
+"clock","clocks","clockhandler","clockservice","clockevent","clockfunc","clockmodule",
+-- ── Spawn / destroy ───────────────────────────────────────────────────────
+"spawn","spawned","spawning","spawnhandler","spawnservice","spawnevent","spawnfunc",
+"destroy","destroyed","destroying","destroyhandler","destroyservice","destroyevent",
+"create","created","creating","createhandler","createservice","createevent","createfunc",
+"delete","deleted","deleting","deletehandler","deleteservice","deleteevent","deletefunc",
+"remove","removed","removing","removehandler","removeservice","removeevent","removefunc",
+"add","added","adding","addhandler","addservice","addevent","addfunc","addmodule",
+"insert","inserted","inserting","inserthandler","insertservice","insertevent","insertfunc",
+-- ── Security / validation ─────────────────────────────────────────────────
+"validate","validated","validating","validatehandler","validateservice","validateevent",
+"verify","verified","verifying","verifyhandler","verifyservice","verifyevent","verifyfunc",
+"sanity","sanitycheck","sanitychecked","sanitycheckhandler","sanitycheckevent",
+"sanitize","sanitized","sanitizing","sanitizehandler","sanitizeservice","sanitizeevent",
+"check","checked","checking","checkhandler","checkservice","checkevent","checkfunc",
+"guard","guards","guardhandler","guardservice","guardevent","guardfunc","guardmodule",
+"protect","protected","protecting","protecthandler","protectservice","protectevent",
+"secure","secured","securing","securehandler","secureservice","secureevent","securefunc",
+"auth","authhandler","authservice","authevent","authfunc","authmodule","authcheck",
+"authorize","authorized","authorizing","authorizehandler","authorizeservice","authorizeevent",
 }
+
 -- Keywords for player-specific remotes
 local playerRemoteKws = {
-    "player","plr","char","character","client","localplayer","user","usr",
-    "inventory","backpack","leaderstats","stats","profile","avatar","rig",
-    "humanoid","health","stamina","jump","move","action","interact","pickup",
+-- ── Player / client identifiers ───────────────────────────────────────────
+"player","players","playerremote","playerevent","playerfunc","playerhandler","playerservice",
+"playermodule","playercore","playercontroller","playermanager","playerframework",
+"localplayer","localplayerremote","localplayerevent","localplayerfunc","localplayerhandler",
+"plr","plrs","plrremote","plrevent","plrfunc","plrhandler","plrservice","plrmodule",
+"user","users","userremote","userevent","userfunc","userhandler","userservice","usermodule",
+"usr","usrs","usrremote","usrevent","usrfunc","usrhandler","usrservice","usrmodule",
+"client","clients","clientremote","clientevent","clientfunc","clienthandler","clientservice",
+"clientmodule","clientcore","clientcontroller","clientmanager","clientframework","clientside",
+-- ── Character / rig ───────────────────────────────────────────────────────
+"character","characters","characterremote","characterevent","characterfunc","characterhandler",
+"characterservice","charactermodule","charactercore","charactercontroller","charactermanager",
+"char","chars","charremote","charevent","charfunc","charhandler","charservice","charmodule",
+"rig","rigs","rigremote","rigevent","rigfunc","righandler","rigservice","rigmodule",
+"avatar","avatars","avatarremote","avatarevent","avatarfunc","avatarhandler","avatarservice",
+"humanoid","humanoids","humanoidremote","humanoidfunc","humanoidhandler","humanoidservice",
+"humanoidrootpart","hrp","hrpremote","hrpfunc","hrphandler","hrpservice","hrpmodule",
+"rootpart","rootparts","rootpartremote","rootpartfunc","rootparthandler","rootpartservice",
+"torso","torsors","torsoremote","torsofunc","torsohandler","torsoservice","torsomodule",
+"head","heads","headremote","headfunc","headhandler","headservice","headmodule",
+"limb","limbs","limbremote","limbfunc","limbhandler","limbservice","limbmodule",
+"body","bodies","bodyremote","bodyfunc","bodyhandler","bodyservice","bodymodule",
+-- ── Health / status ───────────────────────────────────────────────────────
+"health","healths","healthremote","healthevent","healthfunc","healthhandler","healthservice",
+"maxhealth","maxhealths","maxhealthremote","maxhealthevent","maxhealthfunc","maxhealthhandler",
+"hp","hpremote","hpevent","hpfunc","hphandler","hpservice","hpmodule","hpchange","hpupdate",
+"heal","healed","healing","healremote","healevent","healfunc","healhandler","healservice",
+"damage","damages","damageremote","damageevent","damagefunc","damagehandler","damageservice",
+"hurt","hurted","hurting","hurtremote","hurtevent","hurtfunc","hurthandler","hurtservice",
+"die","died","dying","dieremote","dieevent","diefunc","diehandler","dieservice","diemodule",
+"death","deaths","deathremote","deathevent","deathfunc","deathhandler","deathservice",
+"respawn","respawns","respawnremote","respawnevent","respawnfunc","respawnhandler","respawnservice",
+"alive","alivecheck","alivefunc","alivehandler","aliveservice","aliveremote","aliveevent",
+"dead","deadcheck","deadfunc","deadhandler","deadservice","deadremote","deadevent",
+"status","statuses","statusremote","statusevent","statusfunc","statushandler","statusservice",
+"effect","effects","effectremote","effectevent","effectfunc","effecthandler","effectservice",
+"buff","buffs","buffremote","buffevent","bufffunc","buffhandler","buffservice","buffmodule",
+"debuff","debuffs","debuffremote","debuffevent","debuffhandler","debuffservice","debuffmodule",
+-- ── Inventory / equipment ─────────────────────────────────────────────────
+"inventory","inventories","inventoryremote","inventoryevent","inventoryfunc","inventoryhandler",
+"inventoryservice","inventorymodule","inventorycore","inventorycontroller","inventorymanager",
+"backpack","backpacks","backpackremote","backpackevent","backpackfunc","backpackhandler",
+"equipment","equipments","equipmentremote","equipmentevent","equipmentfunc","equipmenthandler",
+"item","items","itemremote","itemevent","itemfunc","itemhandler","itemservice","itemmodule",
+"tool","tools","toolremote","toolevent","toolfunc","toolhandler","toolservice","toolmodule",
+"weapon","weapons","weaponremote","weaponevent","weaponfunc","weaponhandler","weaponservice",
+"armor","armors","armorremote","armorevent","armorfunc","armorhandler","armorservice",
+"gear","gears","gearremote","gearevent","gearfunc","gearhandler","gearservice","gearmodule",
+"pet","pets","petremote","petevent","petfunc","pethandler","petservice","petmodule","petequip",
+"mount","mounts","mountremote","mountevent","mountfunc","mounthandler","mountservice",
+"skin","skins","skinremote","skinevent","skinfunc","skinhandler","skinservice","skinmodule",
+"cosmetic","cosmetics","cosmeticremote","cosmeticevent","cosmeticfunc","cosmetichandler",
+"hat","hats","hatremote","hatevent","hatfunc","hathandler","hatservice","hatmodule",
+"accessory","accessories","accessoryremote","accessoryevent","accessoryfunc","accessoryhandler",
+"outfit","outfits","outfitremote","outfitevent","outfitfunc","outfithandler","outfitservice",
+-- ── Stats / data ─────────────────────────────────────────────────────────
+"leaderstats","leaderstat","leaderstatremote","leaderstatsevent","leaderstatsfunc",
+"leaderstatshandler","leaderstatsservice","leaderstatsmodule","leaderstatscore",
+"stats","stat","statremote","statevent","statfunc","stathandler","statservice","statmodule",
+"playerdata","playerdataremote","playerdataevent","playerdatafunc","playerdatahandler",
+"playerdataservice","playerdatamodule","playerdatacore","playerdatacontroller",
+"profile","profiles","profileremote","profileevent","profilefunc","profilehandler",
+"profileservice","profilemodule","profilecore","profilecontroller","profilemanager",
+"data","datas","dataremote","dataevent","datafunc","datahandler","dataservice","datamodule",
+"save","saves","saveremote","saveevent","savefunc","savehandler","saveservice","savemodule",
+"load","loads","loadremote","loadevent","loadfunc","loadhandler","loadservice","loadmodule",
+-- ── Movement / input ─────────────────────────────────────────────────────
+"move","moves","moveremote","moveevent","movefunc","movehandler","moveservice","movemodule",
+"movement","movements","movementremote","movementevent","movementfunc","movementhandler",
+"jump","jumps","jumpremote","jumpevent","jumpfunc","jumphandler","jumpservice","jumpmodule",
+"walk","walks","walkremote","walkevent","walkfunc","walkhandler","walkservice","walkmodule",
+"run","runs","runremote","runevent","runfunc","runhandler","runservice","runmodule",
+"sprint","sprints","sprintremote","sprintevent","sprintfunc","sprinthandler","sprintservice",
+"speed","speeds","speedremote","speededit","speedevent","speedfunc","speedhandler","speedservice",
+"input","inputs","inputremote","inputevent","inputfunc","inputhandler","inputservice",
+"action","actions","actionremote","actionevent","actionfunc","actionhandler","actionservice",
+"interact","interacts","interactremote","interactevent","interactfunc","interacthandler",
+"touch","touches","touchremote","touchevent","touchfunc","touchhandler","touchservice",
+"click","clicks","clickremote","clickevent","clickfunc","clickhandler","clickservice",
+"press","presses","pressremote","pressevent","pressfunc","presshandler","pressservice",
+"key","keys","keyremote","keyevent","keyfunc","keyhandler","keyservice","keymodule","keyinput",
+-- ── Chat / social ────────────────────────────────────────────────────────
+"chat","chats","chatremote","chatevent","chatfunc","chathandler","chatservice","chatmodule",
+"message","messages","messageremote","messageevent","messagefunc","messagehandler","messageservice",
+"whisper","whispers","whisperremote","whisperevent","whisperfunc","whisperhandler","whisperservice",
+"friend","friends","friendremote","friendevent","friendfunc","friendhandler","friendservice",
+"party","parties","partyremote","partyevent","partyfunc","partyhandler","partyservice",
+"team","teams","teamremote","teamevent","teamfunc","teamhandler","teamservice","teammodule",
+"guild","guilds","guildremote","guildevent","guildfunc","guildhandler","guildservice",
+"clan","clans","clanremote","clanevent","clanfunc","clanhandler","clanservice","clanmodule",
 }
 
 local function classifyRemote(name, fullPath)
@@ -1065,14 +1765,16 @@ local function classifyRemote(name, fullPath)
     local isScript = false
     local isServer = false
     local isPlayer = false
+    local isStat   = false
 
     for _, k in ipairs(adminKeywords)     do if ctx:find(k,1,true) then isAdmin  = true break end end
     for _, k in ipairs(moneyDepthKeywords) do if ctx:find(k,1,true) then isMoney  = true break end end
     for _, k in ipairs(scriptRemoteKws)   do if ctx:find(k,1,true) then isScript = true break end end
     for _, k in ipairs(serverRemoteKws)   do if ctx:find(k,1,true) then isServer = true break end end
     for _, k in ipairs(playerRemoteKws)   do if ctx:find(k,1,true) then isPlayer = true break end end
+    for _, k in ipairs(statGainKeywords)  do if ctx:find(k,1,true) then isStat   = true break end end
 
-    return isAdmin, isMoney, isScript, isServer, isPlayer
+    return isAdmin, isMoney, isScript, isServer, isPlayer, isStat
 end
 
 local function registerRemote(child, id, baseTag)
@@ -1080,16 +1782,16 @@ local function registerRemote(child, id, baseTag)
     totalFound = totalFound + 1
     local fullPath = ""
     pcall(function() fullPath = child:GetFullName() end)
-    local isAdmin, isMoney, isScript, isServer, isPlayer =
+    local isAdmin, isMoney, isScript, isServer, isPlayer, isStat =
         classifyRemote(child.Name, fullPath)
 
-    -- Always add to ALL REMOTES
-    if canAddToCategory("ALL REMOTES") then addEntry(child, baseTag, "ALL REMOTES") end
-    -- Always add to Remotes (base list)
-    if canAddToCategory("Remotes")    then addEntry(child, baseTag, "Remotes")     end
+    -- Always add to ALL REMOTES and base Remotes list
+    if canAddToCategory("ALL REMOTES") then addEntry(child, baseTag,           "ALL REMOTES")        end
+    if canAddToCategory("Remotes")     then addEntry(child, baseTag,           "Remotes")            end
     -- Classified categories
     if isAdmin  and canAddToCategory("Admin Remotes")       then addEntry(child, "ADMIN:"  ..baseTag, "Admin Remotes")       end
     if isMoney  and canAddToCategory("Money/Depth Remotes") then addEntry(child, "MONEY:"  ..baseTag, "Money/Depth Remotes") end
+    if isStat   and canAddToCategory("Stat Gain Remotes")   then addEntry(child, "STAT:"   ..baseTag, "Stat Gain Remotes")   end
     if isScript and canAddToCategory("Script Remotes")      then addEntry(child, "SCRIPT:" ..baseTag, "Script Remotes")      end
     if isServer and canAddToCategory("Server Remotes")      then addEntry(child, "SERVER:" ..baseTag, "Server Remotes")      end
     if isPlayer and canAddToCategory("Player Remotes")      then addEntry(child, "PLAYER:" ..baseTag, "Player Remotes")      end
@@ -2600,26 +3302,41 @@ local function clearUltraList()
 end
 
 local function ultraAutoFire(obj)
-    -- Fires the remote with a comprehensive set of argument combos
+    -- Fires the remote with a comprehensive set of argument combos (stat-gain focused)
     local autoCombos = {
+        -- No-arg
         {{}, 0},
+        -- Single player
         {{Player}, 1},
-        {{nil}, 1},
-        {{1}, 1},
-        {{true}, 1},
-        {{false}, 1},
-        {{"give"}, 1},
-        {{"admin"}, 1},
-        {{"exec"}, 1},
-        {{"run"}, 1},
-        {{Player, 1}, 2},
-        {{Player, true}, 2},
-        {{Player, "give"}, 2},
-        {{Player, "admin"}, 2},
-        {{Player, ""}, 2},
-        {{1, Player}, 2},
-        {{Player, 1, true}, 3},
-        {{Player, "give", 1}, 3},
+        -- Single values
+        {{nil}, 1}, {{1}, 1}, {{10}, 1}, {{100}, 1},
+        {{true}, 1}, {{false}, 1},
+        -- Stat/action strings
+        {{"give"}, 1}, {{"gain"}, 1}, {{"add"}, 1}, {{"increment"}, 1},
+        {{"strength"}, 1}, {{"wins"}, 1}, {{"speed"}, 1},
+        {{"walk"}, 1}, {{"step"}, 1}, {{"collect"}, 1},
+        {{"admin"}, 1}, {{"exec"}, 1}, {{"run"}, 1},
+        -- Player + number
+        {{Player, 1}, 2}, {{Player, 10}, 2}, {{Player, 100}, 2},
+        {{Player, true}, 2}, {{Player, false}, 2}, {{1, Player}, 2},
+        -- Player + stat name
+        {{Player, "strength"}, 2}, {{Player, "wins"}, 2},
+        {{Player, "speed"}, 2}, {{Player, "walk"}, 2},
+        {{Player, "gain"}, 2}, {{Player, "give"}, 2},
+        {{Player, "admin"}, 2}, {{Player, ""}, 2},
+        -- Stat name + player
+        {{"strength", Player}, 2}, {{"wins", Player}, 2},
+        -- Player + stat + amount
+        {{Player, "strength", 1}, 3}, {{Player, "wins", 1}, 3},
+        {{Player, "speed", 1}, 3}, {{Player, 1, "strength"}, 3},
+        {{Player, 1, "wins"}, 3}, {{Player, 1, true}, 3},
+        {{Player, "give", 1}, 3}, {{Player, "admin", true}, 3},
+        -- Table payloads
+        {{{stat="strength", amount=1}}, 1},
+        {{{stat="wins", amount=1}}, 1},
+        {{{player=Player, amount=1}}, 1},
+        -- UserId
+        {{Player.UserId}, 1}, {{Player.UserId, 1}, 2},
     }
     local okCount = 0
     task.spawn(function()
