@@ -332,25 +332,53 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
     if AIM_TAP then
         local now = tick()
         if (now - lastTapTime) >= AIM_TAP_COOLDOWN then
+            local bestDist = FOV_RADIUS
+            local bestScreenX, bestScreenY = nil, nil
+
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= player and not WHITELISTED[p.Name] and p.Character then
                     local char = p.Character
                     local hum = char:FindFirstChild("Humanoid")
                     if hum and hum.Health > 0 then
-                        local part = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                        -- Use same target part as aimbot
+                        local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or
+                                     (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or
+                                     char:FindFirstChild("HumanoidRootPart")
                         if part then
-                            local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+                            local targetPos = part.Position
+                            if TARGET_TYPE == "Head" then
+                                local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
+                                targetPos = targetPos + Vector3.new(0, fpComp, 0)
+                            end
+
+                            local screenPos, onScreen = camera:WorldToViewportPoint(targetPos)
                             if onScreen then
-                                local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)).Magnitude
-                                if distFromCenter <= FOV_RADIUS then
-                                    mouse1click()
-                                    lastTapTime = now
-                                    break
+                                local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+                                local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+
+                                if distFromCenter <= bestDist then
+                                    -- Visibility raycast check
+                                    local rp = RaycastParams.new()
+                                    rp.FilterType = Enum.RaycastFilterType.Blacklist
+                                    rp.FilterDescendantsInstances = {player.Character, char}
+
+                                    local rayResult = workspace:Raycast(camera.CFrame.Position, (targetPos - camera.CFrame.Position), rp)
+                                    if rayResult == nil then
+                                        bestDist = distFromCenter
+                                        bestScreenX = screenPos.X
+                                        bestScreenY = screenPos.Y
+                                    end
                                 end
                             end
                         end
                     end
                 end
+            end
+
+            if bestScreenX and bestScreenY then
+                mousemoveabs(bestScreenX, bestScreenY)
+                mouse1click()
+                lastTapTime = now
             end
         end
     end
