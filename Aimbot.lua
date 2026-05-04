@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
+local mouse = player:GetMouse()
 
 -- Cleanup
 if getgenv().AimConnection then getgenv().AimConnection:Disconnect() end
@@ -376,8 +377,10 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
             end
 
             if bestScreenX and bestScreenY then
+                local savedX, savedY = mouse.X, mouse.Y
                 mousemoveabs(bestScreenX, bestScreenY)
                 mouse1click()
+                mousemoveabs(savedX, savedY)
                 lastTapTime = now
             end
         end
