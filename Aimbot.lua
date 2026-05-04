@@ -18,6 +18,7 @@ end
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local AIM_TAP = false
+local triggerTarget = nil
 local ESP_ENABLED = false
 local TARGET_TYPE = "Head"
 local WHITELISTED = {} 
@@ -329,16 +330,35 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
 
     -- TRIGGER BOT logic
     if AIM_TAP then
-        local target = mouse.Target
-        if target then
-            local humanoid = target.Parent:FindFirstChildOfClass("Humanoid") or target.Parent.Parent:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health >= 1 and target.Parent.Name ~= player.Name and not WHITELISTED[target.Parent.Name] then
+        -- If we already have a locked target, keep shooting until dead
+        if triggerTarget then
+            local hum = triggerTarget:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health >= 1 then
                 mouse1press()
             else
                 mouse1release()
+                triggerTarget = nil
             end
         else
+            -- Look for a new target under the cursor
+            local t = mouse.Target
+            if t then
+                local char = t.Parent:FindFirstChildOfClass("Humanoid") and t.Parent
+                              or t.Parent.Parent:FindFirstChildOfClass("Humanoid") and t.Parent.Parent
+                if char then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    local hitPlr = Players:GetPlayerFromCharacter(char)
+                    if hum and hum.Health >= 1 and hitPlr and hitPlr ~= player and not WHITELISTED[hitPlr.Name] then
+                        triggerTarget = char
+                        mouse1press()
+                    end
+                end
+            end
+        end
+    else
+        if triggerTarget then
             mouse1release()
+            triggerTarget = nil
         end
     end
 end)
