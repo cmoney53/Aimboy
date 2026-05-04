@@ -18,7 +18,7 @@ end
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local AIM_TAP = false
-local tappedPlayers = {}
+local triggerFired = false
 local ESP_ENABLED = false
 local TARGET_TYPE = "Head"
 local WHITELISTED = {} 
@@ -328,58 +328,40 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- AIM TAP logic
+    -- TRIGGER BOT logic
     if AIM_TAP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and not WHITELISTED[p.Name] and p.Character then
-                local char = p.Character
-                local hum = char:FindFirstChild("Humanoid")
+        local rp = RaycastParams.new()
+        rp.FilterType = Enum.RaycastFilterType.Blacklist
+        rp.FilterDescendantsInstances = {player.Character}
 
-                if hum and hum.Health > 0 then
-                    local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or
-                                 (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or
-                                 char:FindFirstChild("HumanoidRootPart")
+        local unitRay = camera:ScreenPointToRay(
+            camera.ViewportSize.X / 2,
+            camera.ViewportSize.Y / 2
+        )
+        local result = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, rp)
 
-                    if part then
-                        local targetPos = part.Position
-                        if TARGET_TYPE == "Head" then
-                            local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
-                            targetPos = targetPos + Vector3.new(0, fpComp, 0)
-                        end
-
-                        local screenPos, onScreen = camera:WorldToViewportPoint(targetPos)
-                        local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-                        local distFromCenter = onScreen and (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude or math.huge
-
-                        local inFOV = onScreen and distFromCenter <= FOV_RADIUS
-
-                        if inFOV then
-                            -- Visibility raycast
-                            local rp = RaycastParams.new()
-                            rp.FilterType = Enum.RaycastFilterType.Blacklist
-                            rp.FilterDescendantsInstances = {player.Character, char}
-                            local rayResult = workspace:Raycast(camera.CFrame.Position, (targetPos - camera.CFrame.Position), rp)
-                            local visible = rayResult == nil
-
-                            if visible and not tappedPlayers[p.Name] then
-                                -- First time seeing this player — tap once
-                                tappedPlayers[p.Name] = true
-                                local savedX, savedY = mouse.X, mouse.Y
-                                mousemoveabs(screenPos.X, screenPos.Y)
-                                mouse1click()
-                                mousemoveabs(savedX, savedY)
-                            elseif not visible then
-                                tappedPlayers[p.Name] = nil
-                            end
-                        else
-                            -- Left FOV — reset so next sighting triggers a tap
-                            tappedPlayers[p.Name] = nil
-                        end
+        local hitPlayer = false
+        if result and result.Instance then
+            local hitChar = result.Instance:FindFirstAncestorOfClass("Model")
+            if hitChar then
+                local hitHum = hitChar:FindFirstChild("Humanoid")
+                local hitPlr = Players:GetPlayerFromCharacter(hitChar)
+                if hitHum and hitHum.Health > 0 and hitPlr and hitPlr ~= player and not WHITELISTED[hitPlr.Name] then
+                    hitPlayer = true
+                    if not triggerFired then
+                        triggerFired = true
+                        local screenPos = camera:WorldToViewportPoint(result.Instance.Position)
+                        local savedX, savedY = mouse.X, mouse.Y
+                        mousemoveabs(screenPos.X, screenPos.Y)
+                        mouse1click()
+                        mousemoveabs(savedX, savedY)
                     end
-                else
-                    tappedPlayers[p.Name] = nil
                 end
             end
+        end
+
+        if not hitPlayer then
+            triggerFired = false
         end
     end
 end)
