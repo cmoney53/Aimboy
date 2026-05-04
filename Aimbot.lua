@@ -19,6 +19,31 @@ local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local AIM_TAP = false
 local triggerTarget = nil
+local triggerActive = false
+
+local function startTriggerLoop()
+    if triggerActive then return end
+    triggerActive = true
+    task.spawn(function()
+        while triggerActive and AIM_TAP do
+            if triggerTarget then
+                local hum = triggerTarget:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health >= 1 then
+                    mouse1press()
+                    task.wait(0.05)
+                    mouse1release()
+                    task.wait(0.05)
+                else
+                    triggerTarget = nil
+                end
+            else
+                task.wait(0.05)
+            end
+        end
+        mouse1release()
+        triggerActive = false
+    end)
+end
 local ESP_ENABLED = false
 local TARGET_TYPE = "Head"
 local WHITELISTED = {} 
@@ -328,37 +353,26 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- TRIGGER BOT logic
+    -- TRIGGER BOT: detect target under cursor, shooting handled by loop
     if AIM_TAP then
-        -- If we already have a locked target, keep shooting until dead
-        if triggerTarget then
-            local hum = triggerTarget:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health >= 1 then
-                mouse1press()
-            else
-                mouse1release()
-                triggerTarget = nil
-            end
-        else
-            -- Look for a new target under the cursor
+        if not triggerTarget then
             local t = mouse.Target
-            if t then
-                local char = t.Parent:FindFirstChildOfClass("Humanoid") and t.Parent
-                              or t.Parent.Parent:FindFirstChildOfClass("Humanoid") and t.Parent.Parent
+            if t and t.Parent then
+                local char = nil
+                if t.Parent:FindFirstChildOfClass("Humanoid") then
+                    char = t.Parent
+                elseif t.Parent.Parent and t.Parent.Parent:FindFirstChildOfClass("Humanoid") then
+                    char = t.Parent.Parent
+                end
                 if char then
                     local hum = char:FindFirstChildOfClass("Humanoid")
                     local hitPlr = Players:GetPlayerFromCharacter(char)
                     if hum and hum.Health >= 1 and hitPlr and hitPlr ~= player and not WHITELISTED[hitPlr.Name] then
                         triggerTarget = char
-                        mouse1press()
+                        startTriggerLoop()
                     end
                 end
             end
-        end
-    else
-        if triggerTarget then
-            mouse1release()
-            triggerTarget = nil
         end
     end
 end)
@@ -414,7 +428,13 @@ end)
 
 local function toggleAimTap()
     AIM_TAP = not AIM_TAP
-    if not AIM_TAP then mouse1release() end
+    if not AIM_TAP then
+        triggerTarget = nil
+        triggerActive = false
+        mouse1release()
+    else
+        startTriggerLoop()
+    end
     AimTapBtn.Text = AIM_TAP and "AIM TAP: ON [E]" or "AIM TAP: OFF [E]"
     AimTapBtn.BackgroundColor3 = AIM_TAP and Color3.fromRGB(200, 100, 0) or Color3.fromRGB(35, 35, 35)
 end
