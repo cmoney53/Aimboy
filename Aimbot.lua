@@ -16,6 +16,9 @@ end
 -- // SETTINGS
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
+local AIM_TAP = false
+local AIM_TAP_COOLDOWN = 0.1
+local lastTapTime = 0
 local ESP_ENABLED = false
 local TARGET_TYPE = "Head"
 local WHITELISTED = {} 
@@ -39,7 +42,7 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 200, 0, 490)
+Main.Size = UDim2.new(0, 200, 0, 530)
 Main.Position = UDim2.new(0.05, 0, 0.3, 0)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
@@ -84,11 +87,12 @@ end
 local LockBtn = makeBtn("SNAP LOCK: OFF", 5, Color3.fromRGB(35, 35, 35))
 local ESPBtn = makeBtn("ALIVE ESP: OFF", 45, Color3.fromRGB(35, 35, 35))
 local ShootBtn = makeBtn("AUTO FIRE: OFF", 85, Color3.fromRGB(35, 35, 35))
+local AimTapBtn = makeBtn("AIM TAP: OFF", 125, Color3.fromRGB(35, 35, 35))
 
 -- // GAME FOV ROW
 local GameFOVDown = Instance.new("TextButton", Content)
 GameFOVDown.Size = UDim2.new(0, 40, 0, 35)
-GameFOVDown.Position = UDim2.new(0, 10, 0, 125)
+GameFOVDown.Position = UDim2.new(0, 10, 0, 165)
 GameFOVDown.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 GameFOVDown.Text = "[-]"
 GameFOVDown.TextColor3 = Color3.new(1, 1, 1)
@@ -96,7 +100,7 @@ Instance.new("UICorner", GameFOVDown)
 
 local GameFOVMain = Instance.new("TextLabel", Content)
 GameFOVMain.Size = UDim2.new(0, 95, 0, 35)
-GameFOVMain.Position = UDim2.new(0, 53, 0, 125)
+GameFOVMain.Position = UDim2.new(0, 53, 0, 165)
 GameFOVMain.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 GameFOVMain.Text = "GAME FOV: " .. GAME_FOV_VAL
 GameFOVMain.TextColor3 = Color3.fromRGB(0, 255, 150)
@@ -106,7 +110,7 @@ Instance.new("UICorner", GameFOVMain)
 
 local GameFOVUp = Instance.new("TextButton", Content)
 GameFOVUp.Size = UDim2.new(0, 40, 0, 35)
-GameFOVUp.Position = UDim2.new(0, 150, 0, 125)
+GameFOVUp.Position = UDim2.new(0, 150, 0, 165)
 GameFOVUp.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 GameFOVUp.Text = "[+]"
 GameFOVUp.TextColor3 = Color3.new(1, 1, 1)
@@ -115,21 +119,21 @@ Instance.new("UICorner", GameFOVUp)
 -- // AIM FOV ROW
 local FOVDown = Instance.new("TextButton", Content)
 FOVDown.Size = UDim2.new(0, 40, 0, 35)
-FOVDown.Position = UDim2.new(0, 10, 0, 165)
+FOVDown.Position = UDim2.new(0, 10, 0, 205)
 FOVDown.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 FOVDown.Text = "-"
 FOVDown.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", FOVDown)
 
-local FOVMain = makeBtn("AIM FOV: " .. FOV_RADIUS, 165, Color3.fromRGB(0, 255, 150))
+local FOVMain = makeBtn("AIM FOV: " .. FOV_RADIUS, 205, Color3.fromRGB(0, 255, 150))
 FOVMain.Size = UDim2.new(0, 95, 0, 35)
-FOVMain.Position = UDim2.new(0, 53, 0, 165)
+FOVMain.Position = UDim2.new(0, 53, 0, 205)
 FOVMain.TextColor3 = Color3.new(0, 0, 0)
 FOVMain.TextSize = 9
 
 local FOVUp = Instance.new("TextButton", Content)
 FOVUp.Size = UDim2.new(0, 40, 0, 35)
-FOVUp.Position = UDim2.new(0, 150, 0, 165)
+FOVUp.Position = UDim2.new(0, 150, 0, 205)
 FOVUp.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 FOVUp.Text = "+"
 FOVUp.TextColor3 = Color3.new(1, 1, 1)
@@ -138,7 +142,7 @@ Instance.new("UICorner", FOVUp)
 -- // HEIGHT ROW
 local HeightDown = Instance.new("TextButton", Content)
 HeightDown.Size = UDim2.new(0, 40, 0, 35)
-HeightDown.Position = UDim2.new(0, 10, 0, 205)
+HeightDown.Position = UDim2.new(0, 10, 0, 245)
 HeightDown.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 HeightDown.Text = "LOW"
 HeightDown.TextColor3 = Color3.new(1, 1, 1)
@@ -146,7 +150,7 @@ Instance.new("UICorner", HeightDown)
 
 local HeightMain = Instance.new("TextLabel", Content)
 HeightMain.Size = UDim2.new(0, 95, 0, 35)
-HeightMain.Position = UDim2.new(0, 53, 0, 205)
+HeightMain.Position = UDim2.new(0, 53, 0, 245)
 HeightMain.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 HeightMain.Text = "H-ADJ: " .. AIM_HEIGHT_ADJUST
 HeightMain.TextColor3 = Color3.fromRGB(0, 255, 150)
@@ -156,16 +160,16 @@ Instance.new("UICorner", HeightMain)
 
 local HeightUp = Instance.new("TextButton", Content)
 HeightUp.Size = UDim2.new(0, 40, 0, 35)
-HeightUp.Position = UDim2.new(0, 150, 0, 205)
+HeightUp.Position = UDim2.new(0, 150, 0, 245)
 HeightUp.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 HeightUp.Text = "HIGH"
 HeightUp.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", HeightUp)
 
 -- // TARGET BUTTONS
-local HeadBtn = makeBtn("TARGET: FOREHEAD", 255, Color3.fromRGB(180, 0, 0))
-local ChestBtn = makeBtn("TARGET: CHEST", 295, Color3.fromRGB(35, 35, 35))
-local LegBtn = makeBtn("TARGET: LEGS", 335, Color3.fromRGB(35, 35, 35))
+local HeadBtn = makeBtn("TARGET: FOREHEAD", 295, Color3.fromRGB(180, 0, 0))
+local ChestBtn = makeBtn("TARGET: CHEST", 335, Color3.fromRGB(35, 35, 35))
+local LegBtn = makeBtn("TARGET: LEGS", 375, Color3.fromRGB(35, 35, 35))
 
 local function createTopBtn(text, xPos)
     local b = Instance.new("TextButton", Main)
@@ -202,7 +206,7 @@ local function RefreshPlayerList()
     for _, c in pairs(PListFrame:GetChildren()) do 
         if c:IsA("TextButton") then c:Destroy() end 
     end
-    
+
     local pCount = 0
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player then
@@ -215,7 +219,7 @@ local function RefreshPlayerList()
             b.Font = Enum.Font.Gotham
             b.TextSize = 10
             b.ZIndex = 21
-            
+
             b.MouseButton1Click:Connect(function()
                 WHITELISTED[p.Name] = not WHITELISTED[p.Name]
                 b.BackgroundColor3 = WHITELISTED[p.Name] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(40, 40, 40)
@@ -288,7 +292,7 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                     local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or 
                                  (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or 
                                  (char:FindFirstChild("HumanoidRootPart"))
-                    
+
                     if part then
                         local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
                         if onScreen or not FOV_VISIBLE then
@@ -301,11 +305,11 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
                                 -- Adjust aiming height based on the FOV multiplier
                                 local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
                                 local finalPos = (TARGET_TYPE == "Head") and part.Position + Vector3.new(0, fpComp, 0) or part.Position
-                                
+
                                 local rp = RaycastParams.new()
                                 rp.FilterType = Enum.RaycastFilterType.Blacklist
                                 rp.FilterDescendantsInstances = {player.Character, char}
-                                
+
                                 -- Raycast to ensure no obstruction between camera and target
                                 if workspace:Raycast(camera.CFrame.Position, (finalPos - camera.CFrame.Position), rp) == nil then
                                     target = finalPos
@@ -321,6 +325,33 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
         -- If a valid target is found, adjust the camera to aim at it
         if target then 
             camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target)
+        end
+    end
+
+    -- AIM TAP logic
+    if AIM_TAP then
+        local now = tick()
+        if (now - lastTapTime) >= AIM_TAP_COOLDOWN then
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= player and not WHITELISTED[p.Name] and p.Character then
+                    local char = p.Character
+                    local hum = char:FindFirstChild("Humanoid")
+                    if hum and hum.Health > 0 then
+                        local part = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                        if part then
+                            local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+                            if onScreen then
+                                local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)).Magnitude
+                                if distFromCenter <= FOV_RADIUS then
+                                    mouse1click()
+                                    lastTapTime = now
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
 end)
@@ -374,10 +405,16 @@ FOVMain.MouseButton1Click:Connect(function()
     FOVMain.Text = FOV_VISIBLE and "AIM FOV: " .. FOV_RADIUS or "GLOBAL SNAP"
 end)
 
+AimTapBtn.MouseButton1Click:Connect(function()
+    AIM_TAP = not AIM_TAP
+    AimTapBtn.Text = AIM_TAP and "AIM TAP: ON" or "AIM TAP: OFF"
+    AimTapBtn.BackgroundColor3 = AIM_TAP and Color3.fromRGB(200, 100, 0) or Color3.fromRGB(35, 35, 35)
+end)
+
 MinBtn.MouseButton1Click:Connect(function()
     IS_MINIMIZED = not IS_MINIMIZED
     Content.Visible = not IS_MINIMIZED
-    Main:TweenSize(IS_MINIMIZED and UDim2.new(0, 200, 0, 35) or UDim2.new(0, 200, 0, 490), "Out", "Quad", 0.2, true)
+    Main:TweenSize(IS_MINIMIZED and UDim2.new(0, 200, 0, 35) or UDim2.new(0, 200, 0, 530), "Out", "Quad", 0.2, true)
 end)
 
 PListToggle.MouseButton1Click:Connect(function()
