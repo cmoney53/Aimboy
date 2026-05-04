@@ -18,8 +18,7 @@ end
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local AIM_TAP = false
-local AIM_TAP_COOLDOWN = 0.1
-local lastTapTime = 0
+local tappedPlayers = {}
 local ESP_ENABLED = false
 local TARGET_TYPE = "Head"
 local WHITELISTED = {} 
@@ -331,57 +330,55 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
 
     -- AIM TAP logic
     if AIM_TAP then
-        local now = tick()
-        if (now - lastTapTime) >= AIM_TAP_COOLDOWN then
-            local bestDist = FOV_RADIUS
-            local bestScreenX, bestScreenY = nil, nil
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and not WHITELISTED[p.Name] and p.Character then
+                local char = p.Character
+                local hum = char:FindFirstChild("Humanoid")
 
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= player and not WHITELISTED[p.Name] and p.Character then
-                    local char = p.Character
-                    local hum = char:FindFirstChild("Humanoid")
-                    if hum and hum.Health > 0 then
-                        -- Use same target part as aimbot
-                        local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or
-                                     (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or
-                                     char:FindFirstChild("HumanoidRootPart")
-                        if part then
-                            local targetPos = part.Position
-                            if TARGET_TYPE == "Head" then
-                                local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
-                                targetPos = targetPos + Vector3.new(0, fpComp, 0)
+                if hum and hum.Health > 0 then
+                    local part = (TARGET_TYPE == "Head" and char:FindFirstChild("Head")) or
+                                 (TARGET_TYPE == "Chest" and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"))) or
+                                 char:FindFirstChild("HumanoidRootPart")
+
+                    if part then
+                        local targetPos = part.Position
+                        if TARGET_TYPE == "Head" then
+                            local fpComp = AIM_HEIGHT_ADJUST * (camera.FieldOfView / 70)
+                            targetPos = targetPos + Vector3.new(0, fpComp, 0)
+                        end
+
+                        local screenPos, onScreen = camera:WorldToViewportPoint(targetPos)
+                        local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+                        local distFromCenter = onScreen and (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude or math.huge
+
+                        local inFOV = onScreen and distFromCenter <= FOV_RADIUS
+
+                        if inFOV then
+                            -- Visibility raycast
+                            local rp = RaycastParams.new()
+                            rp.FilterType = Enum.RaycastFilterType.Blacklist
+                            rp.FilterDescendantsInstances = {player.Character, char}
+                            local rayResult = workspace:Raycast(camera.CFrame.Position, (targetPos - camera.CFrame.Position), rp)
+                            local visible = rayResult == nil
+
+                            if visible and not tappedPlayers[p.Name] then
+                                -- First time seeing this player — tap once
+                                tappedPlayers[p.Name] = true
+                                local savedX, savedY = mouse.X, mouse.Y
+                                mousemoveabs(screenPos.X, screenPos.Y)
+                                mouse1click()
+                                mousemoveabs(savedX, savedY)
+                            elseif not visible then
+                                tappedPlayers[p.Name] = nil
                             end
-
-                            local screenPos, onScreen = camera:WorldToViewportPoint(targetPos)
-                            if onScreen then
-                                local screenCenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-                                local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-
-                                if distFromCenter <= bestDist then
-                                    -- Visibility raycast check
-                                    local rp = RaycastParams.new()
-                                    rp.FilterType = Enum.RaycastFilterType.Blacklist
-                                    rp.FilterDescendantsInstances = {player.Character, char}
-
-                                    local rayResult = workspace:Raycast(camera.CFrame.Position, (targetPos - camera.CFrame.Position), rp)
-                                    if rayResult == nil then
-                                        bestDist = distFromCenter
-                                        bestScreenX = screenPos.X
-                                        bestScreenY = screenPos.Y
-                                    end
-                                end
-                            end
+                        else
+                            -- Left FOV — reset so next sighting triggers a tap
+                            tappedPlayers[p.Name] = nil
                         end
                     end
+                else
+                    tappedPlayers[p.Name] = nil
                 end
-            end
-
-            if bestScreenX and bestScreenY then
-                local savedX, savedY = mouse.X, mouse.Y
-                mousemoveabs(bestScreenX, bestScreenY)
-                mouse1click()
-                mousemoveabs(savedX, savedY)
-                lastTapTime = now
             end
         end
     end
