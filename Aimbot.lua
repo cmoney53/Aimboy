@@ -18,7 +18,6 @@ end
 local AIM_ENABLED = false
 local AUTO_SHOOT = false 
 local AIM_TAP = false
-local triggerFired = false
 local ESP_ENABLED = false
 local TARGET_TYPE = "Head"
 local WHITELISTED = {} 
@@ -330,38 +329,16 @@ getgenv().AimConnection = RunService.RenderStepped:Connect(function()
 
     -- TRIGGER BOT logic
     if AIM_TAP then
-        local rp = RaycastParams.new()
-        rp.FilterType = Enum.RaycastFilterType.Blacklist
-        rp.FilterDescendantsInstances = {player.Character}
-
-        local unitRay = camera:ScreenPointToRay(
-            camera.ViewportSize.X / 2,
-            camera.ViewportSize.Y / 2
-        )
-        local result = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, rp)
-
-        local hitPlayer = false
-        if result and result.Instance then
-            local hitChar = result.Instance:FindFirstAncestorOfClass("Model")
-            if hitChar then
-                local hitHum = hitChar:FindFirstChild("Humanoid")
-                local hitPlr = Players:GetPlayerFromCharacter(hitChar)
-                if hitHum and hitHum.Health > 0 and hitPlr and hitPlr ~= player and not WHITELISTED[hitPlr.Name] then
-                    hitPlayer = true
-                    if not triggerFired then
-                        triggerFired = true
-                        local screenPos = camera:WorldToViewportPoint(result.Instance.Position)
-                        local savedX, savedY = mouse.X, mouse.Y
-                        mousemoveabs(screenPos.X, screenPos.Y)
-                        mouse1click()
-                        mousemoveabs(savedX, savedY)
-                    end
-                end
+        local target = mouse.Target
+        if target then
+            local humanoid = target.Parent:FindFirstChildOfClass("Humanoid") or target.Parent.Parent:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health >= 1 and target.Parent.Name ~= player.Name and not WHITELISTED[target.Parent.Name] then
+                mouse1press()
+            else
+                mouse1release()
             end
-        end
-
-        if not hitPlayer then
-            triggerFired = false
+        else
+            mouse1release()
         end
     end
 end)
@@ -415,10 +392,20 @@ FOVMain.MouseButton1Click:Connect(function()
     FOVMain.Text = FOV_VISIBLE and "AIM FOV: " .. FOV_RADIUS or "GLOBAL SNAP"
 end)
 
-AimTapBtn.MouseButton1Click:Connect(function()
+local function toggleAimTap()
     AIM_TAP = not AIM_TAP
-    AimTapBtn.Text = AIM_TAP and "AIM TAP: ON" or "AIM TAP: OFF"
+    if not AIM_TAP then mouse1release() end
+    AimTapBtn.Text = AIM_TAP and "AIM TAP: ON [E]" or "AIM TAP: OFF [E]"
     AimTapBtn.BackgroundColor3 = AIM_TAP and Color3.fromRGB(200, 100, 0) or Color3.fromRGB(35, 35, 35)
+end
+
+AimTapBtn.MouseButton1Click:Connect(toggleAimTap)
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.E then
+        toggleAimTap()
+    end
 end)
 
 MinBtn.MouseButton1Click:Connect(function()
